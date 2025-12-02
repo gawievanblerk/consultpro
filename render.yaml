@@ -51,7 +51,7 @@ services:
 databases:
   - name: consultpro-db
     region: oregon
-    plan: basic
+    plan: standard-0
     databaseName: consultpro
     user: consultpro
     postgresMajorVersion: 15
