@@ -1,5 +1,4 @@
 # Render Blueprint - ConsultPro (TeamACE HR Platform)
-# Deploy with: render blueprint
 
 services:
   # Backend API Service
@@ -7,7 +6,7 @@ services:
     name: consultpro-backend
     runtime: node
     region: oregon
-    plan: starter
+    plan: free
     rootDir: backend
     buildCommand: npm ci
     startCommand: node src/server.js
@@ -30,7 +29,6 @@ services:
   - type: web
     name: consultpro-frontend
     runtime: static
-    plan: starter
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
@@ -53,7 +51,7 @@ services:
 databases:
   - name: consultpro-db
     region: oregon
-    plan: starter
+    plan: free
     databaseName: consultpro
     user: consultpro
     postgresMajorVersion: 15
