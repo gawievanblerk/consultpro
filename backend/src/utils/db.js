@@ -1,10 +1,14 @@
 const { Pool } = require('pg');
 
 // Support both DATABASE_URL (Render) and individual vars (Docker/local)
+// Check if SSL should be disabled (for Docker/local PostgreSQL)
+const dbUrl = process.env.DATABASE_URL || '';
+const sslDisabled = dbUrl.includes('sslmode=disable');
+
 const poolConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: sslDisabled ? false : (process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false),
       max: 30,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,

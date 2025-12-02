@@ -1,12 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
-import { PlusIcon, MagnifyingGlassIcon, UserIcon } from '@heroicons/react/24/outline';
+import Modal from '../../components/Modal';
+import { PlusIcon, MagnifyingGlassIcon, UserIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Staff() {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    employee_id: '',
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    job_title: '',
+    department: '',
+    skills: '',
+    hourly_rate: '',
+    status: 'active',
+    is_available: true
+  });
 
   useEffect(() => {
     fetchStaff();
@@ -23,6 +40,80 @@ function Staff() {
       console.error('Failed to fetch staff:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenModal = (person = null) => {
+    if (person) {
+      setEditingStaff(person);
+      setFormData({
+        employee_id: person.employee_id || '',
+        first_name: person.first_name || '',
+        last_name: person.last_name || '',
+        email: person.email || '',
+        phone: person.phone || '',
+        job_title: person.job_title || '',
+        department: person.department || '',
+        skills: person.skills?.join(', ') || '',
+        hourly_rate: person.hourly_rate || '',
+        status: person.status || 'active',
+        is_available: person.is_available !== false
+      });
+    } else {
+      setEditingStaff(null);
+      setFormData({
+        employee_id: '',
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        job_title: '',
+        department: '',
+        skills: '',
+        hourly_rate: '',
+        status: 'active',
+        is_available: true
+      });
+    }
+    setModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setEditingStaff(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const data = {
+        ...formData,
+        skills: formData.skills.split(',').map(s => s.trim()).filter(s => s)
+      };
+      if (editingStaff) {
+        await api.put(`/api/staff/${editingStaff.id}`, data);
+      } else {
+        await api.post('/api/staff', data);
+      }
+      fetchStaff();
+      handleCloseModal();
+    } catch (error) {
+      console.error('Failed to save staff:', error);
+      alert('Failed to save staff');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this staff member?')) return;
+    try {
+      await api.delete(`/api/staff/${id}`);
+      fetchStaff();
+    } catch (error) {
+      console.error('Failed to delete staff:', error);
+      alert('Failed to delete staff');
     }
   };
 
@@ -47,7 +138,7 @@ function Staff() {
           <h1 className="text-2xl font-bold text-gray-900">Staff Pool</h1>
           <p className="mt-1 text-sm text-gray-500">Outsourced personnel management</p>
         </div>
-        <button className="btn-primary">
+        <button onClick={() => handleOpenModal()} className="btn-primary">
           <PlusIcon className="h-5 w-5 mr-2" />
           Add Staff
         </button>
@@ -80,47 +171,170 @@ function Staff() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-900"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-700"></div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStaff.map((person) => (
-            <div key={person.id} className="card hover:shadow-md transition-shadow cursor-pointer">
+            <div key={person.id} className="card hover:shadow-md transition-shadow">
               <div className="p-5">
                 <div className="flex items-start">
                   <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
-                    <UserIcon className="h-6 w-6 text-primary-900" />
+                    <UserIcon className="h-6 w-6 text-primary-700" />
                   </div>
                   <div className="ml-3 flex-1">
                     <div className="flex items-center justify-between">
-                      <p className="font-semibold text-gray-900">
-                        {person.first_name} {person.last_name}
-                      </p>
+                      <p className="font-semibold text-gray-900">{person.first_name} {person.last_name}</p>
                       {getStatusBadge(person.status, person.is_available)}
                     </div>
                     <p className="text-sm text-gray-500">{person.job_title}</p>
                     <p className="text-xs text-gray-400 mt-1">ID: {person.employee_id}</p>
                   </div>
                 </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
+                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
                   <div className="flex flex-wrap gap-1">
                     {person.skills?.slice(0, 3).map((skill, i) => (
-                      <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                        {skill}
-                      </span>
+                      <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{skill}</span>
                     ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => handleOpenModal(person)} className="p-1 text-gray-500 hover:text-primary-700">
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => handleDelete(person.id)} className="p-1 text-gray-500 hover:text-red-600">
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
           ))}
           {filteredStaff.length === 0 && (
-            <div className="col-span-full text-center py-12 text-gray-500">
-              No staff found
-            </div>
+            <div className="col-span-full text-center py-12 text-gray-500">No staff found</div>
           )}
         </div>
       )}
+
+      <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingStaff ? 'Edit Staff' : 'Add Staff'} size="lg">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="form-label">Employee ID *</label>
+              <input
+                type="text"
+                required
+                value={formData.employee_id}
+                onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Status</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                className="form-input"
+              >
+                <option value="active">Active</option>
+                <option value="on_leave">On Leave</option>
+                <option value="terminated">Terminated</option>
+              </select>
+            </div>
+            <div>
+              <label className="form-label">First Name *</label>
+              <input
+                type="text"
+                required
+                value={formData.first_name}
+                onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Last Name *</label>
+              <input
+                type="text"
+                required
+                value={formData.last_name}
+                onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Phone</label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Job Title</label>
+              <input
+                type="text"
+                value={formData.job_title}
+                onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Department</label>
+              <input
+                type="text"
+                value={formData.department}
+                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Hourly Rate (NGN)</label>
+              <input
+                type="number"
+                value={formData.hourly_rate}
+                onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 mt-6">
+                <input
+                  type="checkbox"
+                  checked={formData.is_available}
+                  onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })}
+                  className="rounded border-gray-300 text-primary-700 focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-700">Available for deployment</span>
+              </label>
+            </div>
+            <div className="md:col-span-2">
+              <label className="form-label">Skills (comma separated)</label>
+              <input
+                type="text"
+                value={formData.skills}
+                onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
+                className="form-input"
+                placeholder="Excel, Project Management, HR"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Saving...' : (editingStaff ? 'Update' : 'Create')}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

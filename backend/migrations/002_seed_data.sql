@@ -10,11 +10,11 @@ INSERT INTO tenants (id, name, slug, settings) VALUES
 ('11111111-1111-1111-1111-111111111111', 'TeamACE Nigeria', 'teamace', '{"timezone": "Africa/Lagos", "currency": "NGN", "vat_rate": 7.5}');
 
 -- Insert demo users (password: Demo123!)
--- bcrypt hash for 'Demo123!' = $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3FXnxqTQqBJa.P6e1Uxq
+-- bcrypt hash for 'Demo123!' generated with bcryptjs (cost 10)
 INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, role) VALUES
-('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'admin@teamace.ng', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3FXnxqTQqBJa.P6e1Uxq', 'Admin', 'User', 'admin'),
-('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'sales@teamace.ng', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3FXnxqTQqBJa.P6e1Uxq', 'Sales', 'Manager', 'sales'),
-('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', 'hr@teamace.ng', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3FXnxqTQqBJa.P6e1Uxq', 'HR', 'Manager', 'hr');
+('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'admin@teamace.ng', '$2a$10$Yz3.UU8qNy04JEzwCF8SIe9Rhc7T4LbxJ6PU69bxXJkTB8weeUSX6', 'Admin', 'User', 'admin'),
+('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'sales@teamace.ng', '$2a$10$Yz3.UU8qNy04JEzwCF8SIe9Rhc7T4LbxJ6PU69bxXJkTB8weeUSX6', 'Sales', 'Manager', 'sales'),
+('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', 'hr@teamace.ng', '$2a$10$Yz3.UU8qNy04JEzwCF8SIe9Rhc7T4LbxJ6PU69bxXJkTB8weeUSX6', 'HR', 'Manager', 'hr');
 
 -- ============================================================================
 -- PIPELINE STAGES

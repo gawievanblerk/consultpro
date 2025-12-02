@@ -1,0 +1,205 @@
+% Professional SRS Document Template
+% Cover Page, Title Page, and Professional Formatting
+
+\usepackage{fontspec}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{geometry}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{float}
+
+% Define brand colors
+\definecolor{primaryblue}{RGB}{25, 118, 210}
+\definecolor{darkblue}{RGB}{13, 71, 161}
+\definecolor{lightgray}{RGB}{245, 245, 245}
+\definecolor{textgray}{RGB}{66, 66, 66}
+
+% Page geometry
+\geometry{
+    top=1in,
+    bottom=1in,
+    left=1in,
+    right=1in
+}
+
+% Font settings
+\setmainfont{Helvetica Neue}[
+    BoldFont={Helvetica Neue Bold},
+    ItalicFont={Helvetica Neue Italic}
+]
+\setmonofont{Menlo}[Scale=0.85]
+
+% Hyperlink styling
+\hypersetup{
+    colorlinks=true,
+    linkcolor=primaryblue,
+    urlcolor=primaryblue,
+    citecolor=primaryblue
+}
+
+% Section formatting
+\titleformat{\section}
+    {\normalfont\Large\bfseries\color{darkblue}}
+    {\thesection}{1em}{}
+\titleformat{\subsection}
+    {\normalfont\large\bfseries\color{primaryblue}}
+    {\thesubsection}{1em}{}
+\titleformat{\subsubsection}
+    {\normalfont\normalsize\bfseries\color{textgray}}
+    {\thesubsubsection}{1em}{}
+
+% Header/Footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{textgray}TeamACE CRM-ERP | Phase 1 SRS}
+\fancyhead[R]{\small\color{textgray}Confidential}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Table styling
+\renewcommand{\arraystretch}{1.4}
+
+% TOC styling
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cftsubsecleader}{\cftdotfill{\cftdotsep}}
+
+% Cover Page Command
+\newcommand{\makecover}{
+\begin{titlepage}
+\begin{tikzpicture}[remember picture,overlay]
+    % Blue header bar
+    \fill[primaryblue] (current page.north west) rectangle ([yshift=-4cm]current page.north east);
+
+    % Diagonal accent
+    \fill[darkblue] ([yshift=-4cm]current page.north west) -- ([yshift=-5.5cm]current page.north west) -- ([yshift=-4cm]current page.north east) -- cycle;
+
+    % Footer bar
+    \fill[lightgray] (current page.south west) rectangle ([yshift=2cm]current page.south east);
+\end{tikzpicture}
+
+\vspace*{1cm}
+\begin{center}
+    {\Huge\bfseries\color{white}SOFTWARE REQUIREMENTS}\\[0.3cm]
+    {\Huge\bfseries\color{white}SPECIFICATION}\\[0.5cm]
+    {\Large\color{white}Phase 1 - Foundation Modules}
+\end{center}
+
+\vspace{4cm}
+
+\begin{center}
+    {\fontsize{42}{50}\selectfont\bfseries\color{darkblue}TeamACE}\\[0.5cm]
+    {\LARGE\color{primaryblue}CRM-ERP Platform}\\[1cm]
+    {\large\color{textgray}Comprehensive Business Management Solution}\\
+    {\large\color{textgray}for HR Outsourcing \& Professional Services}
+\end{center}
+
+\vfill
+
+\begin{center}
+    \begin{tikzpicture}
+        \draw[primaryblue, line width=2pt] (0,0) -- (10,0);
+    \end{tikzpicture}
+\end{center}
+
+\vspace{1cm}
+
+\begin{center}
+    {\large\color{textgray}Prepared by}\\[0.3cm]
+    {\Large\bfseries\color{darkblue}Rozitech (Pty) Ltd}\\[0.5cm]
+    {\normalsize\color{textgray}Document Version 1.0}\\
+    {\normalsize\color{textgray}November 2025}
+\end{center}
+
+\vspace{2cm}
+\end{titlepage}
+}
+
+% Title Page Command
+\newcommand{\maketitlepage}{
+\begin{titlepage}
+\begin{center}
+\vspace*{2cm}
+
+{\LARGE\bfseries\color{darkblue}TeamACE CRM-ERP Platform}\\[0.5cm]
+{\Large\color{primaryblue}Software Requirements Specification}\\[0.3cm]
+{\large\color{textgray}Phase 1: Foundation Modules}
+
+\vspace{2cm}
+
+\begin{tabular}{p{4cm}p{8cm}}
+\textbf{Document ID:} & TEAMACE-SRS-P1-001 \\[0.3cm]
+\textbf{Version:} & 1.0 \\[0.3cm]
+\textbf{Date:} & November 30, 2025 \\[0.3cm]
+\textbf{Status:} & Draft for Review \\[0.3cm]
+\textbf{Classification:} & Confidential \\[0.3cm]
+\end{tabular}
+
+\vspace{2cm}
+
+\begin{tikzpicture}
+    \draw[primaryblue, line width=1pt] (0,0) -- (12,0);
+\end{tikzpicture}
+
+\vspace{1cm}
+
+\textbf{\large Document Information}
+
+\vspace{0.5cm}
+
+\begin{tabular}{|p{4cm}|p{8cm}|}
+\hline
+\rowcolor{lightgray}
+\textbf{Prepared By} & Rozitech (Pty) Ltd \\
+\hline
+\textbf{Prepared For} & TeamACE Nigeria \\
+\hline
+\rowcolor{lightgray}
+\textbf{Project} & CRM-ERP Platform Development \\
+\hline
+\textbf{Phase} & Phase 1 - Foundation Modules \\
+\hline
+\rowcolor{lightgray}
+\textbf{Duration} & 12 Sprints (~24 weeks) \\
+\hline
+\end{tabular}
+
+\vspace{2cm}
+
+\textbf{\large Phase 1 Modules}
+
+\vspace{0.5cm}
+
+\begin{tabular}{|c|p{6cm}|p{4cm}|}
+\hline
+\rowcolor{primaryblue}
+\textcolor{white}{\textbf{Module}} & \textcolor{white}{\textbf{Description}} & \textcolor{white}{\textbf{Priority}} \\
+\hline
+1.1 & Core CRM \& Client Management & High \\
+\hline
+\rowcolor{lightgray}
+1.2 & Business Development Essentials & High \\
+\hline
+1.3 & HR Outsourcing Essentials & High \\
+\hline
+\rowcolor{lightgray}
+1.4 & Finance Light (Invoicing) & Medium \\
+\hline
+1.5 & Collaboration \& Workflow Layer & Medium \\
+\hline
+\end{tabular}
+
+\vfill
+
+{\small\color{textgray}This document is confidential and intended for TeamACE and Rozitech use only.}
+
+\end{center}
+\end{titlepage}
+}

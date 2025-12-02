@@ -27,18 +27,20 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-900 to-primary-700 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-800 to-primary-600 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full">
         {/* Logo and title */}
         <div className="text-center mb-8">
-          <img
-            src="/teamace-icon.png"
-            alt="TeamACE"
-            className="h-16 w-16 mx-auto mb-4"
-            onError={(e) => {
-              e.target.style.display = 'none';
-            }}
-          />
+          <div className="bg-white rounded-lg px-4 py-3 inline-block mb-4">
+            <img
+              src="/teamace-icon.png"
+              alt="TeamACE"
+              className="h-12"
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
+          </div>
           <h1 className="text-3xl font-bold text-white">ConsultPro</h1>
           <p className="mt-2 text-primary-200">TeamACE HR Platform</p>
         </div>
@@ -113,7 +115,7 @@ function Login() {
 
         {/* Footer */}
         <p className="mt-6 text-center text-sm text-primary-200">
-          Powered by TeamACE Nigeria
+          Powered by Rozitech CC
         </p>
       </div>
     </div>

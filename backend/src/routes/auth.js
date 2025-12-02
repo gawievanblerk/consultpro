@@ -24,9 +24,12 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Find user in local users table
+    // Find user in local users table with tenant name
     const userResult = await pool.query(
-      'SELECT * FROM users WHERE email = $1 AND is_active = true',
+      `SELECT u.*, t.name as organization_name
+       FROM users u
+       LEFT JOIN tenants t ON u.tenant_id = t.id
+       WHERE u.email = $1 AND u.is_active = true`,
       [email.toLowerCase().trim()]
     );
 
@@ -52,7 +55,7 @@ router.post('/login', async (req, res) => {
     const tokenPayload = {
       sub: user.id,
       email: user.email,
-      org: user.organization_id,
+      org: user.tenant_id,
       role: user.role,
       products: ['consultpro'],
       limits: {
@@ -79,13 +82,13 @@ router.post('/login', async (req, res) => {
           firstName: user.first_name || 'Demo',
           lastName: user.last_name || 'User',
           role: user.role,
-          organizationId: user.organization_id,
+          organizationId: user.tenant_id,
           organizationName: user.organization_name || 'TeamACE Nigeria',
           products: ['consultpro'],
           limits: tokenPayload.limits
         },
         organization: {
-          id: user.organization_id,
+          id: user.tenant_id,
           name: user.organization_name || 'TeamACE Nigeria',
           products: ['consultpro']
         },
@@ -118,9 +121,12 @@ router.get('/me', async (req, res) => {
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // Get user
+    // Get user with tenant name
     const userResult = await pool.query(
-      'SELECT * FROM users WHERE id = $1 AND is_active = true',
+      `SELECT u.*, t.name as organization_name
+       FROM users u
+       LEFT JOIN tenants t ON u.tenant_id = t.id
+       WHERE u.id = $1 AND u.is_active = true`,
       [decoded.sub]
     );
 
@@ -141,7 +147,7 @@ router.get('/me', async (req, res) => {
         firstName: user.first_name,
         lastName: user.last_name,
         role: user.role,
-        organizationId: user.organization_id,
+        organizationId: user.tenant_id,
         organizationName: user.organization_name || 'TeamACE Nigeria',
         products: ['consultpro'],
         limits: {
@@ -198,15 +204,15 @@ router.post('/register', async (req, res) => {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create demo organization ID (TeamACE)
-    const orgId = 'teamace-001-demo-org-uuid-2025';
+    // Use TeamACE demo tenant
+    const tenantId = '11111111-1111-1111-1111-111111111111';
 
     // Create user
     const result = await pool.query(
-      `INSERT INTO users (email, password_hash, first_name, last_name, role, organization_id, organization_name)
-       VALUES ($1, $2, $3, $4, 'user', $5, $6)
-       RETURNING id, email, first_name, last_name, role, organization_id, organization_name`,
-      [email.toLowerCase().trim(), passwordHash, firstName || 'Demo', lastName || 'User', orgId, 'TeamACE Nigeria']
+      `INSERT INTO users (email, password_hash, first_name, last_name, role, tenant_id)
+       VALUES ($1, $2, $3, $4, 'user', $5)
+       RETURNING id, email, first_name, last_name, role, tenant_id`,
+      [email.toLowerCase().trim(), passwordHash, firstName || 'Demo', lastName || 'User', tenantId]
     );
 
     const user = result.rows[0];
@@ -215,7 +221,7 @@ router.post('/register', async (req, res) => {
     const token = jwt.sign({
       sub: user.id,
       email: user.email,
-      org: user.organization_id,
+      org: user.tenant_id,
       role: user.role,
       products: ['consultpro']
     }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -229,8 +235,8 @@ router.post('/register', async (req, res) => {
         firstName: user.first_name,
         lastName: user.last_name,
         role: user.role,
-        organizationId: user.organization_id,
-        organizationName: user.organization_name
+        organizationId: user.tenant_id,
+        organizationName: 'TeamACE Nigeria'
       },
       token
     });

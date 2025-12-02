@@ -21,7 +21,7 @@ export function AuthProvider({ children }) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       const response = await api.get('/api/auth/me');
       if (response.data.success) {
-        setUser(response.data.data);
+        setUser(response.data.user);
       } else {
         logout();
       }
@@ -36,9 +36,9 @@ export function AuthProvider({ children }) {
     try {
       const response = await api.post('/api/auth/login', { email, password });
       if (response.data.success) {
-        const { token, user } = response.data.data;
-        localStorage.setItem('token', token);
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        const { accessToken, user } = response.data.data;
+        localStorage.setItem('token', accessToken);
+        api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
         setUser(user);
         return { success: true };
       }
