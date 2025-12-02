@@ -13,13 +13,29 @@ const DEMO_MODE = process.env.DEMO_MODE === 'true';
 
 // Middleware
 app.use(helmet());
+
+// CORS configuration
+const allowedOrigins = [
+  'http://localhost:5020',
+  'http://localhost:3000',
+  'http://localhost:8080',
+  'https://consultpro-frontend.onrender.com'
+];
+
+// Add any custom CORS origins from env
+if (process.env.CORS_ORIGIN) {
+  process.env.CORS_ORIGIN.split(',').forEach(origin => {
+    if (!allowedOrigins.includes(origin.trim())) {
+      allowedOrigins.push(origin.trim());
+    }
+  });
+}
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(',') || [
-    'http://localhost:5020',
-    'http://localhost:3000',
-    'http://localhost:8080'
-  ],
-  credentials: true
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
