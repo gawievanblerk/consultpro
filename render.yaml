@@ -45,7 +45,7 @@ services:
         fromService:
           name: consultpro-backend
           type: web
-          property: host
+          property: hostURL
 
 # PostgreSQL Database
 databases:
