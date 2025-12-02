@@ -30,7 +30,6 @@ services:
   - type: web
     name: consultpro-frontend
     runtime: static
-    region: oregon
     plan: starter
     rootDir: frontend
     buildCommand: npm ci && npm run build
