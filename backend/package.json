@@ -1,0 +1,51 @@
+{
+  "name": "@rozitech/consultpro-backend",
+  "version": "1.0.0",
+  "description": "ConsultPro - Complete Business Platform for HR Consulting Firms",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "migrate": "node scripts/migrate.js",
+    "seed": "node scripts/seed.js",
+    "test": "jest --coverage"
+  },
+  "keywords": [
+    "crm",
+    "erp",
+    "hr-consulting",
+    "invoicing",
+    "sales-pipeline",
+    "nigeria",
+    "saas",
+    "multi-tenant"
+  ],
+  "author": "Rozitech",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "date-fns": "^3.0.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "pdfkit": "^0.14.0",
+    "pg": "^8.11.0",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "supertest": "^6.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
