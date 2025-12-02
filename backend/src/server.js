@@ -11,10 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 4020;
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
 
-// Middleware
-app.use(helmet());
-
-// CORS configuration
+// CORS configuration - MUST be before other middleware
 const allowedOrigins = [
   'http://localhost:5020',
   'http://localhost:3000',
@@ -31,11 +28,20 @@ if (process.env.CORS_ORIGIN) {
   });
 }
 
+// Apply CORS first
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
+
+// Helmet after CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
