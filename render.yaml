@@ -42,10 +42,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        fromService:
-          name: consultpro-backend
-          type: web
-          property: hostURL
+        value: https://consultpro-backend.onrender.com
 
 # PostgreSQL Database
 databases:
