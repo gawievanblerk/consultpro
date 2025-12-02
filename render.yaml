@@ -1,5 +1,5 @@
 # Render Blueprint - ConsultPro (TeamACE HR Platform)
-# Deploy with: render deploy
+# Deploy with: render blueprint
 
 services:
   # Backend API Service
