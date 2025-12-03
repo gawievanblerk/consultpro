@@ -14,7 +14,8 @@ import {
   CheckCircleIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -126,6 +127,17 @@ function Layout() {
           ))}
         </nav>
 
+        {/* Help link */}
+        <a
+          href="/docs/manual.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center px-6 py-3 text-sm font-medium text-primary-200 hover:bg-primary-800 hover:text-white transition-colors"
+        >
+          <QuestionMarkCircleIcon className="h-5 w-5 mr-3" />
+          User Manual
+        </a>
+
         {/* User section */}
         <div className="border-t border-primary-800 p-4">
           <div className="flex items-center">
@@ -162,6 +174,15 @@ function Layout() {
               <Bars3Icon className="h-6 w-6" />
             </button>
             <div className="flex-1" />
+            <a
+              href="/docs/manual.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 hover:text-primary-800 hover:bg-primary-50 rounded-lg transition-colors mr-4"
+            >
+              <QuestionMarkCircleIcon className="h-5 w-5" />
+              <span className="hidden sm:inline">Help</span>
+            </a>
             <div className="text-sm text-gray-500">
               Powered by Rozitech CC
             </div>

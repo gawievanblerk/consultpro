@@ -1,0 +1,285 @@
+/* ConsultPro User Manual Styles */
+:root {
+  --primary-navy: #0d2865;
+  --primary-teal: #41d8d1;
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-900: #111827;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.6;
+  color: var(--gray-700);
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: var(--gray-50);
+}
+
+/* Header */
+header {
+  background: var(--primary-navy);
+  color: white;
+  padding: 2rem;
+  margin: -2rem -2rem 2rem -2rem;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2.5rem;
+}
+
+header p {
+  margin: 0.5rem 0 0 0;
+  opacity: 0.8;
+}
+
+/* Navigation */
+nav#TOC {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+nav#TOC > ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+nav#TOC li {
+  margin: 0.5rem 0;
+}
+
+nav#TOC a {
+  color: var(--primary-navy);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+nav#TOC a:hover {
+  color: var(--primary-teal);
+}
+
+nav#TOC ul ul {
+  margin-left: 1.5rem;
+  margin-top: 0.25rem;
+}
+
+nav#TOC ul ul a {
+  font-weight: 400;
+  font-size: 0.9rem;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--primary-navy);
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+h1 {
+  font-size: 2rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px solid var(--primary-teal);
+}
+
+h2 {
+  font-size: 1.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+h3 {
+  font-size: 1.25rem;
+}
+
+/* Content sections */
+section {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+
+th {
+  background: var(--primary-navy);
+  color: white;
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+tr:hover {
+  background: var(--gray-50);
+}
+
+/* Images */
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin: 1rem 0;
+  display: block;
+}
+
+figure {
+  margin: 1.5rem 0;
+}
+
+figcaption {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  margin-top: 0.5rem;
+}
+
+/* Code blocks */
+code {
+  background: var(--gray-100);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+}
+
+pre {
+  background: var(--gray-900);
+  color: #e5e7eb;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+/* Lists */
+ul, ol {
+  padding-left: 1.5rem;
+}
+
+li {
+  margin: 0.5rem 0;
+}
+
+/* Links */
+a {
+  color: var(--primary-navy);
+}
+
+a:hover {
+  color: var(--primary-teal);
+}
+
+/* Blockquotes */
+blockquote {
+  border-left: 4px solid var(--primary-teal);
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  background: var(--gray-50);
+  border-radius: 0 8px 8px 0;
+}
+
+/* Strong/Bold */
+strong {
+  color: var(--gray-900);
+}
+
+/* Horizontal rules */
+hr {
+  border: none;
+  border-top: 2px solid var(--gray-200);
+  margin: 2rem 0;
+}
+
+/* Back to app button */
+.back-to-app {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  background: var(--primary-teal);
+  color: var(--primary-navy);
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.back-to-app:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  color: var(--primary-navy);
+}
+
+/* Print styles */
+@media print {
+  body {
+    max-width: none;
+    padding: 0;
+    background: white;
+  }
+
+  .back-to-app {
+    display: none;
+  }
+
+  section {
+    box-shadow: none;
+    border: 1px solid var(--gray-200);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  body {
+    padding: 1rem;
+  }
+
+  header {
+    margin: -1rem -1rem 1rem -1rem;
+    padding: 1.5rem;
+  }
+
+  header h1 {
+    font-size: 1.75rem;
+  }
+
+  .back-to-app {
+    position: static;
+    display: block;
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+}

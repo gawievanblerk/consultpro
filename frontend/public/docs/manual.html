@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ConsultPro User Manual</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="manual.css" />
+</head>
+<body>
+<a href="/" class="back-to-app">← Back to Dashboard</a>
+<header id="title-block-header">
+<h1 class="title">ConsultPro User Manual</h1>
+<p>TeamACE HR & Consulting Platform</p>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#consultpro-user-manual"
+id="toc-consultpro-user-manual">ConsultPro User Manual</a>
+<ul>
+<li><a href="#hr-consulting-management-platform"
+id="toc-hr-consulting-management-platform">HR &amp; Consulting
+Management Platform</a></li>
+</ul></li>
+<li><a href="#table-of-contents" id="toc-table-of-contents">Table of
+Contents</a></li>
+<li><a href="#introduction" id="toc-introduction">1. Introduction</a>
+<ul>
+<li><a href="#about-consultpro" id="toc-about-consultpro">1.1 About
+ConsultPro</a></li>
+<li><a href="#key-features" id="toc-key-features">1.2 Key
+Features</a></li>
+<li><a href="#nigeria-specific-compliance"
+id="toc-nigeria-specific-compliance">1.3 Nigeria-Specific
+Compliance</a></li>
+</ul></li>
+<li><a href="#getting-started" id="toc-getting-started">2. Getting
+Started</a>
+<ul>
+<li><a href="#system-requirements" id="toc-system-requirements">2.1
+System Requirements</a></li>
+<li><a href="#accessing-the-platform"
+id="toc-accessing-the-platform">2.2 Accessing the Platform</a></li>
+<li><a href="#login-process" id="toc-login-process">2.3 Login
+Process</a></li>
+<li><a href="#navigation-overview" id="toc-navigation-overview">2.4
+Navigation Overview</a></li>
+</ul></li>
+<li><a href="#dashboard-overview" id="toc-dashboard-overview">3.
+Dashboard Overview</a>
+<ul>
+<li><a href="#dashboard-layout" id="toc-dashboard-layout">3.1 Dashboard
+Layout</a></li>
+<li><a href="#dashboard-metrics-explained"
+id="toc-dashboard-metrics-explained">3.2 Dashboard Metrics
+Explained</a></li>
+</ul></li>
+<li><a href="#crm-module" id="toc-crm-module">4. CRM Module</a>
+<ul>
+<li><a href="#clients" id="toc-clients">4.1 Clients</a>
+<ul>
+<li><a href="#viewing-clients" id="toc-viewing-clients">Viewing
+Clients</a></li>
+<li><a href="#adding-a-new-client" id="toc-adding-a-new-client">Adding a
+New Client</a></li>
+<li><a href="#client-detail-view" id="toc-client-detail-view">Client
+Detail View</a></li>
+</ul></li>
+<li><a href="#contacts" id="toc-contacts">4.2 Contacts</a>
+<ul>
+<li><a href="#managing-contacts" id="toc-managing-contacts">Managing
+Contacts</a></li>
+<li><a href="#adding-a-contact" id="toc-adding-a-contact">Adding a
+Contact</a></li>
+</ul></li>
+<li><a href="#engagements" id="toc-engagements">4.3 Engagements</a>
+<ul>
+<li><a href="#engagement-types" id="toc-engagement-types">Engagement
+Types</a></li>
+<li><a href="#engagement-status-workflow"
+id="toc-engagement-status-workflow">Engagement Status Workflow</a></li>
+<li><a href="#creating-an-engagement"
+id="toc-creating-an-engagement">Creating an Engagement</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#business-development-module"
+id="toc-business-development-module">5. Business Development Module</a>
+<ul>
+<li><a href="#lead-management" id="toc-lead-management">5.1 Lead
+Management</a>
+<ul>
+<li><a href="#lead-pipeline-stages" id="toc-lead-pipeline-stages">Lead
+Pipeline Stages</a></li>
+<li><a href="#lead-sources" id="toc-lead-sources">Lead Sources</a></li>
+<li><a href="#adding-a-lead" id="toc-adding-a-lead">Adding a
+Lead</a></li>
+</ul></li>
+<li><a href="#sales-pipeline" id="toc-sales-pipeline">5.2 Sales
+Pipeline</a>
+<ul>
+<li><a href="#kanban-view" id="toc-kanban-view">Kanban View</a></li>
+<li><a href="#understanding-pipeline-metrics"
+id="toc-understanding-pipeline-metrics">Understanding Pipeline
+Metrics</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#hr-outsourcing-module" id="toc-hr-outsourcing-module">6.
+HR Outsourcing Module</a>
+<ul>
+<li><a href="#staff-pool" id="toc-staff-pool">6.1 Staff Pool</a>
+<ul>
+<li><a href="#staff-status-types" id="toc-staff-status-types">Staff
+Status Types</a></li>
+<li><a href="#staff-profile" id="toc-staff-profile">Staff
+Profile</a></li>
+<li><a href="#adding-staff" id="toc-adding-staff">Adding Staff</a></li>
+</ul></li>
+<li><a href="#deployments" id="toc-deployments">6.2 Deployments</a>
+<ul>
+<li><a href="#deployment-workflow"
+id="toc-deployment-workflow">Deployment Workflow</a></li>
+<li><a href="#creating-a-deployment"
+id="toc-creating-a-deployment">Creating a Deployment</a></li>
+<li><a href="#billing-types" id="toc-billing-types">Billing
+Types</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#finance-module" id="toc-finance-module">7. Finance
+Module</a>
+<ul>
+<li><a href="#invoices" id="toc-invoices">7.1 Invoices</a>
+<ul>
+<li><a href="#invoice-workflow" id="toc-invoice-workflow">Invoice
+Workflow</a></li>
+<li><a href="#nigerian-tax-calculation"
+id="toc-nigerian-tax-calculation">Nigerian Tax Calculation</a></li>
+<li><a href="#creating-an-invoice" id="toc-creating-an-invoice">Creating
+an Invoice</a></li>
+<li><a href="#invoice-summary-dashboard"
+id="toc-invoice-summary-dashboard">Invoice Summary Dashboard</a></li>
+</ul></li>
+<li><a href="#payments" id="toc-payments">7.2 Payments</a>
+<ul>
+<li><a href="#recording-payments" id="toc-recording-payments">Recording
+Payments</a></li>
+<li><a href="#payment-methods" id="toc-payment-methods">Payment
+Methods</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#task-management" id="toc-task-management">8. Task
+Management</a>
+<ul>
+<li><a href="#task-overview" id="toc-task-overview">8.1 Task
+Overview</a>
+<ul>
+<li><a href="#task-priority-levels" id="toc-task-priority-levels">Task
+Priority Levels</a></li>
+<li><a href="#task-status-flow" id="toc-task-status-flow">Task Status
+Flow</a></li>
+</ul></li>
+<li><a href="#task-list-view" id="toc-task-list-view">8.2 Task List
+View</a></li>
+<li><a href="#creating-tasks" id="toc-creating-tasks">8.3 Creating
+Tasks</a></li>
+</ul></li>
+<li><a href="#workflows-best-practices"
+id="toc-workflows-best-practices">9. Workflows &amp; Best Practices</a>
+<ul>
+<li><a href="#complete-client-onboarding-workflow"
+id="toc-complete-client-onboarding-workflow">9.1 Complete Client
+Onboarding Workflow</a></li>
+<li><a href="#monthly-billing-workflow"
+id="toc-monthly-billing-workflow">9.2 Monthly Billing Workflow</a></li>
+<li><a href="#best-practices" id="toc-best-practices">9.3 Best
+Practices</a>
+<ul>
+<li><a href="#data-entry" id="toc-data-entry">Data Entry</a></li>
+<li><a href="#lead-management-1" id="toc-lead-management-1">Lead
+Management</a></li>
+<li><a href="#financial-management"
+id="toc-financial-management">Financial Management</a></li>
+<li><a href="#task-management-1" id="toc-task-management-1">Task
+Management</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#troubleshooting" id="toc-troubleshooting">10.
+Troubleshooting</a>
+<ul>
+<li><a href="#common-issues" id="toc-common-issues">10.1 Common
+Issues</a>
+<ul>
+<li><a href="#login-problems" id="toc-login-problems">Login
+Problems</a></li>
+<li><a href="#data-not-saving" id="toc-data-not-saving">Data Not
+Saving</a></li>
+<li><a href="#display-issues" id="toc-display-issues">Display
+Issues</a></li>
+</ul></li>
+<li><a href="#getting-help" id="toc-getting-help">10.2 Getting
+Help</a></li>
+</ul></li>
+<li><a href="#quick-reference-card" id="toc-quick-reference-card">Quick
+Reference Card</a>
+<ul>
+<li><a href="#module-quick-access" id="toc-module-quick-access">Module
+Quick Access</a></li>
+<li><a href="#status-colors" id="toc-status-colors">Status
+Colors</a></li>
+</ul></li>
+</ul>
+</nav>
+<h1 id="consultpro-user-manual">ConsultPro User Manual</h1>
+<h2 id="hr-consulting-management-platform">HR &amp; Consulting
+Management Platform</h2>
+<p><strong>Version:</strong> 1.0 <strong>Date:</strong> December 2025
+<strong>Platform:</strong> TeamACE Nigeria</p>
+<hr />
+<h1 id="table-of-contents">Table of Contents</h1>
+<ol type="1">
+<li><a href="#1-introduction">Introduction</a></li>
+<li><a href="#2-getting-started">Getting Started</a></li>
+<li><a href="#3-dashboard-overview">Dashboard Overview</a></li>
+<li><a href="#4-crm-module">CRM Module</a></li>
+<li><a href="#5-business-development-module">Business Development
+Module</a></li>
+<li><a href="#6-hr-outsourcing-module">HR Outsourcing Module</a></li>
+<li><a href="#7-finance-module">Finance Module</a></li>
+<li><a href="#8-task-management">Task Management</a></li>
+<li><a href="#9-workflows--best-practices">Workflows &amp; Best
+Practices</a></li>
+<li><a href="#10-troubleshooting">Troubleshooting</a></li>
+</ol>
+<hr />
+<h1 id="introduction">1. Introduction</h1>
+<h2 id="about-consultpro">1.1 About ConsultPro</h2>
+<p>ConsultPro is a comprehensive HR and Consulting Management Platform
+designed specifically for Nigerian consulting firms. It provides
+end-to-end management of client relationships, business development,
+staff outsourcing, and financial operations.</p>
+<h2 id="key-features">1.2 Key Features</h2>
+<figure>
+<img src="images/01-platform-architecture.png"
+alt="Platform Architecture" />
+<figcaption aria-hidden="true">Platform Architecture</figcaption>
+</figure>
+<h2 id="nigeria-specific-compliance">1.3 Nigeria-Specific
+Compliance</h2>
+<p>ConsultPro includes built-in compliance for Nigerian financial
+regulations:</p>
+<ul>
+<li><strong>VAT (Value Added Tax):</strong> 7.5% automatically
+calculated on invoices</li>
+<li><strong>WHT (Withholding Tax):</strong> 5% for services, 10% for
+professional services</li>
+<li><strong>TIN Validation:</strong> Nigerian Tax Identification Number
+format support</li>
+<li><strong>RC Number:</strong> CAC Registration number tracking</li>
+<li><strong>Currency:</strong> Nigerian Naira (NGN) formatting
+throughout</li>
+</ul>
+<hr />
+<h1 id="getting-started">2. Getting Started</h1>
+<h2 id="system-requirements">2.1 System Requirements</h2>
+<ul>
+<li>Modern web browser (Chrome, Firefox, Safari, or Edge)</li>
+<li>Internet connection</li>
+<li>Screen resolution: 1280x720 or higher recommended</li>
+</ul>
+<h2 id="accessing-the-platform">2.2 Accessing the Platform</h2>
+<ol type="1">
+<li>Open your web browser</li>
+<li>Navigate to the ConsultPro URL provided by your administrator</li>
+<li>You will see the login screen</li>
+</ol>
+<h2 id="login-process">2.3 Login Process</h2>
+<figure>
+<img src="images/03-login-screen.png" alt="Login Screen" />
+<figcaption aria-hidden="true">Login Screen</figcaption>
+</figure>
+<p><strong>Steps to Login:</strong> 1. Enter your registered email
+address 2. Enter your password 3. Click “Sign In” 4. Upon successful
+login, you’ll be redirected to the Dashboard</p>
+<p><strong>Demo Credentials (for testing):</strong> - Email:
+<code>admin@teamace.ng</code> - Password: <code>Demo123!</code></p>
+<h2 id="navigation-overview">2.4 Navigation Overview</h2>
+<p>The main navigation is located in the left sidebar:</p>
+<figure>
+<img src="images/02-navigation-layout.png" alt="Navigation Layout" />
+<figcaption aria-hidden="true">Navigation Layout</figcaption>
+</figure>
+<hr />
+<h1 id="dashboard-overview">3. Dashboard Overview</h1>
+<h2 id="dashboard-layout">3.1 Dashboard Layout</h2>
+<p>The Dashboard provides a quick overview of your business operations
+at a glance.</p>
+<figure>
+<img src="images/04-dashboard-layout.png" alt="Dashboard Layout" />
+<figcaption aria-hidden="true">Dashboard Layout</figcaption>
+</figure>
+<h2 id="dashboard-metrics-explained">3.2 Dashboard Metrics
+Explained</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Active Clients</td>
+<td>Number of clients with active engagements</td>
+</tr>
+<tr>
+<td>Active Leads</td>
+<td>Open leads not yet converted</td>
+</tr>
+<tr>
+<td>Deployed Staff</td>
+<td>Staff currently assigned to client sites</td>
+</tr>
+<tr>
+<td>Outstanding Revenue</td>
+<td>Total unpaid invoice amounts</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="crm-module">4. CRM Module</h1>
+<p>The CRM (Customer Relationship Management) module helps you manage
+your client relationships, contacts, and engagements.</p>
+<h2 id="clients">4.1 Clients</h2>
+<h3 id="viewing-clients">Viewing Clients</h3>
+<p>The Clients page displays all your client companies in a searchable,
+filterable list. Each row shows: - Company icon/avatar - Company name -
+Industry - Status (Active, Prospect, Inactive) - Action buttons (Edit,
+Delete)</p>
+<h3 id="adding-a-new-client">Adding a New Client</h3>
+<ol type="1">
+<li>Click the <strong>“+ Add Client”</strong> button</li>
+<li>Fill in the client details form:</li>
+</ol>
+<figure>
+<img src="images/15-add-client-form.png" alt="Add Client Form" />
+<figcaption aria-hidden="true">Add Client Form</figcaption>
+</figure>
+<p><strong>Required Fields:</strong> Company Name (*)</p>
+<h3 id="client-detail-view">Client Detail View</h3>
+<p>Click on any client row to view detailed information:</p>
+<ul>
+<li>Contact information</li>
+<li>Compliance details (TIN, RC Number)</li>
+<li>Status and tier information</li>
+<li>Associated contacts and engagements</li>
+</ul>
+<h2 id="contacts">4.2 Contacts</h2>
+<h3 id="managing-contacts">Managing Contacts</h3>
+<p>Contacts are individual people associated with your client companies.
+The contacts list shows: - Contact avatar (initials) - Full name -
+Associated company - Email address - Decision maker status</p>
+<h3 id="adding-a-contact">Adding a Contact</h3>
+<ol type="1">
+<li>Click <strong>“+ Add Contact”</strong></li>
+<li>Select the associated client company</li>
+<li>Enter contact details:
+<ul>
+<li>First Name, Last Name (required)</li>
+<li>Email, Phone</li>
+<li>Job Title, Department</li>
+<li>Mark as “Decision Maker” if applicable</li>
+</ul></li>
+</ol>
+<h2 id="engagements">4.3 Engagements</h2>
+<p>Engagements represent active projects or service contracts with
+clients.</p>
+<h3 id="engagement-types">Engagement Types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HR Outsourcing</td>
+<td>Staff placement and management services</td>
+</tr>
+<tr>
+<td>Recruitment</td>
+<td>Talent acquisition services</td>
+</tr>
+<tr>
+<td>Training</td>
+<td>Corporate training programs</td>
+</tr>
+<tr>
+<td>Consulting</td>
+<td>Advisory and consulting services</td>
+</tr>
+<tr>
+<td>Payroll</td>
+<td>Payroll management services</td>
+</tr>
+</tbody>
+</table>
+<h3 id="engagement-status-workflow">Engagement Status Workflow</h3>
+<figure>
+<img src="images/05-engagement-workflow.png"
+alt="Engagement Workflow" />
+<figcaption aria-hidden="true">Engagement Workflow</figcaption>
+</figure>
+<h3 id="creating-an-engagement">Creating an Engagement</h3>
+<ol type="1">
+<li>Click <strong>“+ Add Engagement”</strong></li>
+<li>Select the client</li>
+<li>Enter engagement details:
+<ul>
+<li>Engagement Name</li>
+<li>Type (HR Outsourcing, Recruitment, etc.)</li>
+<li>Contract Value (in NGN)</li>
+<li>Start and End dates</li>
+<li>Description</li>
+</ul></li>
+</ol>
+<hr />
+<h1 id="business-development-module">5. Business Development Module</h1>
+<h2 id="lead-management">5.1 Lead Management</h2>
+<h3 id="lead-pipeline-stages">Lead Pipeline Stages</h3>
+<figure>
+<img src="images/06-lead-pipeline-stages.png"
+alt="Lead Pipeline Stages" />
+<figcaption aria-hidden="true">Lead Pipeline Stages</figcaption>
+</figure>
+<h3 id="lead-sources">Lead Sources</h3>
+<p>Track where your leads come from:</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Website</td>
+<td>Leads from your company website</td>
+</tr>
+<tr>
+<td>Referral</td>
+<td>Client or partner referrals</td>
+</tr>
+<tr>
+<td>Cold Call</td>
+<td>Outbound prospecting</td>
+</tr>
+<tr>
+<td>Event</td>
+<td>Conferences, seminars, networking</td>
+</tr>
+<tr>
+<td>Social Media</td>
+<td>LinkedIn, etc.</td>
+</tr>
+<tr>
+<td>Other</td>
+<td>Any other source</td>
+</tr>
+</tbody>
+</table>
+<h3 id="adding-a-lead">Adding a Lead</h3>
+<figure>
+<img src="images/16-add-lead-form.png" alt="Add Lead Form" />
+<figcaption aria-hidden="true">Add Lead Form</figcaption>
+</figure>
+<h2 id="sales-pipeline">5.2 Sales Pipeline</h2>
+<h3 id="kanban-view">Kanban View</h3>
+<p>The Pipeline page provides a visual Kanban board of your sales
+pipeline:</p>
+<figure>
+<img src="images/07-sales-pipeline-kanban.png"
+alt="Sales Pipeline Kanban" />
+<figcaption aria-hidden="true">Sales Pipeline Kanban</figcaption>
+</figure>
+<h3 id="understanding-pipeline-metrics">Understanding Pipeline
+Metrics</h3>
+<ul>
+<li><strong>Stage Count:</strong> Number of leads in each stage</li>
+<li><strong>Stage Value:</strong> Total estimated value of leads in
+stage</li>
+<li><strong>Probability:</strong> Likelihood of closing (increases as
+lead progresses)</li>
+</ul>
+<hr />
+<h1 id="hr-outsourcing-module">6. HR Outsourcing Module</h1>
+<h2 id="staff-pool">6.1 Staff Pool</h2>
+<h3 id="staff-status-types">Staff Status Types</h3>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Description</th>
+<th>Color</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Available</td>
+<td>Ready for deployment</td>
+<td>Green</td>
+</tr>
+<tr>
+<td>Deployed</td>
+<td>Currently assigned to client</td>
+<td>Blue</td>
+</tr>
+<tr>
+<td>On Leave</td>
+<td>Temporarily unavailable</td>
+<td>Yellow</td>
+</tr>
+</tbody>
+</table>
+<h3 id="staff-profile">Staff Profile</h3>
+<figure>
+<img src="images/08-staff-profile.png" alt="Staff Profile Card" />
+<figcaption aria-hidden="true">Staff Profile Card</figcaption>
+</figure>
+<h3 id="adding-staff">Adding Staff</h3>
+<ol type="1">
+<li>Click <strong>“+ Add Staff”</strong></li>
+<li>Fill in employee details:
+<ul>
+<li>Employee ID (auto-generated or custom)</li>
+<li>First Name, Last Name</li>
+<li>Contact information</li>
+<li>Job Title and Department</li>
+<li>Skills (comma-separated)</li>
+<li>Hourly Rate</li>
+</ul></li>
+</ol>
+<h2 id="deployments">6.2 Deployments</h2>
+<h3 id="deployment-workflow">Deployment Workflow</h3>
+<figure>
+<img src="images/09-deployment-lifecycle.png"
+alt="Deployment Lifecycle" />
+<figcaption aria-hidden="true">Deployment Lifecycle</figcaption>
+</figure>
+<h3 id="creating-a-deployment">Creating a Deployment</h3>
+<ol type="1">
+<li>Navigate to <strong>HR &gt; Deployments</strong></li>
+<li>Click <strong>“+ Add Deployment”</strong></li>
+<li>Select:
+<ul>
+<li>Staff Member (from pool)</li>
+<li>Client Company</li>
+<li>Role/Position at client</li>
+<li>Start Date</li>
+<li>Billing Rate and Type</li>
+</ul></li>
+</ol>
+<h3 id="billing-types">Billing Types</h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hourly</td>
+<td>Billed per hour worked</td>
+</tr>
+<tr>
+<td>Daily</td>
+<td>Billed per day</td>
+</tr>
+<tr>
+<td>Monthly</td>
+<td>Fixed monthly billing</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="finance-module">7. Finance Module</h1>
+<h2 id="invoices">7.1 Invoices</h2>
+<h3 id="invoice-workflow">Invoice Workflow</h3>
+<figure>
+<img src="images/10-invoice-workflow.png" alt="Invoice Workflow" />
+<figcaption aria-hidden="true">Invoice Workflow</figcaption>
+</figure>
+<h3 id="nigerian-tax-calculation">Nigerian Tax Calculation</h3>
+<p>ConsultPro automatically calculates Nigerian taxes:</p>
+<figure>
+<img src="images/11-invoice-tax-calculation.png"
+alt="Invoice Tax Calculation" />
+<figcaption aria-hidden="true">Invoice Tax Calculation</figcaption>
+</figure>
+<p><strong>Tax Rules:</strong> - VAT Rate: 7.5% on subtotal - WHT Rate:
+5% for services (10% for professional services) - Total = Subtotal + VAT
+- WHT</p>
+<h3 id="creating-an-invoice">Creating an Invoice</h3>
+<ol type="1">
+<li>Navigate to <strong>Finance &gt; Invoices</strong></li>
+<li>Click <strong>“+ Add Invoice”</strong></li>
+<li>Fill in the form:</li>
+</ol>
+<figure>
+<img src="images/17-create-invoice-form.png"
+alt="Create Invoice Form" />
+<figcaption aria-hidden="true">Create Invoice Form</figcaption>
+</figure>
+<h3 id="invoice-summary-dashboard">Invoice Summary Dashboard</h3>
+<p>The invoices page displays summary metrics at the top: -
+<strong>Outstanding:</strong> Total unpaid invoice amounts -
+<strong>Paid (Month):</strong> Total payments received this month -
+<strong>Overdue:</strong> Total overdue invoice amounts</p>
+<h2 id="payments">7.2 Payments</h2>
+<h3 id="recording-payments">Recording Payments</h3>
+<ol type="1">
+<li>Navigate to <strong>Finance &gt; Payments</strong></li>
+<li>Click <strong>“+ Add Payment”</strong></li>
+<li>Select the invoice (only unpaid invoices shown)</li>
+<li>Enter payment details:
+<ul>
+<li>Payment Date</li>
+<li>Amount</li>
+<li>Payment Method</li>
+<li>Reference Number</li>
+</ul></li>
+</ol>
+<h3 id="payment-methods">Payment Methods</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bank Transfer</td>
+<td>Electronic bank transfer</td>
+</tr>
+<tr>
+<td>Cash</td>
+<td>Cash payment</td>
+</tr>
+<tr>
+<td>Cheque</td>
+<td>Payment by cheque</td>
+</tr>
+<tr>
+<td>Card</td>
+<td>Credit/Debit card</td>
+</tr>
+<tr>
+<td>Other</td>
+<td>Other payment methods</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h1 id="task-management">8. Task Management</h1>
+<h2 id="task-overview">8.1 Task Overview</h2>
+<p>Tasks help you track action items and to-dos across all modules.</p>
+<h3 id="task-priority-levels">Task Priority Levels</h3>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Color</th>
+<th>Usage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Urgent</td>
+<td>Red</td>
+<td>Critical items needing immediate attention</td>
+</tr>
+<tr>
+<td>High</td>
+<td>Orange</td>
+<td>Important items to complete soon</td>
+</tr>
+<tr>
+<td>Medium</td>
+<td>Blue</td>
+<td>Standard priority items</td>
+</tr>
+<tr>
+<td>Low</td>
+<td>Gray</td>
+<td>Can be deferred if needed</td>
+</tr>
+</tbody>
+</table>
+<h3 id="task-status-flow">Task Status Flow</h3>
+<figure>
+<img src="images/12-task-status-flow.png" alt="Task Status Flow" />
+<figcaption aria-hidden="true">Task Status Flow</figcaption>
+</figure>
+<h2 id="task-list-view">8.2 Task List View</h2>
+<figure>
+<img src="images/18-task-list-view.png" alt="Task List View" />
+<figcaption aria-hidden="true">Task List View</figcaption>
+</figure>
+<h2 id="creating-tasks">8.3 Creating Tasks</h2>
+<ol type="1">
+<li>Click <strong>“+ Add Task”</strong></li>
+<li>Enter task details:
+<ul>
+<li>Title (required)</li>
+<li>Description</li>
+<li>Associated Client (optional)</li>
+<li>Priority Level</li>
+<li>Due Date</li>
+<li>Initial Status</li>
+</ul></li>
+</ol>
+<hr />
+<h1 id="workflows-best-practices">9. Workflows &amp; Best Practices</h1>
+<h2 id="complete-client-onboarding-workflow">9.1 Complete Client
+Onboarding Workflow</h2>
+<figure>
+<img src="images/13-client-onboarding-workflow.png"
+alt="Client Onboarding Workflow" />
+<figcaption aria-hidden="true">Client Onboarding Workflow</figcaption>
+</figure>
+<h2 id="monthly-billing-workflow">9.2 Monthly Billing Workflow</h2>
+<figure>
+<img src="images/14-monthly-billing-workflow.png"
+alt="Monthly Billing Workflow" />
+<figcaption aria-hidden="true">Monthly Billing Workflow</figcaption>
+</figure>
+<h2 id="best-practices">9.3 Best Practices</h2>
+<h3 id="data-entry">Data Entry</h3>
+<ul>
+<li>Always fill in required fields (marked with *)</li>
+<li>Use consistent naming conventions</li>
+<li>Keep contact information up to date</li>
+<li>Add notes for important context</li>
+</ul>
+<h3 id="lead-management-1">Lead Management</h3>
+<ul>
+<li>Update lead status promptly</li>
+<li>Add estimated values for pipeline forecasting</li>
+<li>Set realistic expected close dates</li>
+<li>Document all interactions in notes</li>
+</ul>
+<h3 id="financial-management">Financial Management</h3>
+<ul>
+<li>Create invoices promptly after service delivery</li>
+<li>Set appropriate due dates (default: 30 days)</li>
+<li>Record payments immediately upon receipt</li>
+<li>Monitor overdue invoices regularly</li>
+</ul>
+<h3 id="task-management-1">Task Management</h3>
+<ul>
+<li>Create tasks for all action items</li>
+<li>Set appropriate priorities</li>
+<li>Update status as work progresses</li>
+<li>Link tasks to relevant clients</li>
+</ul>
+<hr />
+<h1 id="troubleshooting">10. Troubleshooting</h1>
+<h2 id="common-issues">10.1 Common Issues</h2>
+<h3 id="login-problems">Login Problems</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Invalid credentials</td>
+<td>Verify email and password</td>
+</tr>
+<tr>
+<td>Session expired</td>
+<td>Log in again</td>
+</tr>
+<tr>
+<td>Page not loading</td>
+<td>Clear browser cache and refresh</td>
+</tr>
+</tbody>
+</table>
+<h3 id="data-not-saving">Data Not Saving</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Form validation error</td>
+<td>Check required fields are filled</td>
+</tr>
+<tr>
+<td>Network error</td>
+<td>Check internet connection</td>
+</tr>
+<tr>
+<td>Save button not responding</td>
+<td>Refresh page and try again</td>
+</tr>
+</tbody>
+</table>
+<h3 id="display-issues">Display Issues</h3>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Layout broken</td>
+<td>Refresh page or clear cache</td>
+</tr>
+<tr>
+<td>Data not loading</td>
+<td>Wait for loading to complete</td>
+</tr>
+<tr>
+<td>Sidebar missing</td>
+<td>Toggle mobile menu on small screens</td>
+</tr>
+</tbody>
+</table>
+<h2 id="getting-help">10.2 Getting Help</h2>
+<p>For technical support: 1. Contact your system administrator 2. Report
+issues with specific error messages 3. Include steps to reproduce the
+problem</p>
+<hr />
+<h1 id="quick-reference-card">Quick Reference Card</h1>
+<h2 id="module-quick-access">Module Quick Access</h2>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dashboard</td>
+<td>/</td>
+</tr>
+<tr>
+<td>Clients</td>
+<td>/clients</td>
+</tr>
+<tr>
+<td>Contacts</td>
+<td>/contacts</td>
+</tr>
+<tr>
+<td>Engagements</td>
+<td>/engagements</td>
+</tr>
+<tr>
+<td>Leads</td>
+<td>/leads</td>
+</tr>
+<tr>
+<td>Pipeline</td>
+<td>/pipeline</td>
+</tr>
+<tr>
+<td>Staff</td>
+<td>/staff</td>
+</tr>
+<tr>
+<td>Deployments</td>
+<td>/deployments</td>
+</tr>
+<tr>
+<td>Invoices</td>
+<td>/invoices</td>
+</tr>
+<tr>
+<td>Payments</td>
+<td>/payments</td>
+</tr>
+<tr>
+<td>Tasks</td>
+<td>/tasks</td>
+</tr>
+</tbody>
+</table>
+<h2 id="status-colors">Status Colors</h2>
+<table>
+<thead>
+<tr>
+<th>Color</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Green</td>
+<td>Active, Available, Completed, Paid</td>
+</tr>
+<tr>
+<td>Blue</td>
+<td>In Progress, Deployed</td>
+</tr>
+<tr>
+<td>Yellow</td>
+<td>Pending, On Hold, Partial</td>
+</tr>
+<tr>
+<td>Orange</td>
+<td>High Priority</td>
+</tr>
+<tr>
+<td>Red</td>
+<td>Overdue, Urgent</td>
+</tr>
+<tr>
+<td>Gray</td>
+<td>Inactive, Low Priority</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>ConsultPro User Manual v1.0</em> <em>Powered by Rozitech CC</em>
+<em>December 2025</em></p>
+</body>
+</html>
