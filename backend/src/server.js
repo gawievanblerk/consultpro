@@ -11,37 +11,15 @@ const app = express();
 const PORT = process.env.PORT || 4020;
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
 
-// CORS configuration - MUST be before other middleware
-const allowedOrigins = [
-  'http://localhost:5020',
-  'http://localhost:3000',
-  'http://localhost:8080',
-  'https://consultpro-frontend.onrender.com'
-];
-
-// Add any custom CORS origins from env
-if (process.env.CORS_ORIGIN) {
-  process.env.CORS_ORIGIN.split(',').forEach(origin => {
-    if (!allowedOrigins.includes(origin.trim())) {
-      allowedOrigins.push(origin.trim());
-    }
-  });
-}
-
-// Apply CORS first
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-// Handle preflight requests explicitly
+// CORS - allow all origins for now
+app.use(cors());
 app.options('*', cors());
 
-// Helmet after CORS
+// Helmet with relaxed settings
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" }
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false
 }));
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
