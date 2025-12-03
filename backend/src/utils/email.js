@@ -56,8 +56,18 @@ const sendEmail = async ({ to, subject, html, text }) => {
 
   try {
     const result = await resend.emails.send(emailData);
-    console.log('Email sent via Resend:', result.data?.id);
-    return { success: true, messageId: result.data?.id };
+    console.log('Resend API response:', JSON.stringify(result, null, 2));
+
+    // Handle both response formats (v1 and v2 of Resend SDK)
+    const emailId = result?.data?.id || result?.id;
+
+    if (result?.error) {
+      console.error('Resend API error:', result.error);
+      throw new Error(result.error.message || 'Failed to send email');
+    }
+
+    console.log('Email sent successfully via Resend:', emailId);
+    return { success: true, messageId: emailId };
   } catch (error) {
     console.error('Failed to send email via Resend:', error);
     throw error;
