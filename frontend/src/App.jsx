@@ -15,6 +15,7 @@ import Deployments from './pages/hr/Deployments';
 import Invoices from './pages/finance/Invoices';
 import Payments from './pages/finance/Payments';
 import Tasks from './pages/Tasks';
+import Users from './pages/settings/Users';
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -69,6 +70,9 @@ function App() {
 
             {/* Collaboration Module */}
             <Route path="tasks" element={<Tasks />} />
+
+            {/* Settings/Admin */}
+            <Route path="users" element={<Users />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -15,7 +15,9 @@ import {
   ArrowRightOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
-  QuestionMarkCircleIcon
+  QuestionMarkCircleIcon,
+  Cog6ToothIcon,
+  UserCircleIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -38,6 +40,9 @@ const navigation = [
     { name: 'Payments', href: '/payments', icon: BanknotesIcon },
   ]},
   { name: 'Tasks', href: '/tasks', icon: CheckCircleIcon },
+  { name: 'Settings', children: [
+    { name: 'Users', href: '/users', icon: UserCircleIcon },
+  ]},
 ];
 
 function Layout() {
