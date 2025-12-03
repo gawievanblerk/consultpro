@@ -436,14 +436,14 @@ function Users() {
       </div>
 
       {/* Pending Invitations */}
-      {invites.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mt-6">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-              <ClockIcon className="h-5 w-5 text-gray-500" />
-              Pending Invitations ({invites.length})
-            </h3>
-          </div>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mt-6">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+            <ClockIcon className="h-5 w-5 text-gray-500" />
+            Pending Invitations ({invites.length})
+          </h3>
+        </div>
+        {invites.length > 0 ? (
           <div className="divide-y divide-gray-200">
             {invites.map((invite) => (
               <div key={invite.id} className="px-6 py-4 flex items-center justify-between">
@@ -485,8 +485,14 @@ function Users() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="px-6 py-8 text-center text-gray-500">
+            <EnvelopeIcon className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+            <p>No pending invitations</p>
+            <p className="text-sm mt-1">Click "Invite User" to send an invitation</p>
+          </div>
+        )}
+      </div>
 
       {/* Add/Edit User Modal */}
       <Modal
