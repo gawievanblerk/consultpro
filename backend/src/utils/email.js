@@ -3,16 +3,24 @@
  * Uses Resend API for reliable email delivery
  */
 
-const { Resend } = require('resend');
-
-// Initialize Resend
-const isConfigured = !!process.env.RESEND_API_KEY;
+let Resend = null;
 let resend = null;
+let isConfigured = false;
 
-if (isConfigured) {
-  resend = new Resend(process.env.RESEND_API_KEY);
-} else {
-  console.log('Resend not configured - emails will be logged to console');
+// Try to load Resend - gracefully handle if not available
+try {
+  const resendModule = require('resend');
+  Resend = resendModule.Resend;
+
+  if (process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+    isConfigured = true;
+    console.log('Resend email configured successfully');
+  } else {
+    console.log('Resend not configured - RESEND_API_KEY not set');
+  }
+} catch (error) {
+  console.log('Resend package not available - emails will be logged to console');
 }
 
 // Default sender - Resend provides onboarding@resend.dev for testing
