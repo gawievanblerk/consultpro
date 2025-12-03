@@ -9,16 +9,21 @@ import {
   TrashIcon,
   KeyIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  EnvelopeIcon,
+  ArrowPathIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 
 function Users() {
   const [users, setUsers] = useState([]);
+  const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -33,9 +38,14 @@ function Users() {
     password: '',
     confirmPassword: ''
   });
+  const [inviteData, setInviteData] = useState({
+    email: '',
+    role: 'user'
+  });
 
   useEffect(() => {
     fetchUsers();
+    fetchInvites();
   }, [filter]);
 
   const fetchUsers = async () => {
@@ -56,6 +66,17 @@ function Users() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInvites = async () => {
+    try {
+      const response = await api.get('/api/users/invites');
+      if (response.data.success) {
+        setInvites(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch invites:', error);
     }
   };
 
@@ -185,6 +206,52 @@ function Users() {
     }
   };
 
+  // Invite handlers
+  const handleOpenInviteModal = () => {
+    setInviteData({ email: '', role: 'user' });
+    setInviteModalOpen(true);
+  };
+
+  const handleSendInvite = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.post('/api/users/invite', inviteData);
+      setInviteModalOpen(false);
+      fetchInvites();
+      alert('Invitation sent successfully!');
+    } catch (error) {
+      console.error('Failed to send invite:', error);
+      alert(error.response?.data?.error || 'Failed to send invitation');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelInvite = async (inviteId) => {
+    if (!confirm('Are you sure you want to cancel this invitation?')) {
+      return;
+    }
+    try {
+      await api.delete(`/api/users/invites/${inviteId}`);
+      fetchInvites();
+    } catch (error) {
+      console.error('Failed to cancel invite:', error);
+      alert(error.response?.data?.error || 'Failed to cancel invitation');
+    }
+  };
+
+  const handleResendInvite = async (inviteId) => {
+    try {
+      await api.post(`/api/users/invites/${inviteId}/resend`);
+      fetchInvites();
+      alert('Invitation resent successfully!');
+    } catch (error) {
+      console.error('Failed to resend invite:', error);
+      alert(error.response?.data?.error || 'Failed to resend invitation');
+    }
+  };
+
   const filteredUsers = users.filter(user => {
     if (!search) return true;
     const searchLower = search.toLowerCase();
@@ -211,13 +278,22 @@ function Users() {
           <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
           <p className="text-gray-500 text-sm mt-1">Manage users and their access</p>
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="btn-primary flex items-center gap-2"
-        >
-          <PlusIcon className="h-5 w-5" />
-          Add User
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleOpenInviteModal}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <EnvelopeIcon className="h-5 w-5" />
+            Invite User
+          </button>
+          <button
+            onClick={() => handleOpenModal()}
+            className="btn-primary flex items-center gap-2"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Add User
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -358,6 +434,59 @@ function Users() {
           </table>
         </div>
       </div>
+
+      {/* Pending Invitations */}
+      {invites.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mt-6">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+              <ClockIcon className="h-5 w-5 text-gray-500" />
+              Pending Invitations ({invites.length})
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-200">
+            {invites.map((invite) => (
+              <div key={invite.id} className="px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                    <EnvelopeIcon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{invite.email}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getRoleBadgeColor(invite.role)}`}>
+                        {invite.role}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Invited by {invite.invitedBy}
+                      </span>
+                      {invite.isExpired && (
+                        <span className="text-xs text-red-600 font-medium">Expired</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleResendInvite(invite.id)}
+                    className="p-2 text-gray-400 hover:text-primary-600 rounded-lg hover:bg-gray-100"
+                    title="Resend Invitation"
+                  >
+                    <ArrowPathIcon className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => handleCancelInvite(invite.id)}
+                    className="p-2 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100"
+                    title="Cancel Invitation"
+                  >
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit User Modal */}
       <Modal
@@ -503,6 +632,71 @@ function Users() {
               className="btn-primary"
             >
               {saving ? 'Updating...' : 'Update Password'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Invite User Modal */}
+      <Modal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        title="Invite User"
+      >
+        <form onSubmit={handleSendInvite} className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Send an invitation email to a new user. They will receive a link to set up their account.
+          </p>
+
+          <div>
+            <label className="form-label">Email Address *</label>
+            <input
+              type="email"
+              required
+              value={inviteData.email}
+              onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}
+              className="form-input"
+              placeholder="user@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="form-label">Role *</label>
+            <select
+              value={inviteData.role}
+              onChange={(e) => setInviteData({ ...inviteData, role: e.target.value })}
+              className="form-input"
+            >
+              <option value="user">User - Basic access</option>
+              <option value="manager">Manager - Can manage clients, leads, staff</option>
+              <option value="admin">Administrator - Full access</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              The user will have this role when they accept the invitation
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button
+              type="button"
+              onClick={() => setInviteModalOpen(false)}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary flex items-center gap-2"
+            >
+              {saving ? (
+                'Sending...'
+              ) : (
+                <>
+                  <EnvelopeIcon className="h-4 w-4" />
+                  Send Invitation
+                </>
+              )}
             </button>
           </div>
         </form>
