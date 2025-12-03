@@ -1,20 +1,22 @@
 /**
  * Email Utility for ConsultPro
- * Uses SendGrid API for reliable email delivery on Render.com
+ * Uses Resend API for reliable email delivery
  */
 
-const sgMail = require('@sendgrid/mail');
+const { Resend } = require('resend');
 
-// Initialize SendGrid
-const isConfigured = !!process.env.SENDGRID_API_KEY;
+// Initialize Resend
+const isConfigured = !!process.env.RESEND_API_KEY;
+let resend = null;
+
 if (isConfigured) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  resend = new Resend(process.env.RESEND_API_KEY);
 } else {
-  console.log('SendGrid not configured - emails will be logged to console');
+  console.log('Resend not configured - emails will be logged to console');
 }
 
-// Default sender
-const defaultFrom = process.env.EMAIL_FROM || 'ConsultPro <noreply@consultpro.app>';
+// Default sender - Resend provides onboarding@resend.dev for testing
+const defaultFrom = process.env.EMAIL_FROM || 'ConsultPro <onboarding@resend.dev>';
 
 // Frontend URL for links
 const getFrontendUrl = () => {
@@ -22,8 +24,8 @@ const getFrontendUrl = () => {
 };
 
 /**
- * Send an email via SendGrid
- * Falls back to console logging if SendGrid not configured
+ * Send an email via Resend
+ * Falls back to console logging if Resend not configured
  */
 const sendEmail = async ({ to, subject, html, text }) => {
   const emailData = {
@@ -34,22 +36,22 @@ const sendEmail = async ({ to, subject, html, text }) => {
     text: text || html.replace(/<[^>]*>/g, '')
   };
 
-  if (!isConfigured) {
+  if (!isConfigured || !resend) {
     // Log email to console in development
-    console.log('=== EMAIL (not sent - SendGrid not configured) ===');
+    console.log('=== EMAIL (not sent - Resend not configured) ===');
     console.log('To:', to);
     console.log('Subject:', subject);
     console.log('Body:', text || html.replace(/<[^>]*>/g, '').substring(0, 200));
-    console.log('=================================================');
+    console.log('================================================');
     return { success: true, messageId: 'console-' + Date.now() };
   }
 
   try {
-    const result = await sgMail.send(emailData);
-    console.log('Email sent via SendGrid:', result[0]?.headers?.['x-message-id']);
-    return { success: true, messageId: result[0]?.headers?.['x-message-id'] };
+    const result = await resend.emails.send(emailData);
+    console.log('Email sent via Resend:', result.data?.id);
+    return { success: true, messageId: result.data?.id };
   } catch (error) {
-    console.error('Failed to send email via SendGrid:', error.response?.body || error);
+    console.error('Failed to send email via Resend:', error);
     throw error;
   }
 };
