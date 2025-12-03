@@ -9,7 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 // GET /api/activities - List activities
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 20, entity_type, entity_id, activity_type } = req.query;
+    const { page = 1, limit = 20, entity_type, entity_id, activity_type, from_date, to_date, user_id } = req.query;
     const offset = (page - 1) * limit;
 
     let whereClause = 'WHERE a.tenant_id = $1';
@@ -34,6 +34,24 @@ router.get('/', async (req, res) => {
       paramIndex++;
     }
 
+    if (from_date) {
+      whereClause += ` AND a.performed_at >= $${paramIndex}`;
+      params.push(from_date);
+      paramIndex++;
+    }
+
+    if (to_date) {
+      whereClause += ` AND a.performed_at <= $${paramIndex}`;
+      params.push(to_date);
+      paramIndex++;
+    }
+
+    if (user_id) {
+      whereClause += ` AND a.performed_by = $${paramIndex}`;
+      params.push(user_id);
+      paramIndex++;
+    }
+
     const countResult = await pool.query(
       `SELECT COUNT(*) FROM activity_logs a ${whereClause}`,
       params
@@ -42,14 +60,29 @@ router.get('/', async (req, res) => {
     const result = await pool.query(
       `SELECT a.* FROM activity_logs a
        ${whereClause}
-       ORDER BY a.created_at DESC
+       ORDER BY a.performed_at DESC
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, limit, offset]
     );
 
+    // Flatten metadata for each activity
+    const data = result.rows.map(row => {
+      const metadata = row.metadata || {};
+      return {
+        ...row,
+        subject: metadata.subject,
+        outcome: metadata.outcome,
+        duration_minutes: metadata.duration_minutes,
+        follow_up_date: metadata.follow_up_date,
+        follow_up_notes: metadata.follow_up_notes,
+        participants: metadata.participants,
+        activity_date: metadata.activity_date || row.performed_at
+      };
+    });
+
     res.json({
       success: true,
-      data: result.rows,
+      data,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -69,7 +102,8 @@ router.post('/', async (req, res) => {
   try {
     const {
       entity_type, entity_id, activity_type, subject, description,
-      outcome, activity_date, duration_minutes, follow_up_date, follow_up_notes
+      outcome, activity_date, duration_minutes, follow_up_date, follow_up_notes,
+      participants
     } = req.body;
 
     if (!entity_type || !entity_id || !activity_type) {
@@ -79,23 +113,56 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validate that future dates are only allowed for follow-up type activities
+    if (activity_date) {
+      const activityDateObj = new Date(activity_date);
+      const now = new Date();
+      if (activityDateObj > now && activity_type !== 'follow_up') {
+        return res.status(400).json({
+          success: false,
+          error: 'Future activity dates are only allowed for follow-up activities'
+        });
+      }
+    }
+
     const id = uuidv4();
+
+    // Store extra fields in metadata JSON column
+    const metadata = {
+      subject,
+      outcome,
+      duration_minutes,
+      follow_up_date,
+      follow_up_notes,
+      participants,
+      activity_date: activity_date || new Date().toISOString()
+    };
 
     const result = await pool.query(
       `INSERT INTO activity_logs (
         id, tenant_id, entity_type, entity_id, activity_type,
-        subject, description, outcome, activity_date, duration_minutes,
-        follow_up_date, follow_up_notes, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        description, metadata, performed_by, performed_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *`,
       [
         id, req.tenant_id, entity_type, entity_id, activity_type,
-        subject, description, outcome, activity_date || new Date(),
-        duration_minutes, follow_up_date, follow_up_notes, req.user.id
+        description || subject, JSON.stringify(metadata), req.user.id, activity_date || new Date()
       ]
     );
 
-    res.status(201).json({ success: true, data: result.rows[0] });
+    // Flatten the response to include metadata fields at top level
+    const data = {
+      ...result.rows[0],
+      subject: metadata.subject,
+      outcome: metadata.outcome,
+      duration_minutes: metadata.duration_minutes,
+      follow_up_date: metadata.follow_up_date,
+      follow_up_notes: metadata.follow_up_notes,
+      participants: metadata.participants,
+      activity_date: metadata.activity_date
+    };
+
+    res.status(201).json({ success: true, data });
 
   } catch (error) {
     console.error('Log activity error:', error);

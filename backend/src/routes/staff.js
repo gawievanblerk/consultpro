@@ -64,6 +64,54 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/staff/export - Export staff to CSV (MUST BE BEFORE :id route)
+router.get('/export', async (req, res) => {
+  try {
+    const { format = 'csv' } = req.query;
+
+    const result = await pool.query(
+      `SELECT s.employee_id, s.first_name, s.last_name, s.email, s.phone,
+              s.job_title, s.department, s.status, s.is_available,
+              s.employment_type, s.hire_date
+       FROM staff s
+       WHERE s.tenant_id = $1 AND s.deleted_at IS NULL
+       ORDER BY s.last_name, s.first_name`,
+      [req.tenant_id]
+    );
+
+    if (format === 'csv') {
+      const headers = ['Employee ID', 'First Name', 'Last Name', 'Email', 'Phone', 'Job Title', 'Department', 'Status', 'Available', 'Employment Type', 'Hire Date'];
+      const csvRows = [headers.join(',')];
+
+      for (const row of result.rows) {
+        csvRows.push([
+          row.employee_id || '',
+          row.first_name || '',
+          row.last_name || '',
+          row.email || '',
+          row.phone || '',
+          row.job_title || '',
+          row.department || '',
+          row.status || '',
+          row.is_available ? 'Yes' : 'No',
+          row.employment_type || '',
+          row.hire_date ? new Date(row.hire_date).toISOString().split('T')[0] : ''
+        ].map(v => `"${v}"`).join(','));
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=staff.csv');
+      return res.send(csvRows.join('\n'));
+    }
+
+    res.json({ success: true, data: result.rows });
+
+  } catch (error) {
+    console.error('Export staff error:', error);
+    res.status(500).json({ success: false, error: 'Failed to export staff' });
+  }
+});
+
 // GET /api/staff/:id - Get staff by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -87,13 +135,24 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Helper to generate employee ID
+async function generateEmployeeId(tenantId) {
+  const year = new Date().getFullYear();
+  const result = await pool.query(
+    `SELECT COUNT(*) + 1 as next_num FROM staff WHERE tenant_id = $1 AND created_at >= $2`,
+    [tenantId, `${year}-01-01`]
+  );
+  return `EMP-${year}-${String(result.rows[0].next_num).padStart(4, '0')}`;
+}
+
 // POST /api/staff - Create new staff
 router.post('/', async (req, res) => {
   try {
     const {
       first_name, last_name, email, phone, job_title, department,
-      skills, hourly_rate, monthly_rate, bank_name, account_number,
-      tax_id, address, city, state, notes
+      skills, salary, salary_currency, bank_name, bank_account_number, bank_account_name,
+      tax_id, date_of_birth, gender, employment_type, hire_date,
+      nin, bvn, pension_pin, notes
     } = req.body;
 
     if (!first_name || !last_name || !email) {
@@ -104,18 +163,21 @@ router.post('/', async (req, res) => {
     }
 
     const id = uuidv4();
+    const employee_id = await generateEmployeeId(req.tenant_id);
 
     const result = await pool.query(
       `INSERT INTO staff (
-        id, tenant_id, first_name, last_name, email, phone, job_title, department,
-        skills, hourly_rate, monthly_rate, bank_name, account_number,
-        tax_id, address, city, state, notes, status, is_available, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'active', true, $19)
+        id, tenant_id, employee_id, first_name, last_name, email, phone, job_title, department,
+        skills, salary, salary_currency, bank_name, bank_account_number, bank_account_name,
+        tax_id, date_of_birth, gender, employment_type, hire_date,
+        nin, bvn, pension_pin, notes, status, is_available, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'active', true, $25)
       RETURNING *`,
       [
-        id, req.tenant_id, first_name, last_name, email, phone, job_title, department,
-        skills, hourly_rate, monthly_rate, bank_name, account_number,
-        tax_id, address, city, state, notes, req.user.id
+        id, req.tenant_id, employee_id, first_name, last_name, email, phone, job_title, department,
+        skills, salary, salary_currency || 'NGN', bank_name, bank_account_number, bank_account_name,
+        tax_id, date_of_birth, gender, employment_type || 'outsourced', hire_date || new Date(),
+        nin, bvn, pension_pin, notes, req.user.id
       ]
     );
 
@@ -135,8 +197,9 @@ router.put('/:id', async (req, res) => {
 
     const allowedFields = [
       'first_name', 'last_name', 'email', 'phone', 'job_title', 'department',
-      'skills', 'hourly_rate', 'monthly_rate', 'bank_name', 'account_number',
-      'tax_id', 'address', 'city', 'state', 'notes', 'status', 'is_available'
+      'skills', 'salary', 'salary_currency', 'bank_name', 'bank_account_number', 'bank_account_name',
+      'tax_id', 'date_of_birth', 'gender', 'employment_type', 'hire_date',
+      'nin', 'bvn', 'pension_pin', 'notes', 'status', 'is_available'
     ];
 
     const updateFields = [];

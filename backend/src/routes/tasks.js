@@ -98,6 +98,51 @@ router.get('/my', async (req, res) => {
   }
 });
 
+// GET /api/tasks/dashboard - Get task dashboard stats
+router.get('/dashboard', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        COUNT(*) FILTER (WHERE status = 'pending') as pending,
+        COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed,
+        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('completed', 'cancelled')) as overdue,
+        COUNT(*) FILTER (WHERE assigned_to = $2) as my_tasks
+       FROM tasks
+       WHERE tenant_id = $1 AND deleted_at IS NULL`,
+      [req.tenant_id, req.user.id]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+
+  } catch (error) {
+    console.error('Get task dashboard error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch dashboard stats' });
+  }
+});
+
+// GET /api/tasks/stats - Get task stats (alias for dashboard)
+router.get('/stats', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        COUNT(*) FILTER (WHERE status = 'pending') as pending_count,
+        COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress_count,
+        COUNT(*) FILTER (WHERE status = 'completed') as completed_count,
+        COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status NOT IN ('completed', 'cancelled')) as overdue_count
+       FROM tasks
+       WHERE tenant_id = $1 AND deleted_at IS NULL`,
+      [req.tenant_id]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+
+  } catch (error) {
+    console.error('Get task stats error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch task stats' });
+  }
+});
+
 // GET /api/tasks/:id - Get task by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -232,6 +277,35 @@ router.put('/:id/complete', async (req, res) => {
   } catch (error) {
     console.error('Complete task error:', error);
     res.status(500).json({ success: false, error: 'Failed to complete task' });
+  }
+});
+
+// PUT /api/tasks/:id/reassign - Reassign task to another user
+router.put('/:id/reassign', async (req, res) => {
+  try {
+    const { assigned_to } = req.body;
+
+    if (!assigned_to) {
+      return res.status(400).json({ success: false, error: 'New assignee is required' });
+    }
+
+    const result = await pool.query(
+      `UPDATE tasks
+       SET assigned_to = $3, updated_at = NOW()
+       WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [req.params.id, req.tenant_id, assigned_to]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Task not found' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+
+  } catch (error) {
+    console.error('Reassign task error:', error);
+    res.status(500).json({ success: false, error: 'Failed to reassign task' });
   }
 });
 

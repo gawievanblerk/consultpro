@@ -110,18 +110,40 @@ router.post('/', async (req, res) => {
 // PUT /api/notes/:id - Update note
 router.put('/:id', async (req, res) => {
   try {
-    const { content, is_private } = req.body;
+    const { content, is_private, is_pinned } = req.body;
 
-    if (!content) {
-      return res.status(400).json({ success: false, error: 'Content is required' });
+    // Build dynamic update
+    const updates = [];
+    const values = [req.params.id, req.tenant_id];
+    let paramIndex = 3;
+
+    if (content !== undefined) {
+      updates.push(`content = $${paramIndex}`);
+      values.push(content);
+      paramIndex++;
+    }
+    if (is_private !== undefined) {
+      updates.push(`is_private = $${paramIndex}`);
+      values.push(is_private);
+      paramIndex++;
+    }
+    if (is_pinned !== undefined) {
+      updates.push(`is_pinned = $${paramIndex}`);
+      values.push(is_pinned);
+      paramIndex++;
     }
 
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, error: 'No fields to update' });
+    }
+
+    updates.push('updated_at = NOW()');
+
     const result = await pool.query(
-      `UPDATE notes
-       SET content = $3, is_private = COALESCE($4, is_private), updated_at = NOW()
+      `UPDATE notes SET ${updates.join(', ')}
        WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
        RETURNING *`,
-      [req.params.id, req.tenant_id, content, is_private]
+      values
     );
 
     if (result.rows.length === 0) {
@@ -155,6 +177,31 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Delete note error:', error);
     res.status(500).json({ success: false, error: 'Failed to delete note' });
+  }
+});
+
+// PUT /api/notes/:id/pin - Pin/unpin note
+router.put('/:id/pin', async (req, res) => {
+  try {
+    const { is_pinned = true } = req.body;
+
+    const result = await pool.query(
+      `UPDATE notes
+       SET is_pinned = $3, updated_at = NOW()
+       WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [req.params.id, req.tenant_id, is_pinned]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Note not found' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+
+  } catch (error) {
+    console.error('Pin note error:', error);
+    res.status(500).json({ success: false, error: 'Failed to pin note' });
   }
 });
 

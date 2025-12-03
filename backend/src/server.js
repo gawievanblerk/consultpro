@@ -73,6 +73,7 @@ app.use('/api/activities', require('./routes/activities'));
 app.use('/api/leads', require('./routes/leads'));
 app.use('/api/pipeline', require('./routes/pipeline'));
 app.use('/api/proposals', require('./routes/proposals'));
+app.use('/api/opportunities', require('./routes/opportunities'));
 
 // ============================================================================
 // HR Outsourcing Module Routes (Module 1.3)
@@ -91,6 +92,9 @@ app.use('/api/payments', require('./routes/payments'));
 // ============================================================================
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/notes', require('./routes/notes'));
+app.use('/api/audit', require('./routes/audit'));
+app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/approvals', require('./routes/approvals'));
 
 // ============================================================================
 // Error Handlers
@@ -113,12 +117,14 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`ConsultPro Backend running on port ${PORT}`);
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`   Demo Mode: ${DEMO_MODE}`);
-  console.log(`   Database: ${process.env.DATABASE_NAME || 'consultpro_dev'}`);
-});
+// Start server only if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`ConsultPro Backend running on port ${PORT}`);
+    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`   Demo Mode: ${DEMO_MODE}`);
+    console.log(`   Database: ${process.env.DATABASE_NAME || 'consultpro_dev'}`);
+  });
+}
 
 module.exports = app;

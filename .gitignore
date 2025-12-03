@@ -10,6 +10,10 @@ build/
 .env
 .env.local
 .env.*.local
+.env.test
+
+# Uploads directory
+backend/uploads/
 
 # IDE
 .idea/

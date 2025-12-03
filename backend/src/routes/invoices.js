@@ -89,6 +89,28 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/invoices/aging - Get aging report (MUST BE BEFORE :id route)
+router.get('/aging', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+        SUM(CASE WHEN due_date >= CURRENT_DATE THEN total_amount - COALESCE(paid_amount, 0) ELSE 0 END) as current,
+        SUM(CASE WHEN due_date < CURRENT_DATE AND due_date >= CURRENT_DATE - 30 THEN total_amount - COALESCE(paid_amount, 0) ELSE 0 END) as overdue_1_30,
+        SUM(CASE WHEN due_date < CURRENT_DATE - 30 AND due_date >= CURRENT_DATE - 60 THEN total_amount - COALESCE(paid_amount, 0) ELSE 0 END) as overdue_31_60,
+        SUM(CASE WHEN due_date < CURRENT_DATE - 60 THEN total_amount - COALESCE(paid_amount, 0) ELSE 0 END) as overdue_over_60
+       FROM invoices
+       WHERE tenant_id = $1 AND status IN ('sent', 'overdue', 'partial') AND deleted_at IS NULL`,
+      [req.tenant_id]
+    );
+
+    res.json({ success: true, data: result.rows[0] });
+
+  } catch (error) {
+    console.error('Aging report error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch aging report' });
+  }
+});
+
 // GET /api/invoices/:id - Get invoice by ID
 router.get('/:id', async (req, res) => {
   try {

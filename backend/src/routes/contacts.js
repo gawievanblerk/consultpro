@@ -60,6 +60,62 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/contacts/export - Export contacts to CSV (MUST BE BEFORE :id route)
+router.get('/export', async (req, res) => {
+  try {
+    const { format = 'csv', client_id } = req.query;
+
+    let whereClause = 'WHERE ct.tenant_id = $1 AND ct.deleted_at IS NULL';
+    let params = [req.tenant_id];
+
+    if (client_id) {
+      whereClause += ' AND ct.client_id = $2';
+      params.push(client_id);
+    }
+
+    const result = await pool.query(
+      `SELECT ct.first_name, ct.last_name, ct.email, ct.phone, ct.mobile,
+              ct.job_title, ct.department, c.company_name as client_name,
+              ct.is_primary, ct.is_decision_maker
+       FROM contacts ct
+       LEFT JOIN clients c ON ct.client_id = c.id
+       ${whereClause}
+       ORDER BY ct.last_name, ct.first_name`,
+      params
+    );
+
+    if (format === 'csv') {
+      const headers = ['First Name', 'Last Name', 'Email', 'Phone', 'Mobile', 'Job Title', 'Department', 'Client', 'Primary', 'Decision Maker'];
+      const csvRows = [headers.join(',')];
+
+      for (const row of result.rows) {
+        csvRows.push([
+          row.first_name || '',
+          row.last_name || '',
+          row.email || '',
+          row.phone || '',
+          row.mobile || '',
+          row.job_title || '',
+          row.department || '',
+          row.client_name || '',
+          row.is_primary ? 'Yes' : 'No',
+          row.is_decision_maker ? 'Yes' : 'No'
+        ].map(v => `"${v}"`).join(','));
+      }
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=contacts.csv');
+      return res.send(csvRows.join('\n'));
+    }
+
+    res.json({ success: true, data: result.rows });
+
+  } catch (error) {
+    console.error('Export contacts error:', error);
+    res.status(500).json({ success: false, error: 'Failed to export contacts' });
+  }
+});
+
 // GET /api/contacts/:id - Get contact by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -88,8 +144,7 @@ router.post('/', async (req, res) => {
   try {
     const {
       client_id, first_name, last_name, job_title, department,
-      email, phone, mobile, linkedin_url,
-      is_primary, is_decision_maker, is_billing_contact, notes
+      email, phone, mobile, is_primary, is_decision_maker, notes
     } = req.body;
 
     if (!client_id || !first_name || !last_name) {
@@ -99,19 +154,29 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Validate client exists
+    const clientCheck = await pool.query(
+      'SELECT id FROM clients WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL',
+      [client_id, req.tenant_id]
+    );
+    if (clientCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Client not found'
+      });
+    }
+
     const id = uuidv4();
 
     const result = await pool.query(
       `INSERT INTO contacts (
         id, tenant_id, client_id, first_name, last_name, job_title, department,
-        email, phone, mobile, linkedin_url,
-        is_primary, is_decision_maker, is_billing_contact, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        email, phone, mobile, is_primary, is_decision_maker, notes, created_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`,
       [
         id, req.tenant_id, client_id, first_name, last_name, job_title, department,
-        email, phone, mobile, linkedin_url,
-        is_primary || false, is_decision_maker || false, is_billing_contact || false, notes
+        email, phone, mobile, is_primary || false, is_decision_maker || false, notes, req.user.id
       ]
     );
 
@@ -131,8 +196,8 @@ router.put('/:id', async (req, res) => {
 
     const allowedFields = [
       'first_name', 'last_name', 'job_title', 'department',
-      'email', 'phone', 'mobile', 'linkedin_url',
-      'is_primary', 'is_decision_maker', 'is_billing_contact', 'notes'
+      'email', 'phone', 'mobile',
+      'is_primary', 'is_decision_maker', 'notes'
     ];
 
     const updateFields = [];
