@@ -39,7 +39,7 @@ router.get('/', requireAdmin, async (req, res) => {
       FROM users
       WHERE tenant_id = $1 AND deleted_at IS NULL
     `;
-    const params = [req.tenantId];
+    const params = [req.tenant_id];
     let paramIndex = 2;
 
     if (search) {
@@ -111,7 +111,7 @@ router.get('/:id', requireAdmin, async (req, res) => {
               last_login, created_at, updated_at
        FROM users
        WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
-      [req.params.id, req.tenantId]
+      [req.params.id, req.tenant_id]
     );
 
     if (result.rows.length === 0) {
@@ -177,7 +177,7 @@ router.post('/', requireAdmin, async (req, res) => {
     // Check if email already exists in tenant
     const existingUser = await pool.query(
       'SELECT id FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
-      [email.toLowerCase().trim(), req.tenantId]
+      [email.toLowerCase().trim(), req.tenant_id]
     );
 
     if (existingUser.rows.length > 0) {
@@ -201,7 +201,7 @@ router.post('/', requireAdmin, async (req, res) => {
         firstName || '',
         lastName || '',
         role,
-        req.tenantId
+        req.tenant_id
       ]
     );
 
@@ -235,7 +235,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     // Check user exists and belongs to tenant
     const existingUser = await pool.query(
       'SELECT id, role FROM users WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL',
-      [req.params.id, req.tenantId]
+      [req.params.id, req.tenant_id]
     );
 
     if (existingUser.rows.length === 0) {
@@ -311,7 +311,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     updates.push(`updated_at = NOW()`);
 
     params.push(req.params.id);
-    params.push(req.tenantId);
+    params.push(req.tenant_id);
 
     const result = await pool.query(
       `UPDATE users
@@ -358,7 +358,7 @@ router.put('/:id/password', requireAdmin, async (req, res) => {
     // Check user exists and belongs to tenant
     const existingUser = await pool.query(
       'SELECT id FROM users WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL',
-      [req.params.id, req.tenantId]
+      [req.params.id, req.tenant_id]
     );
 
     if (existingUser.rows.length === 0) {
@@ -374,7 +374,7 @@ router.put('/:id/password', requireAdmin, async (req, res) => {
     await pool.query(
       `UPDATE users SET password_hash = $1, updated_at = NOW()
        WHERE id = $2 AND tenant_id = $3`,
-      [passwordHash, req.params.id, req.tenantId]
+      [passwordHash, req.params.id, req.tenant_id]
     );
 
     res.json({
@@ -404,7 +404,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     // Check user exists and belongs to tenant
     const existingUser = await pool.query(
       'SELECT id FROM users WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL',
-      [req.params.id, req.tenantId]
+      [req.params.id, req.tenant_id]
     );
 
     if (existingUser.rows.length === 0) {
@@ -418,7 +418,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     await pool.query(
       `UPDATE users SET deleted_at = NOW(), is_active = false, updated_at = NOW()
        WHERE id = $1 AND tenant_id = $2`,
-      [req.params.id, req.tenantId]
+      [req.params.id, req.tenant_id]
     );
 
     res.json({
@@ -474,7 +474,7 @@ router.post('/invite', requireAdmin, async (req, res) => {
     // Check if email already exists as a user
     const existingUser = await pool.query(
       'SELECT id FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
-      [email.toLowerCase().trim(), req.tenantId]
+      [email.toLowerCase().trim(), req.tenant_id]
     );
 
     if (existingUser.rows.length > 0) {
@@ -488,7 +488,7 @@ router.post('/invite', requireAdmin, async (req, res) => {
     const existingInvite = await pool.query(
       `SELECT id FROM user_invites
        WHERE email = $1 AND tenant_id = $2 AND accepted_at IS NULL AND expires_at > NOW()`,
-      [email.toLowerCase().trim(), req.tenantId]
+      [email.toLowerCase().trim(), req.tenant_id]
     );
 
     if (existingInvite.rows.length > 0) {
@@ -501,7 +501,7 @@ router.post('/invite', requireAdmin, async (req, res) => {
     // Get tenant info and inviter name
     const tenantResult = await pool.query(
       'SELECT name FROM tenants WHERE id = $1',
-      [req.tenantId]
+      [req.tenant_id]
     );
     const organizationName = tenantResult.rows[0]?.name || 'ConsultPro';
 
@@ -518,7 +518,7 @@ router.post('/invite', requireAdmin, async (req, res) => {
       `INSERT INTO user_invites (tenant_id, email, role, token, invited_by, expires_at)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, email, role, expires_at, created_at`,
-      [req.tenantId, email.toLowerCase().trim(), role, token, req.user.id, expiresAt]
+      [req.tenant_id, email.toLowerCase().trim(), role, token, req.user.id, expiresAt]
     );
 
     // Send invitation email
@@ -565,7 +565,7 @@ router.get('/invites', requireAdmin, async (req, res) => {
        LEFT JOIN users u ON ui.invited_by = u.id
        WHERE ui.tenant_id = $1 AND ui.accepted_at IS NULL
        ORDER BY ui.created_at DESC`,
-      [req.tenantId]
+      [req.tenant_id]
     );
 
     res.json({
@@ -597,7 +597,7 @@ router.delete('/invites/:id', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       'DELETE FROM user_invites WHERE id = $1 AND tenant_id = $2 RETURNING id',
-      [req.params.id, req.tenantId]
+      [req.params.id, req.tenant_id]
     );
 
     if (result.rows.length === 0) {
@@ -630,7 +630,7 @@ router.post('/invites/:id/resend', requireAdmin, async (req, res) => {
        FROM user_invites ui
        JOIN tenants t ON ui.tenant_id = t.id
        WHERE ui.id = $1 AND ui.tenant_id = $2 AND ui.accepted_at IS NULL`,
-      [req.params.id, req.tenantId]
+      [req.params.id, req.tenant_id]
     );
 
     if (inviteResult.rows.length === 0) {
