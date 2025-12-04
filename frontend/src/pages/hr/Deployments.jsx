@@ -162,8 +162,8 @@ function Deployments() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-700"></div>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="table">
+        <div className="card overflow-x-auto">
+          <table className="table min-w-full">
             <thead>
               <tr>
                 <th>Staff</th>
