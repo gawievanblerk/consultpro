@@ -26,6 +26,10 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: noreply@consultpro.rozitech.com
 
   # Frontend Static Site
   - type: web

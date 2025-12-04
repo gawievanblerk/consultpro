@@ -2,19 +2,53 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import {
   BuildingOfficeIcon,
   UsersIcon,
-  DocumentTextIcon,
   BanknotesIcon,
   ChartBarIcon,
   ArrowTrendingUpIcon,
   ClockIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 function Dashboard() {
   const [stats, setStats] = useState(null);
   const [recentTasks, setRecentTasks] = useState([]);
+  const [pipelineData, setPipelineData] = useState([]);
+  const [revenueTrend, setRevenueTrend] = useState([]);
+  const [clientBreakdown, setClientBreakdown] = useState([]);
+  const [staffUtilization, setStaffUtilization] = useState(null);
+  const [invoiceAging, setInvoiceAging] = useState(null);
+  const [taskStatus, setTaskStatus] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,17 +57,34 @@ function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [statsRes, tasksRes] = await Promise.all([
+      const [
+        statsRes,
+        tasksRes,
+        pipelineRes,
+        revenueTrendRes,
+        clientBreakdownRes,
+        staffUtilRes,
+        agingRes,
+        taskStatusRes
+      ] = await Promise.all([
         api.get('/api/dashboard/stats'),
-        api.get('/api/tasks/my')
+        api.get('/api/tasks/my'),
+        api.get('/api/dashboard/pipeline-summary'),
+        api.get('/api/dashboard/revenue-trend'),
+        api.get('/api/dashboard/client-breakdown'),
+        api.get('/api/dashboard/staff-utilization'),
+        api.get('/api/dashboard/invoice-aging'),
+        api.get('/api/dashboard/task-status')
       ]);
 
-      if (statsRes.data.success) {
-        setStats(statsRes.data.data);
-      }
-      if (tasksRes.data.success) {
-        setRecentTasks(tasksRes.data.data.slice(0, 5));
-      }
+      if (statsRes.data.success) setStats(statsRes.data.data);
+      if (tasksRes.data.success) setRecentTasks(tasksRes.data.data.slice(0, 5));
+      if (pipelineRes.data.success) setPipelineData(pipelineRes.data.data);
+      if (revenueTrendRes.data.success) setRevenueTrend(revenueTrendRes.data.data);
+      if (clientBreakdownRes.data.success) setClientBreakdown(clientBreakdownRes.data.data);
+      if (staffUtilRes.data.success) setStaffUtilization(staffUtilRes.data.data);
+      if (agingRes.data.success) setInvoiceAging(agingRes.data.data);
+      if (taskStatusRes.data.success) setTaskStatus(taskStatusRes.data.data);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
@@ -57,31 +108,99 @@ function Dashboard() {
     );
   }
 
+  // Chart configurations
+  const revenueChartData = {
+    labels: revenueTrend.map(r => r.month),
+    datasets: [{
+      label: 'Revenue',
+      data: revenueTrend.map(r => r.revenue),
+      borderColor: '#0d2865',
+      backgroundColor: 'rgba(13, 40, 101, 0.1)',
+      fill: true,
+      tension: 0.4
+    }]
+  };
+
+  const revenueChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (context) => formatCurrency(context.raw)
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: (value) => formatCurrency(value)
+        }
+      }
+    }
+  };
+
+  const pipelineChartData = {
+    labels: pipelineData.map(p => p.stage),
+    datasets: [{
+      label: 'Leads',
+      data: pipelineData.map(p => parseInt(p.count)),
+      backgroundColor: ['#0d2865', '#1e40af', '#3b82f6', '#60a5fa', '#93c5fd']
+    }]
+  };
+
+  const pipelineChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: 'y',
+    plugins: { legend: { display: false } }
+  };
+
+  const clientChartData = {
+    labels: clientBreakdown.map(c => c.tier.charAt(0).toUpperCase() + c.tier.slice(1)),
+    datasets: [{
+      data: clientBreakdown.map(c => c.count),
+      backgroundColor: ['#0d2865', '#41d8d1', '#f59e0b', '#ef4444', '#8b5cf6']
+    }]
+  };
+
+  const taskChartData = {
+    labels: taskStatus.map(t => t.status.charAt(0).toUpperCase() + t.status.slice(1).replace('_', ' ')),
+    datasets: [{
+      data: taskStatus.map(t => t.count),
+      backgroundColor: ['#fbbf24', '#3b82f6', '#22c55e', '#ef4444']
+    }]
+  };
+
   const statCards = [
     {
       name: 'Active Clients',
       value: stats?.clients?.active || 0,
+      total: stats?.clients?.total || 0,
       icon: BuildingOfficeIcon,
       color: 'bg-blue-500',
       href: '/clients'
     },
     {
-      name: 'Active Leads',
-      value: stats?.leads?.active || 0,
+      name: 'Open Leads',
+      value: stats?.leads?.open || 0,
       icon: UsersIcon,
       color: 'bg-green-500',
       href: '/leads'
     },
     {
-      name: 'Deployed Staff',
-      value: stats?.staff?.deployed || 0,
+      name: 'Staff Deployed',
+      value: staffUtilization?.deployed || 0,
+      subtext: `${staffUtilization?.utilizationRate || 0}% utilization`,
       icon: UsersIcon,
       color: 'bg-purple-500',
-      href: '/deployments'
+      href: '/staff'
     },
     {
-      name: 'Outstanding Revenue',
-      value: formatCurrency(stats?.finance?.outstanding),
+      name: 'Outstanding',
+      value: formatCurrency(stats?.invoices?.pendingAmount),
       icon: BanknotesIcon,
       color: 'bg-accent-500',
       href: '/invoices'
@@ -92,7 +211,7 @@ function Dashboard() {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Executive Dashboard</h1>
         <p className="mt-1 text-sm text-gray-500">
           Overview of your consulting operations
         </p>
@@ -114,6 +233,12 @@ function Dashboard() {
                 <div className="ml-4 flex-1">
                   <p className="text-sm font-medium text-gray-500">{stat.name}</p>
                   <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+                  {stat.subtext && (
+                    <p className="text-xs text-gray-400">{stat.subtext}</p>
+                  )}
+                  {stat.total && (
+                    <p className="text-xs text-gray-400">of {stat.total} total</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -121,53 +246,170 @@ function Dashboard() {
         ))}
       </div>
 
-      {/* Two column layout */}
+      {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pipeline summary */}
+        {/* Revenue Trend */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <ArrowTrendingUpIcon className="h-5 w-5 mr-2 text-accent-500" />
+              Revenue Trend (6 Months)
+            </h2>
+          </div>
+          <div className="card-body">
+            <div className="h-64">
+              <Line data={revenueChartData} options={revenueChartOptions} />
+            </div>
+          </div>
+        </div>
+
+        {/* Pipeline Funnel */}
         <div className="card">
           <div className="card-header">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">
               <ChartBarIcon className="h-5 w-5 mr-2 text-accent-500" />
-              Sales Pipeline
+              Pipeline Funnel
             </h2>
           </div>
           <div className="card-body">
-            <div className="space-y-4">
-              {stats?.pipeline?.map((stage, index) => (
-                <div key={index} className="flex items-center">
-                  <div className="flex-1">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span className="font-medium text-gray-700">{stage.name}</span>
-                      <span className="text-gray-500">{stage.count} leads</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-accent-500 h-2 rounded-full"
-                        style={{ width: `${(stage.count / (stats.leads?.total || 1)) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="ml-4 text-right">
-                    <span className="text-sm font-medium text-gray-900">
-                      {formatCurrency(stage.value)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {(!stats?.pipeline || stats.pipeline.length === 0) && (
-                <p className="text-center text-gray-500 py-4">No pipeline data available</p>
+            <div className="h-64">
+              {pipelineData.length > 0 ? (
+                <Bar data={pipelineChartData} options={pipelineChartOptions} />
+              ) : (
+                <p className="text-center text-gray-500 py-8">No pipeline data</p>
               )}
             </div>
             <Link
               to="/pipeline"
-              className="mt-4 block text-center text-sm text-primary-900 hover:text-primary-700"
+              className="mt-2 block text-center text-sm text-primary-900 hover:text-primary-700"
             >
               View full pipeline
             </Link>
           </div>
         </div>
+      </div>
 
-        {/* Recent tasks */}
+      {/* Charts Row 2 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Client Distribution */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-gray-900">Client Distribution</h2>
+          </div>
+          <div className="card-body">
+            <div className="h-48">
+              {clientBreakdown.length > 0 ? (
+                <Doughnut data={clientChartData} options={{ maintainAspectRatio: false }} />
+              ) : (
+                <p className="text-center text-gray-500 py-8">No client data</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Task Status */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-gray-900">Task Status</h2>
+          </div>
+          <div className="card-body">
+            <div className="h-48">
+              {taskStatus.length > 0 ? (
+                <Doughnut data={taskChartData} options={{ maintainAspectRatio: false }} />
+              ) : (
+                <p className="text-center text-gray-500 py-8">No task data</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Staff Utilization */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-gray-900">Staff Utilization</h2>
+          </div>
+          <div className="card-body">
+            <div className="space-y-4">
+              <div className="text-center">
+                <p className="text-4xl font-bold text-primary-900">
+                  {staffUtilization?.utilizationRate || 0}%
+                </p>
+                <p className="text-sm text-gray-500">Utilization Rate</p>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-4">
+                <div
+                  className="bg-accent-500 h-4 rounded-full transition-all"
+                  style={{ width: `${staffUtilization?.utilizationRate || 0}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-green-600">{staffUtilization?.deployed || 0} Deployed</span>
+                <span className="text-gray-500">{staffUtilization?.available || 0} Available</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Invoice Aging */}
+        <div className="card">
+          <div className="card-header">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <ExclamationTriangleIcon className="h-5 w-5 mr-2 text-warning-500" />
+              Invoice Aging
+            </h2>
+          </div>
+          <div className="card-body">
+            <div className="grid grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-green-50 rounded-lg">
+                <p className="text-xs text-green-700">Current</p>
+                <p className="text-lg font-semibold text-green-700">
+                  {invoiceAging?.current?.count || 0}
+                </p>
+                <p className="text-xs text-green-600">
+                  {formatCurrency(invoiceAging?.current?.amount)}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                <p className="text-xs text-yellow-700">1-30 Days</p>
+                <p className="text-lg font-semibold text-yellow-700">
+                  {invoiceAging?.['1-30']?.count || 0}
+                </p>
+                <p className="text-xs text-yellow-600">
+                  {formatCurrency(invoiceAging?.['1-30']?.amount)}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-orange-50 rounded-lg">
+                <p className="text-xs text-orange-700">31-60 Days</p>
+                <p className="text-lg font-semibold text-orange-700">
+                  {invoiceAging?.['31-60']?.count || 0}
+                </p>
+                <p className="text-xs text-orange-600">
+                  {formatCurrency(invoiceAging?.['31-60']?.amount)}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-red-50 rounded-lg">
+                <p className="text-xs text-red-700">60+ Days</p>
+                <p className="text-lg font-semibold text-red-700">
+                  {invoiceAging?.['60+']?.count || 0}
+                </p>
+                <p className="text-xs text-red-600">
+                  {formatCurrency(invoiceAging?.['60+']?.amount)}
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/invoices"
+              className="mt-4 block text-center text-sm text-primary-900 hover:text-primary-700"
+            >
+              View all invoices
+            </Link>
+          </div>
+        </div>
+
+        {/* My Tasks */}
         <div className="card">
           <div className="card-header">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -217,44 +459,6 @@ function Dashboard() {
             >
               View all tasks
             </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Revenue summary */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-            <ArrowTrendingUpIcon className="h-5 w-5 mr-2 text-accent-500" />
-            Revenue Summary
-          </h2>
-        </div>
-        <div className="card-body">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">This Month</p>
-              <p className="text-xl font-semibold text-gray-900">
-                {formatCurrency(stats?.finance?.this_month)}
-              </p>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Last Month</p>
-              <p className="text-xl font-semibold text-gray-900">
-                {formatCurrency(stats?.finance?.last_month)}
-              </p>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">YTD Revenue</p>
-              <p className="text-xl font-semibold text-gray-900">
-                {formatCurrency(stats?.finance?.ytd)}
-              </p>
-            </div>
-            <div className="text-center p-4 bg-success-50 rounded-lg">
-              <p className="text-sm text-success-700">Collection Rate</p>
-              <p className="text-xl font-semibold text-success-700">
-                {stats?.finance?.collection_rate || 0}%
-              </p>
-            </div>
           </div>
         </div>
       </div>
