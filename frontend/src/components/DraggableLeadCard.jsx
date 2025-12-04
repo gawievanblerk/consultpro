@@ -15,9 +15,21 @@ function DraggableLeadCard({ lead, formatCurrency }) {
 
   const style = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0 : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
   };
+
+  // Hide original card completely when dragging (DragOverlay shows the visual)
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={{ opacity: 0, height: '80px' }}
+        {...listeners}
+        {...attributes}
+      />
+    );
+  }
 
   return (
     <div
