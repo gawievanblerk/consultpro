@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
-import { PlusIcon, BriefcaseIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, BriefcaseIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Engagements() {
   const [engagements, setEngagements] = useState([]);
@@ -151,7 +151,11 @@ function Engagements() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {engagements.map((engagement) => (
-            <div key={engagement.id} className="card hover:shadow-md transition-shadow">
+            <div
+              key={engagement.id}
+              className="card hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => handleOpenModal(engagement)}
+            >
               <div className="p-5">
                 <div className="flex items-start justify-between mb-3">
                   <div className="h-10 w-10 bg-primary-100 rounded-lg flex items-center justify-center">
@@ -159,10 +163,10 @@ function Engagements() {
                   </div>
                   <div className="flex items-center gap-2">
                     {getStatusBadge(engagement.status)}
-                    <button onClick={() => handleOpenModal(engagement)} className="p-1 text-gray-500 hover:text-primary-700">
-                      <PencilIcon className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => handleDelete(engagement.id)} className="p-1 text-gray-500 hover:text-red-600">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(engagement.id); }}
+                      className="p-1 text-gray-500 hover:text-red-600"
+                    >
                       <TrashIcon className="h-4 w-4" />
                     </button>
                   </div>

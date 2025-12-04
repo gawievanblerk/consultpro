@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
-import { PlusIcon, ClipboardDocumentListIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ClipboardDocumentListIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Deployments() {
   const [deployments, setDeployments] = useState([]);
@@ -177,7 +177,11 @@ function Deployments() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {deployments.map((deployment) => (
-                <tr key={deployment.id}>
+                <tr
+                  key={deployment.id}
+                  onClick={() => handleOpenModal(deployment)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <td>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-primary-100 rounded-lg flex items-center justify-center">
@@ -199,14 +203,12 @@ function Deployments() {
                   </td>
                   <td className="font-medium">{formatCurrency(deployment.billing_rate)}/{deployment.billing_type}</td>
                   <td>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleOpenModal(deployment)} className="p-1 text-gray-500 hover:text-primary-700">
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleDelete(deployment.id)} className="p-1 text-gray-500 hover:text-red-600">
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(deployment.id); }}
+                      className="p-1 text-gray-500 hover:text-red-600"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}

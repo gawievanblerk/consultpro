@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
-import { PlusIcon, MagnifyingGlassIcon, UserIcon, PencilIcon, TrashIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, UserIcon, TrashIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 
 // Badge helper for system role
 const getRoleBadge = (role) => {
@@ -223,7 +223,11 @@ function Staff() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredStaff.map((person) => (
-            <div key={person.id} className="card hover:shadow-md transition-shadow">
+            <div
+              key={person.id}
+              className="card hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => handleOpenModal(person)}
+            >
               <div className="p-5">
                 <div className="flex items-start">
                   <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
@@ -251,7 +255,7 @@ function Staff() {
                   <div className="flex items-center gap-1">
                     {person.email && !person.user_id && (
                       <button
-                        onClick={() => handleInvite(person)}
+                        onClick={(e) => { e.stopPropagation(); handleInvite(person); }}
                         disabled={inviting === person.id}
                         className="p-1 text-gray-500 hover:text-green-600 disabled:opacity-50"
                         title="Invite to create user account"
@@ -259,10 +263,10 @@ function Staff() {
                         <EnvelopeIcon className="h-4 w-4" />
                       </button>
                     )}
-                    <button onClick={() => handleOpenModal(person)} className="p-1 text-gray-500 hover:text-primary-700">
-                      <PencilIcon className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => handleDelete(person.id)} className="p-1 text-gray-500 hover:text-red-600">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(person.id); }}
+                      className="p-1 text-gray-500 hover:text-red-600"
+                    >
                       <TrashIcon className="h-4 w-4" />
                     </button>
                   </div>

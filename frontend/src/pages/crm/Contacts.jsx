@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
-import { PlusIcon, MagnifyingGlassIcon, UserIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, UserIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Contacts() {
   const [contacts, setContacts] = useState([]);
@@ -170,7 +170,11 @@ function Contacts() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredContacts.map((contact) => (
-                <tr key={contact.id}>
+                <tr
+                  key={contact.id}
+                  onClick={() => handleOpenModal(contact)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <td>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-accent-100 rounded-full flex items-center justify-center">
@@ -189,14 +193,12 @@ function Contacts() {
                   <td>{contact.email || '-'}</td>
                   <td>{contact.phone || '-'}</td>
                   <td>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleOpenModal(contact)} className="p-1 text-gray-500 hover:text-primary-700">
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleDelete(contact.id)} className="p-1 text-gray-500 hover:text-red-600">
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(contact.id); }}
+                      className="p-1 text-gray-500 hover:text-red-600"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}

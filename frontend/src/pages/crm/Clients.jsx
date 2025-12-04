@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
-import { PlusIcon, MagnifyingGlassIcon, BuildingOfficeIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, BuildingOfficeIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Clients() {
   const [clients, setClients] = useState([]);
@@ -191,9 +191,13 @@ function Clients() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredClients.map((client) => (
-                <tr key={client.id}>
+                <tr
+                  key={client.id}
+                  onClick={() => handleOpenModal(client)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <td>
-                    <Link to={`/clients/${client.id}`} className="flex items-center hover:text-primary-700">
+                    <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-primary-100 rounded-lg flex items-center justify-center">
                         <BuildingOfficeIcon className="h-5 w-5 text-primary-700" />
                       </div>
@@ -201,21 +205,19 @@ function Clients() {
                         <p className="font-medium">{client.company_name}</p>
                         {client.rc_number && <p className="text-xs text-gray-500">RC: {client.rc_number}</p>}
                       </div>
-                    </Link>
+                    </div>
                   </td>
                   <td>{client.industry || '-'}</td>
                   <td>{getStatusBadge(client.client_type)}</td>
                   <td>{client.city || '-'}</td>
                   <td>{client.email || '-'}</td>
                   <td>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleOpenModal(client)} className="p-1 text-gray-500 hover:text-primary-700">
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleDelete(client.id)} className="p-1 text-gray-500 hover:text-red-600">
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(client.id); }}
+                      className="p-1 text-gray-500 hover:text-red-600"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}

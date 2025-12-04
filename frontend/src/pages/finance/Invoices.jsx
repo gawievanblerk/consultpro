@@ -4,7 +4,6 @@ import Modal from '../../components/Modal';
 import {
   PlusIcon,
   DocumentTextIcon,
-  PencilIcon,
   TrashIcon,
   DocumentArrowDownIcon,
   EnvelopeIcon
@@ -334,7 +333,11 @@ function Invoices() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {invoices.map((invoice) => (
-                <tr key={invoice.id}>
+                <tr
+                  key={invoice.id}
+                  onClick={() => handleOpenModal(invoice)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <td>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-primary-100 rounded-lg flex items-center justify-center">
@@ -358,28 +361,21 @@ function Invoices() {
                   <td>
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => handleOpenModal(invoice)}
-                        className="p-1 text-gray-500 hover:text-primary-700"
-                        title="Edit"
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDownloadPdf(invoice)}
+                        onClick={(e) => { e.stopPropagation(); handleDownloadPdf(invoice); }}
                         className="p-1 text-gray-500 hover:text-accent-600"
                         title="Download PDF"
                       >
                         <DocumentArrowDownIcon className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleSendEmail(invoice)}
+                        onClick={(e) => { e.stopPropagation(); handleSendEmail(invoice); }}
                         className="p-1 text-gray-500 hover:text-green-600"
                         title="Send Email"
                       >
                         <EnvelopeIcon className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(invoice.id)}
+                        onClick={(e) => { e.stopPropagation(); handleDelete(invoice.id); }}
                         className="p-1 text-gray-500 hover:text-red-600"
                         title="Delete"
                       >
