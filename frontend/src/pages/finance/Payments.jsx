@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
-import { PlusIcon, BanknotesIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, BanknotesIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Payments() {
   const [payments, setPayments] = useState([]);
@@ -149,7 +149,11 @@ function Payments() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {payments.map((payment) => (
-                <tr key={payment.id}>
+                <tr
+                  key={payment.id}
+                  onClick={() => handleOpenModal(payment)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <td>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-green-50 rounded-lg flex items-center justify-center">
@@ -166,14 +170,12 @@ function Payments() {
                   <td>{payment.reference_number || '-'}</td>
                   <td className="font-semibold text-green-700">{formatCurrency(payment.amount)}</td>
                   <td>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleOpenModal(payment)} className="p-1 text-gray-500 hover:text-primary-700">
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleDelete(payment.id)} className="p-1 text-gray-500 hover:text-red-600">
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(payment.id); }}
+                      className="p-1 text-gray-500 hover:text-red-600"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}

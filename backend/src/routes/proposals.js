@@ -78,6 +78,24 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/proposals/templates - Get proposal templates (MUST BE BEFORE :id)
+router.get('/templates', async (req, res) => {
+  try {
+    // Return a list of templates (could be from a templates table or static list)
+    const templates = [
+      { id: 'consulting', name: 'Consulting Proposal', description: 'Standard consulting services proposal' },
+      { id: 'hr-outsourcing', name: 'HR Outsourcing Proposal', description: 'HR outsourcing services proposal' },
+      { id: 'recruitment', name: 'Recruitment Proposal', description: 'Recruitment services proposal' }
+    ];
+
+    res.json({ success: true, data: templates });
+
+  } catch (error) {
+    console.error('Get templates error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch templates' });
+  }
+});
+
 // GET /api/proposals/:id - Get proposal by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -105,14 +123,14 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
-      lead_id, client_id, title, description, services,
+      lead_id, opportunity_id, client_id, title, description,
       total_value, valid_until, terms, notes
     } = req.body;
 
-    if (!title || (!lead_id && !client_id)) {
+    if (!title || (!lead_id && !client_id && !opportunity_id)) {
       return res.status(400).json({
         success: false,
-        error: 'Title and either lead or client is required'
+        error: 'Title and either lead, opportunity, or client is required'
       });
     }
 
@@ -121,13 +139,13 @@ router.post('/', async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO proposals (
-        id, tenant_id, proposal_number, lead_id, client_id, title, description,
-        services, total_value, valid_until, terms, notes, status, created_by
+        id, tenant_id, proposal_number, lead_id, opportunity_id, client_id, title, description,
+        total_value, valid_until, terms, notes, status, created_by
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'draft', $13)
       RETURNING *`,
       [
-        id, req.tenant_id, proposal_number, lead_id, client_id, title, description,
-        JSON.stringify(services || []), total_value, valid_until, terms, notes, req.user.id
+        id, req.tenant_id, proposal_number, lead_id, opportunity_id, client_id, title, description,
+        total_value, valid_until, terms, notes, req.user.id
       ]
     );
 
@@ -146,7 +164,7 @@ router.put('/:id', async (req, res) => {
     const updates = req.body;
 
     const allowedFields = [
-      'title', 'description', 'services', 'total_value',
+      'title', 'description', 'total_value',
       'valid_until', 'terms', 'notes', 'status'
     ];
 
@@ -156,13 +174,8 @@ router.put('/:id', async (req, res) => {
 
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
-        if (field === 'services') {
-          updateFields.push(`${field} = $${paramIndex}::jsonb`);
-          values.push(JSON.stringify(updates[field]));
-        } else {
-          updateFields.push(`${field} = $${paramIndex}`);
-          values.push(updates[field]);
-        }
+        updateFields.push(`${field} = $${paramIndex}`);
+        values.push(updates[field]);
         paramIndex++;
       }
     }

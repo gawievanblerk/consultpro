@@ -11,11 +11,11 @@ router.get('/stages', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT ps.*,
-        (SELECT COUNT(*) FROM leads WHERE stage_id = ps.id AND deleted_at IS NULL) as lead_count,
-        (SELECT COALESCE(SUM(estimated_value), 0) FROM leads WHERE stage_id = ps.id AND deleted_at IS NULL) as total_value
+        (SELECT COUNT(*) FROM leads WHERE pipeline_stage_id = ps.id AND deleted_at IS NULL) as lead_count,
+        (SELECT COALESCE(SUM(estimated_value), 0) FROM leads WHERE pipeline_stage_id = ps.id AND deleted_at IS NULL) as total_value
        FROM pipeline_stages ps
        WHERE ps.tenant_id = $1 AND ps.is_active = true
-       ORDER BY ps.order_index`,
+       ORDER BY ps.position`,
       [req.tenant_id]
     );
 
@@ -36,19 +36,19 @@ router.post('/stages', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Stage name is required' });
     }
 
-    // Get next order index
+    // Get next position
     const orderResult = await pool.query(
-      'SELECT COALESCE(MAX(order_index), 0) + 1 as next_order FROM pipeline_stages WHERE tenant_id = $1',
+      'SELECT COALESCE(MAX(position), 0) + 1 as next_order FROM pipeline_stages WHERE tenant_id = $1',
       [req.tenant_id]
     );
 
     const id = uuidv4();
 
     const result = await pool.query(
-      `INSERT INTO pipeline_stages (id, tenant_id, name, description, probability, color, order_index)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO pipeline_stages (id, tenant_id, name, description, probability, position)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [id, req.tenant_id, name, description, probability || 50, color || '#3B82F6', orderResult.rows[0].next_order]
+      [id, req.tenant_id, name, description, probability || 50, orderResult.rows[0].next_order]
     );
 
     res.status(201).json({ success: true, data: result.rows[0] });
@@ -59,23 +59,54 @@ router.post('/stages', async (req, res) => {
   }
 });
 
+// PUT /api/pipeline/stages/reorder - Reorder pipeline stages (MUST BE BEFORE :id)
+router.put('/stages/reorder', async (req, res) => {
+  try {
+    const { stages } = req.body;
+
+    if (!stages || !Array.isArray(stages)) {
+      return res.status(400).json({ success: false, error: 'Stages array is required' });
+    }
+
+    // Update each stage's position
+    for (const stage of stages) {
+      await pool.query(
+        `UPDATE pipeline_stages SET position = $3, updated_at = NOW()
+         WHERE id = $1 AND tenant_id = $2`,
+        [stage.id, req.tenant_id, stage.order || stage.position]
+      );
+    }
+
+    // Return updated stages
+    const result = await pool.query(
+      `SELECT * FROM pipeline_stages WHERE tenant_id = $1 ORDER BY position`,
+      [req.tenant_id]
+    );
+
+    res.json({ success: true, data: result.rows });
+
+  } catch (error) {
+    console.error('Reorder pipeline stages error:', error);
+    res.status(500).json({ success: false, error: 'Failed to reorder stages' });
+  }
+});
+
 // PUT /api/pipeline/stages/:id - Update pipeline stage
 router.put('/stages/:id', async (req, res) => {
   try {
-    const { name, description, probability, color, order_index, is_active } = req.body;
+    const { name, description, probability, position, is_active } = req.body;
 
     const result = await pool.query(
       `UPDATE pipeline_stages
        SET name = COALESCE($3, name),
            description = COALESCE($4, description),
            probability = COALESCE($5, probability),
-           color = COALESCE($6, color),
-           order_index = COALESCE($7, order_index),
-           is_active = COALESCE($8, is_active),
+           position = COALESCE($6, position),
+           is_active = COALESCE($7, is_active),
            updated_at = NOW()
        WHERE id = $1 AND tenant_id = $2
        RETURNING *`,
-      [req.params.id, req.tenant_id, name, description, probability, color, order_index, is_active]
+      [req.params.id, req.tenant_id, name, description, probability, position, is_active]
     );
 
     if (result.rows.length === 0) {
@@ -98,14 +129,14 @@ router.get('/board', async (req, res) => {
       `SELECT ps.*
        FROM pipeline_stages ps
        WHERE ps.tenant_id = $1 AND ps.is_active = true
-       ORDER BY ps.order_index`,
+       ORDER BY ps.position`,
       [req.tenant_id]
     );
 
     const leads = await pool.query(
       `SELECT l.*, ps.name as stage_name
        FROM leads l
-       LEFT JOIN pipeline_stages ps ON l.stage_id = ps.id
+       LEFT JOIN pipeline_stages ps ON l.pipeline_stage_id = ps.id
        WHERE l.tenant_id = $1 AND l.deleted_at IS NULL AND l.status NOT IN ('won', 'lost')
        ORDER BY l.created_at DESC`,
       [req.tenant_id]
@@ -114,7 +145,7 @@ router.get('/board', async (req, res) => {
     // Group leads by stage
     const board = stages.rows.map(stage => ({
       ...stage,
-      leads: leads.rows.filter(lead => lead.stage_id === stage.id)
+      leads: leads.rows.filter(lead => lead.pipeline_stage_id === stage.id)
     }));
 
     res.json({ success: true, data: board });
@@ -136,10 +167,10 @@ router.get('/forecast', async (req, res) => {
         COALESCE(SUM(l.estimated_value), 0) as total_value,
         COALESCE(SUM(l.estimated_value * ps.probability / 100), 0) as weighted_value
        FROM pipeline_stages ps
-       LEFT JOIN leads l ON l.stage_id = ps.id AND l.tenant_id = $1 AND l.deleted_at IS NULL AND l.status NOT IN ('won', 'lost')
+       LEFT JOIN leads l ON l.pipeline_stage_id = ps.id AND l.tenant_id = $1 AND l.deleted_at IS NULL AND l.status NOT IN ('won', 'lost')
        WHERE ps.tenant_id = $1 AND ps.is_active = true
-       GROUP BY ps.id, ps.name, ps.probability, ps.order_index
-       ORDER BY ps.order_index`,
+       GROUP BY ps.id, ps.name, ps.probability, ps.position
+       ORDER BY ps.position`,
       [req.tenant_id]
     );
 

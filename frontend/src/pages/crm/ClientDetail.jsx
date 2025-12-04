@@ -1,12 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../utils/api';
+import Modal from '../../components/Modal';
 import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
 
 function ClientDetail() {
   const { id } = useParams();
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    company_name: '',
+    industry: '',
+    email: '',
+    phone: '',
+    website: '',
+    address_line1: '',
+    city: '',
+    state: '',
+    tin: '',
+    rc_number: '',
+    client_type: 'prospect',
+    client_tier: '',
+    payment_terms: 30
+  });
 
   useEffect(() => {
     fetchClient();
@@ -22,6 +40,44 @@ function ClientDetail() {
       console.error('Failed to fetch client:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenModal = () => {
+    setFormData({
+      company_name: client.company_name || '',
+      industry: client.industry || '',
+      email: client.email || '',
+      phone: client.phone || '',
+      website: client.website || '',
+      address_line1: client.address_line1 || '',
+      city: client.city || '',
+      state: client.state || '',
+      tin: client.tin || '',
+      rc_number: client.rc_number || '',
+      client_type: client.client_type || 'prospect',
+      client_tier: client.client_tier || '',
+      payment_terms: client.payment_terms || 30
+    });
+    setModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await api.put(`/api/clients/${id}`, formData);
+      await fetchClient();
+      handleCloseModal();
+    } catch (error) {
+      console.error('Failed to update client:', error);
+      alert('Failed to update client');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -56,7 +112,7 @@ function ClientDetail() {
             <p className="text-sm text-gray-500">{client.industry}</p>
           </div>
         </div>
-        <button className="btn-secondary">
+        <button onClick={handleOpenModal} className="btn-secondary">
           <PencilIcon className="h-4 w-4 mr-2" />
           Edit
         </button>
@@ -136,6 +192,146 @@ function ClientDetail() {
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      <Modal isOpen={modalOpen} onClose={handleCloseModal} title="Edit Client" size="lg">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="form-label">Company Name *</label>
+              <input
+                type="text"
+                required
+                value={formData.company_name}
+                onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Industry</label>
+              <input
+                type="text"
+                value={formData.industry}
+                onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Client Type</label>
+              <select
+                value={formData.client_type}
+                onChange={(e) => setFormData({ ...formData, client_type: e.target.value })}
+                className="form-input"
+              >
+                <option value="prospect">Prospect</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <div>
+              <label className="form-label">Client Tier</label>
+              <select
+                value={formData.client_tier}
+                onChange={(e) => setFormData({ ...formData, client_tier: e.target.value })}
+                className="form-input"
+              >
+                <option value="">Select tier</option>
+                <option value="enterprise">Enterprise</option>
+                <option value="mid-market">Mid-Market</option>
+                <option value="sme">SME</option>
+              </select>
+            </div>
+            <div>
+              <label className="form-label">Payment Terms (days)</label>
+              <input
+                type="number"
+                value={formData.payment_terms}
+                onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Phone</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">Website</label>
+              <input
+                type="text"
+                value={formData.website}
+                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="form-label">Address</label>
+              <input
+                type="text"
+                value={formData.address_line1}
+                onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
+                className="form-input"
+                placeholder="Street address"
+              />
+            </div>
+            <div>
+              <label className="form-label">City</label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">State</label>
+              <input
+                type="text"
+                value={formData.state}
+                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">TIN</label>
+              <input
+                type="text"
+                value={formData.tin}
+                onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
+                className="form-input"
+              />
+            </div>
+            <div>
+              <label className="form-label">RC Number</label>
+              <input
+                type="text"
+                value={formData.rc_number}
+                onChange={(e) => setFormData({ ...formData, rc_number: e.target.value })}
+                className="form-input"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

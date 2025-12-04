@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import AcceptInvite from './pages/AcceptInvite';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/crm/Clients';
 import ClientDetail from './pages/crm/ClientDetail';
@@ -15,6 +18,7 @@ import Deployments from './pages/hr/Deployments';
 import Invoices from './pages/finance/Invoices';
 import Payments from './pages/finance/Payments';
 import Tasks from './pages/Tasks';
+import Users from './pages/settings/Users';
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -40,7 +44,11 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Public routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/accept-invite" element={<AcceptInvite />} />
 
           <Route path="/" element={
             <ProtectedRoute>
@@ -69,6 +77,9 @@ function App() {
 
             {/* Collaboration Module */}
             <Route path="tasks" element={<Tasks />} />
+
+            {/* Settings/Admin */}
+            <Route path="users" element={<Users />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

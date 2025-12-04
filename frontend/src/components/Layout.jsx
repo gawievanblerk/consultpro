@@ -14,7 +14,10 @@ import {
   CheckCircleIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  QuestionMarkCircleIcon,
+  Cog6ToothIcon,
+  UserCircleIcon
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -37,7 +40,18 @@ const navigation = [
     { name: 'Payments', href: '/payments', icon: BanknotesIcon },
   ]},
   { name: 'Tasks', href: '/tasks', icon: CheckCircleIcon },
+  { name: 'Settings', roles: ['admin'], children: [
+    { name: 'Users', href: '/users', icon: UserCircleIcon },
+  ]},
 ];
+
+// Filter navigation based on user role
+const getFilteredNavigation = (userRole) => {
+  return navigation.filter(item => {
+    if (!item.roles) return true;
+    return item.roles.includes(userRole);
+  });
+};
 
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -45,6 +59,7 @@ function Layout() {
   const location = useLocation();
 
   const isActive = (href) => location.pathname === href;
+  const filteredNav = getFilteredNavigation(user?.role);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -58,11 +73,11 @@ function Layout() {
 
       {/* Sidebar */}
       <aside className={`
-        fixed top-0 left-0 z-50 h-full w-64 bg-primary-700 transform transition-transform duration-200 ease-in-out
+        fixed top-0 left-0 z-50 h-full w-64 bg-primary-700 transform transition-transform duration-200 ease-in-out flex flex-col
         lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo */}
-        <div className="flex items-center h-16 px-6 bg-primary-800">
+        <div className="flex items-center h-16 px-6 bg-primary-800 flex-shrink-0">
           <div className="bg-white rounded px-2 py-1 mr-3">
             <img
               src="/teamace-icon.png"
@@ -83,8 +98,8 @@ function Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navigation.map((item) => (
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto min-h-0">
+          {filteredNav.map((item) => (
             item.children ? (
               <div key={item.name} className="mb-3">
                 <div className="px-3 py-2 text-xs font-semibold text-primary-300 uppercase tracking-wider">
@@ -126,8 +141,19 @@ function Layout() {
           ))}
         </nav>
 
+        {/* Help link */}
+        <a
+          href="/docs/manual.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center px-6 py-3 text-sm font-medium text-primary-200 hover:bg-primary-800 hover:text-white transition-colors flex-shrink-0"
+        >
+          <QuestionMarkCircleIcon className="h-5 w-5 mr-3" />
+          User Manual
+        </a>
+
         {/* User section */}
-        <div className="border-t border-primary-800 p-4">
+        <div className="border-t border-primary-800 p-4 flex-shrink-0">
           <div className="flex items-center">
             <div className="h-9 w-9 rounded-full bg-accent-500 flex items-center justify-center text-primary-800 font-medium">
               {user?.firstName?.[0]}{user?.lastName?.[0]}
@@ -162,6 +188,15 @@ function Layout() {
               <Bars3Icon className="h-6 w-6" />
             </button>
             <div className="flex-1" />
+            <a
+              href="/docs/manual.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 px-3 py-1.5 text-sm text-primary-600 hover:text-primary-800 hover:bg-primary-50 rounded-lg transition-colors mr-4"
+            >
+              <QuestionMarkCircleIcon className="h-5 w-5" />
+              <span className="hidden sm:inline">Help</span>
+            </a>
             <div className="text-sm text-gray-500">
               Powered by Rozitech CC
             </div>

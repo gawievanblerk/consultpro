@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import Modal from '../components/Modal';
-import { PlusIcon, CheckCircleIcon, ClockIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, CheckCircleIcon, ClockIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -178,11 +178,12 @@ function Tasks() {
           {tasks.map((task) => (
             <div
               key={task.id}
-              className={`card p-4 border-l-4 ${getPriorityColor(task.priority)} hover:shadow-md transition-shadow`}
+              className={`card p-4 border-l-4 ${getPriorityColor(task.priority)} hover:shadow-md transition-shadow cursor-pointer`}
+              onClick={() => handleOpenModal(task)}
             >
               <div className="flex items-start gap-4">
                 <button
-                  onClick={() => task.status !== 'completed' && completeTask(task.id)}
+                  onClick={(e) => { e.stopPropagation(); task.status !== 'completed' && completeTask(task.id); }}
                   className={`mt-1 h-5 w-5 rounded-full border-2 flex-shrink-0 transition-colors flex items-center justify-center
                     ${task.status === 'completed'
                       ? 'bg-green-500 border-green-500 text-white'
@@ -212,14 +213,12 @@ function Tasks() {
                     <span className="capitalize">{task.priority} priority</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => handleOpenModal(task)} className="p-1 text-gray-500 hover:text-primary-700">
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button onClick={() => handleDelete(task.id)} className="p-1 text-gray-500 hover:text-red-600">
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }}
+                  className="p-1 text-gray-500 hover:text-red-600"
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
               </div>
             </div>
           ))}

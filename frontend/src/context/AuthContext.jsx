@@ -54,12 +54,21 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Set user and token directly (used by AcceptInvite)
+  const setAuth = (token, userData) => {
+    localStorage.setItem('token', token);
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setUser(userData);
+  };
+
   const value = {
     user,
+    setUser,
     loading,
     isAuthenticated: !!user,
     login,
-    logout
+    logout,
+    setAuth
   };
 
   return (

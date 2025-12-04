@@ -18,12 +18,18 @@ services:
         value: 4020
       - key: DEMO_MODE
         value: "true"
+      - key: CORS_ORIGIN
+        value: https://consultpro-frontend.onrender.com
       - key: DATABASE_URL
         fromDatabase:
           name: consultpro-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: noreply@consultpro.rozitech.com
 
   # Frontend Static Site
   - type: web
@@ -42,10 +48,7 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        fromService:
-          name: consultpro-backend
-          type: web
-          property: host
+        value: https://consultpro-backend-950l.onrender.com
 
 # PostgreSQL Database
 databases:

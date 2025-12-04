@@ -75,6 +75,63 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/payments/summary - Get payment summary report (MUST BE BEFORE :id)
+router.get('/summary', async (req, res) => {
+  try {
+    const { from_date, to_date } = req.query;
+
+    let whereClause = 'WHERE p.tenant_id = $1 AND p.deleted_at IS NULL';
+    let params = [req.tenant_id];
+    let paramIndex = 2;
+
+    if (from_date) {
+      whereClause += ` AND p.payment_date >= $${paramIndex}`;
+      params.push(from_date);
+      paramIndex++;
+    }
+
+    if (to_date) {
+      whereClause += ` AND p.payment_date <= $${paramIndex}`;
+      params.push(to_date);
+      paramIndex++;
+    }
+
+    const result = await pool.query(
+      `SELECT
+        COUNT(*) as total_payments,
+        COALESCE(SUM(p.amount), 0) as total_amount,
+        COUNT(DISTINCT p.invoice_id) as invoices_paid,
+        p.payment_method,
+        COALESCE(SUM(CASE WHEN p.payment_method = 'bank_transfer' THEN p.amount ELSE 0 END), 0) as bank_transfer_total,
+        COALESCE(SUM(CASE WHEN p.payment_method = 'cash' THEN p.amount ELSE 0 END), 0) as cash_total,
+        COALESCE(SUM(CASE WHEN p.payment_method = 'cheque' THEN p.amount ELSE 0 END), 0) as cheque_total,
+        COALESCE(SUM(CASE WHEN p.payment_method = 'online' THEN p.amount ELSE 0 END), 0) as online_total
+       FROM payments p
+       ${whereClause}
+       GROUP BY p.payment_method`,
+      params
+    );
+
+    // Aggregate totals
+    const summary = {
+      total_payments: result.rows.reduce((sum, r) => sum + parseInt(r.total_payments || 0), 0),
+      total_amount: result.rows.reduce((sum, r) => sum + parseFloat(r.total_amount || 0), 0),
+      by_method: {
+        bank_transfer: parseFloat(result.rows[0]?.bank_transfer_total || 0),
+        cash: parseFloat(result.rows[0]?.cash_total || 0),
+        cheque: parseFloat(result.rows[0]?.cheque_total || 0),
+        online: parseFloat(result.rows[0]?.online_total || 0)
+      }
+    };
+
+    res.json({ success: true, data: summary });
+
+  } catch (error) {
+    console.error('Payment summary error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate payment summary' });
+  }
+});
+
 // GET /api/payments/:id - Get payment by ID
 router.get('/:id', async (req, res) => {
   try {

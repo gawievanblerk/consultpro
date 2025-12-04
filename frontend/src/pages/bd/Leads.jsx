@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
-import { PlusIcon, MagnifyingGlassIcon, UserPlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, UserPlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Leads() {
   const [leads, setLeads] = useState([]);
@@ -178,7 +178,11 @@ function Leads() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredLeads.map((lead) => (
-                <tr key={lead.id}>
+                <tr
+                  key={lead.id}
+                  onClick={() => handleOpenModal(lead)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <td>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-accent-100 rounded-lg flex items-center justify-center">
@@ -199,14 +203,12 @@ function Leads() {
                   <td className="font-medium">{formatCurrency(lead.estimated_value)}</td>
                   <td>{lead.expected_close_date ? new Date(lead.expected_close_date).toLocaleDateString() : '-'}</td>
                   <td>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => handleOpenModal(lead)} className="p-1 text-gray-500 hover:text-primary-700">
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleDelete(lead.id)} className="p-1 text-gray-500 hover:text-red-600">
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDelete(lead.id); }}
+                      className="p-1 text-gray-500 hover:text-red-600"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
