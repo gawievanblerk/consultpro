@@ -1,7 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
-import { PlusIcon, MagnifyingGlassIcon, UserIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, UserIcon, PencilIcon, TrashIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+
+// Badge helper for system role
+const getRoleBadge = (role) => {
+  switch (role) {
+    case 'admin': return <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">Admin</span>;
+    case 'manager': return <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Manager</span>;
+    case 'user': return <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">User</span>;
+    default: return <span className="text-xs border border-gray-300 text-gray-500 px-2 py-0.5 rounded">No Access</span>;
+  }
+};
+
+// Badge helper for employment type
+const getEmploymentTypeBadge = (type) => {
+  switch (type) {
+    case 'permanent': return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Permanent</span>;
+    case 'contract': return <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Contract</span>;
+    case 'temporary': return <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Temporary</span>;
+    default: return <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Outsourced</span>;
+  }
+};
 
 function Staff() {
   const [staff, setStaff] = useState([]);
@@ -11,6 +31,7 @@ function Staff() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [inviting, setInviting] = useState(null);
   const [formData, setFormData] = useState({
     employee_id: '',
     first_name: '',
@@ -21,6 +42,7 @@ function Staff() {
     department: '',
     skills: '',
     hourly_rate: '',
+    employment_type: 'outsourced',
     status: 'active',
     is_available: true
   });
@@ -56,6 +78,7 @@ function Staff() {
         department: person.department || '',
         skills: person.skills?.join(', ') || '',
         hourly_rate: person.hourly_rate || '',
+        employment_type: person.employment_type || 'outsourced',
         status: person.status || 'active',
         is_available: person.is_available !== false
       });
@@ -71,6 +94,7 @@ function Staff() {
         department: '',
         skills: '',
         hourly_rate: '',
+        employment_type: 'outsourced',
         status: 'active',
         is_available: true
       });
@@ -114,6 +138,29 @@ function Staff() {
     } catch (error) {
       console.error('Failed to delete staff:', error);
       alert('Failed to delete staff');
+    }
+  };
+
+  const handleInvite = async (person) => {
+    if (!person.email) {
+      alert('Staff member has no email address');
+      return;
+    }
+    if (person.user_id) {
+      alert('Staff member already has a user account');
+      return;
+    }
+
+    setInviting(person.id);
+    try {
+      await api.post(`/api/staff/${person.id}/invite`, { role: 'user' });
+      alert('Invitation sent successfully!');
+      fetchStaff(); // Refresh to show updated status
+    } catch (error) {
+      console.error('Failed to send invitation:', error);
+      alert(error.response?.data?.error || 'Failed to send invitation');
+    } finally {
+      setInviting(null);
     }
   };
 
@@ -189,6 +236,10 @@ function Staff() {
                     </div>
                     <p className="text-sm text-gray-500">{person.job_title}</p>
                     <p className="text-xs text-gray-400 mt-1">ID: {person.employee_id}</p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {getRoleBadge(person.user_role)}
+                      {getEmploymentTypeBadge(person.employment_type)}
+                    </div>
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
@@ -198,6 +249,16 @@ function Staff() {
                     ))}
                   </div>
                   <div className="flex items-center gap-1">
+                    {person.email && !person.user_id && (
+                      <button
+                        onClick={() => handleInvite(person)}
+                        disabled={inviting === person.id}
+                        className="p-1 text-gray-500 hover:text-green-600 disabled:opacity-50"
+                        title="Invite to create user account"
+                      >
+                        <EnvelopeIcon className="h-4 w-4" />
+                      </button>
+                    )}
                     <button onClick={() => handleOpenModal(person)} className="p-1 text-gray-500 hover:text-primary-700">
                       <PencilIcon className="h-4 w-4" />
                     </button>
@@ -304,6 +365,19 @@ function Staff() {
                 onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value })}
                 className="form-input"
               />
+            </div>
+            <div>
+              <label className="form-label">Employment Type</label>
+              <select
+                value={formData.employment_type}
+                onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
+                className="form-input"
+              >
+                <option value="permanent">Permanent</option>
+                <option value="contract">Contract</option>
+                <option value="temporary">Temporary</option>
+                <option value="outsourced">Outsourced</option>
+              </select>
             </div>
             <div>
               <label className="flex items-center gap-2 mt-6">

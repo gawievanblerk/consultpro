@@ -3,8 +3,10 @@
  */
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const pool = require('../utils/db');
 const { v4: uuidv4 } = require('uuid');
+const { sendInviteEmail } = require('../utils/email');
 
 // GET /api/staff - List all staff
 router.get('/', async (req, res) => {
@@ -39,8 +41,11 @@ router.get('/', async (req, res) => {
 
     const result = await pool.query(
       `SELECT s.*,
-        (SELECT COUNT(*) FROM deployments d WHERE d.staff_id = s.id AND d.status = 'active') as active_deployments
+        (SELECT COUNT(*) FROM deployments d WHERE d.staff_id = s.id AND d.status = 'active') as active_deployments,
+        u.id as user_id,
+        u.role as user_role
        FROM staff s
+       LEFT JOIN users u ON LOWER(s.email) = LOWER(u.email) AND u.tenant_id = s.tenant_id AND u.deleted_at IS NULL
        ${whereClause}
        ORDER BY s.last_name, s.first_name
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
@@ -258,6 +263,122 @@ router.delete('/:id', async (req, res) => {
   } catch (error) {
     console.error('Delete staff error:', error);
     res.status(500).json({ success: false, error: 'Failed to delete staff' });
+  }
+});
+
+// POST /api/staff/:id/invite - Invite staff member to create user account
+router.post('/:id/invite', async (req, res) => {
+  try {
+    const { role = 'user' } = req.body;
+
+    // Validate role
+    const validRoles = ['admin', 'manager', 'user'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid role. Must be: admin, manager, or user'
+      });
+    }
+
+    // Get staff record
+    const staffResult = await pool.query(
+      `SELECT id, first_name, last_name, email FROM staff
+       WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [req.params.id, req.tenant_id]
+    );
+
+    if (staffResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Staff not found' });
+    }
+
+    const staff = staffResult.rows[0];
+
+    if (!staff.email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Staff member has no email address'
+      });
+    }
+
+    const email = staff.email.toLowerCase().trim();
+
+    // Check if user already exists with this email
+    const existingUser = await pool.query(
+      'SELECT id FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
+      [email, req.tenant_id]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'A user account already exists for this email'
+      });
+    }
+
+    // Check for existing pending invite
+    const existingInvite = await pool.query(
+      `SELECT id FROM user_invites
+       WHERE email = $1 AND tenant_id = $2 AND accepted_at IS NULL AND expires_at > NOW()`,
+      [email, req.tenant_id]
+    );
+
+    if (existingInvite.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'An invitation has already been sent to this email'
+      });
+    }
+
+    // Get tenant info and inviter name
+    const tenantResult = await pool.query(
+      'SELECT name FROM tenants WHERE id = $1',
+      [req.tenant_id]
+    );
+    const organizationName = tenantResult.rows[0]?.name || 'ConsultPro';
+
+    const inviterName = req.user.firstName
+      ? `${req.user.firstName} ${req.user.lastName || ''}`.trim()
+      : req.user.email;
+
+    // Generate secure token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    // Create invite record
+    const inviteResult = await pool.query(
+      `INSERT INTO user_invites (tenant_id, email, role, token, invited_by, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, email, role, expires_at, created_at`,
+      [req.tenant_id, email, role, token, req.user.id, expiresAt]
+    );
+
+    // Send invitation email
+    try {
+      await sendInviteEmail(email, token, inviterName, organizationName, role);
+    } catch (emailError) {
+      console.error('Failed to send invitation email:', emailError);
+      // Delete the invite if email fails
+      await pool.query('DELETE FROM user_invites WHERE id = $1', [inviteResult.rows[0].id]);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send invitation email'
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Invitation sent successfully',
+      data: {
+        id: inviteResult.rows[0].id,
+        email: inviteResult.rows[0].email,
+        role: inviteResult.rows[0].role,
+        expiresAt: inviteResult.rows[0].expires_at
+      }
+    });
+
+  } catch (error) {
+    console.error('Invite staff error:', error);
+    res.status(500).json({ success: false, error: 'Failed to send invitation' });
   }
 });
 
