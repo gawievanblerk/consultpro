@@ -3,6 +3,8 @@ import api from '../../utils/api';
 import Modal from '../../components/Modal';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useHelp } from '../../context/HelpContext';
+import { HelpButton } from '../../components/HelpModal';
 import {
   PlusIcon,
   DocumentTextIcon,
@@ -14,6 +16,7 @@ import {
 function Invoices() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
+  const { showHelp } = useHelp();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -284,10 +287,13 @@ function Invoices() {
           <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
           <p className="mt-1 text-sm text-gray-500">Manage billing and invoices</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="btn-primary">
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Create Invoice
-        </button>
+        <div className="flex items-center gap-2">
+          <HelpButton onClick={() => showHelp('invoices')} />
+          <button onClick={() => handleOpenModal()} className="btn-primary">
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Create Invoice
+          </button>
+        </div>
       </div>
 
       {/* Summary cards */}

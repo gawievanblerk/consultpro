@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
+import { HelpProvider } from './context/HelpContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -46,7 +47,8 @@ function App() {
     <AuthProvider>
       <ToastProvider>
         <ConfirmProvider>
-          <BrowserRouter>
+          <HelpProvider>
+            <BrowserRouter>
             <Routes>
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
@@ -88,7 +90,8 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-          </BrowserRouter>
+            </BrowserRouter>
+          </HelpProvider>
         </ConfirmProvider>
       </ToastProvider>
     </AuthProvider>
