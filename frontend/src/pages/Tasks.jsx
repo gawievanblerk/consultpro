@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import Modal from '../components/Modal';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
+import { useHelp } from '../context/HelpContext';
+import { HelpButton } from '../components/HelpModal';
 import { PlusIcon, CheckCircleIcon, ClockIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Tasks() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
+  const { showHelp } = useHelp();
   const [tasks, setTasks] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -86,27 +93,36 @@ function Tasks() {
     try {
       if (editingTask) {
         await api.put(`/api/tasks/${editingTask.id}`, formData);
+        toast.success('Task updated successfully');
       } else {
         await api.post('/api/tasks', formData);
+        toast.success('Task created successfully');
       }
       fetchTasks();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save task:', error);
-      alert('Failed to save task');
+      toast.error('Failed to save task');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this task?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Task',
+      message: 'Are you sure you want to delete this task? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/tasks/${id}`);
+      toast.success('Task deleted successfully');
       fetchTasks();
     } catch (error) {
       console.error('Failed to delete task:', error);
-      alert('Failed to delete task');
+      toast.error('Failed to delete task');
     }
   };
 
@@ -145,10 +161,13 @@ function Tasks() {
           <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
           <p className="mt-1 text-sm text-gray-500">Manage your to-do list</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="btn-primary">
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add Task
-        </button>
+        <div className="flex items-center gap-2">
+          <HelpButton onClick={() => showHelp('tasks')} />
+          <button onClick={() => handleOpenModal()} className="btn-primary">
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Add Task
+          </button>
+        </div>
       </div>
 
       <div className="card">

@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
 import { ArrowLeftIcon, PencilIcon } from '@heroicons/react/24/outline';
 
 function ClientDetail() {
+  const { toast } = useToast();
   const { id } = useParams();
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,11 +73,12 @@ function ClientDetail() {
     setSaving(true);
     try {
       await api.put(`/api/clients/${id}`, formData);
+      toast.success('Client updated successfully');
       await fetchClient();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to update client:', error);
-      alert('Failed to update client');
+      toast.error('Failed to update client');
     } finally {
       setSaving(false);
     }

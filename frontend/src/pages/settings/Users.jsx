@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -16,6 +18,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 function Users() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [users, setUsers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +66,7 @@ function Users() {
     } catch (error) {
       console.error('Failed to fetch users:', error);
       if (error.response?.status === 403) {
-        alert('Access denied. Admin privileges required.');
+        toast.error('Access denied. Admin privileges required.');
       }
     } finally {
       setLoading(false);
@@ -121,20 +125,22 @@ function Users() {
         // Update - don't send password
         const { password, email, ...updateData } = formData;
         await api.put(`/api/users/${editingUser.id}`, updateData);
+        toast.success('User updated successfully');
       } else {
         // Create - password required
         if (!formData.password || formData.password.length < 6) {
-          alert('Password must be at least 6 characters');
+          toast.warning('Password must be at least 6 characters');
           setSaving(false);
           return;
         }
         await api.post('/api/users', formData);
+        toast.success('User created successfully');
       }
       fetchUsers();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save user:', error);
-      alert(error.response?.data?.error || 'Failed to save user');
+      toast.error(error.response?.data?.error || 'Failed to save user');
     } finally {
       setSaving(false);
     }
@@ -143,23 +149,29 @@ function Users() {
   const handleToggleActive = async (user) => {
     try {
       await api.put(`/api/users/${user.id}`, { isActive: !user.isActive });
+      toast.success(`User ${user.isActive ? 'deactivated' : 'activated'} successfully`);
       fetchUsers();
     } catch (error) {
       console.error('Failed to update user:', error);
-      alert(error.response?.data?.error || 'Failed to update user');
+      toast.error(error.response?.data?.error || 'Failed to update user');
     }
   };
 
   const handleDelete = async (user) => {
-    if (!confirm(`Are you sure you want to delete ${user.firstName} ${user.lastName}?`)) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Delete User',
+      message: `Are you sure you want to delete ${user.firstName} ${user.lastName}? This action cannot be undone.`,
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/users/${user.id}`);
+      toast.success('User deleted successfully');
       fetchUsers();
     } catch (error) {
       console.error('Failed to delete user:', error);
-      alert(error.response?.data?.error || 'Failed to delete user');
+      toast.error(error.response?.data?.error || 'Failed to delete user');
     }
   };
 
@@ -176,11 +188,11 @@ function Users() {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     if (passwordData.password !== passwordData.confirmPassword) {
-      alert('Passwords do not match');
+      toast.warning('Passwords do not match');
       return;
     }
     if (passwordData.password.length < 6) {
-      alert('Password must be at least 6 characters');
+      toast.warning('Password must be at least 6 characters');
       return;
     }
     setSaving(true);
@@ -189,10 +201,10 @@ function Users() {
         password: passwordData.password
       });
       setPasswordModalOpen(false);
-      alert('Password updated successfully');
+      toast.success('Password updated successfully');
     } catch (error) {
       console.error('Failed to reset password:', error);
-      alert(error.response?.data?.error || 'Failed to reset password');
+      toast.error(error.response?.data?.error || 'Failed to reset password');
     } finally {
       setSaving(false);
     }
@@ -219,25 +231,30 @@ function Users() {
       await api.post('/api/users/invite', inviteData);
       setInviteModalOpen(false);
       fetchInvites();
-      alert('Invitation sent successfully!');
+      toast.success('Invitation sent successfully!');
     } catch (error) {
       console.error('Failed to send invite:', error);
-      alert(error.response?.data?.error || 'Failed to send invitation');
+      toast.error(error.response?.data?.error || 'Failed to send invitation');
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancelInvite = async (inviteId) => {
-    if (!confirm('Are you sure you want to cancel this invitation?')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: 'Cancel Invitation',
+      message: 'Are you sure you want to cancel this invitation?',
+      confirmText: 'Cancel Invitation',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/users/invites/${inviteId}`);
+      toast.success('Invitation cancelled');
       fetchInvites();
     } catch (error) {
       console.error('Failed to cancel invite:', error);
-      alert(error.response?.data?.error || 'Failed to cancel invitation');
+      toast.error(error.response?.data?.error || 'Failed to cancel invitation');
     }
   };
 
@@ -245,10 +262,10 @@ function Users() {
     try {
       await api.post(`/api/users/invites/${inviteId}/resend`);
       fetchInvites();
-      alert('Invitation resent successfully!');
+      toast.success('Invitation resent successfully!');
     } catch (error) {
       console.error('Failed to resend invite:', error);
-      alert(error.response?.data?.error || 'Failed to resend invitation');
+      toast.error(error.response?.data?.error || 'Failed to resend invitation');
     }
   };
 

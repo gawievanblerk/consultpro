@@ -508,13 +508,13 @@ router.post('/accept-invite', async (req, res) => {
 
     const invite = inviteResult.rows[0];
 
-    // Check if user already exists
-    const existingUser = await pool.query(
+    // Check if active user already exists
+    const existingActiveUser = await pool.query(
       'SELECT id FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
       [invite.email, invite.tenant_id]
     );
 
-    if (existingUser.rows.length > 0) {
+    if (existingActiveUser.rows.length > 0) {
       // Mark invite as accepted even if user exists
       await pool.query(
         'UPDATE user_invites SET accepted_at = NOW() WHERE id = $1',
@@ -526,25 +526,56 @@ router.post('/accept-invite', async (req, res) => {
       });
     }
 
+    // Check if soft-deleted user exists (needs reactivation)
+    const existingDeletedUser = await pool.query(
+      'SELECT id FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NOT NULL',
+      [invite.email, invite.tenant_id]
+    );
+
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create user
-    const userResult = await pool.query(
-      `INSERT INTO users (email, password_hash, first_name, last_name, role, tenant_id, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, true)
-       RETURNING id, email, first_name, last_name, role, tenant_id`,
-      [
-        invite.email,
-        passwordHash,
-        firstName || '',
-        lastName || '',
-        invite.role,
-        invite.tenant_id
-      ]
-    );
+    let user;
 
-    const user = userResult.rows[0];
+    if (existingDeletedUser.rows.length > 0) {
+      // Reactivate soft-deleted user
+      const reactivateResult = await pool.query(
+        `UPDATE users
+         SET password_hash = $1,
+             first_name = $2,
+             last_name = $3,
+             role = $4,
+             is_active = true,
+             deleted_at = NULL,
+             updated_at = NOW()
+         WHERE id = $5
+         RETURNING id, email, first_name, last_name, role, tenant_id`,
+        [
+          passwordHash,
+          firstName || '',
+          lastName || '',
+          invite.role,
+          existingDeletedUser.rows[0].id
+        ]
+      );
+      user = reactivateResult.rows[0];
+    } else {
+      // Create new user
+      const userResult = await pool.query(
+        `INSERT INTO users (email, password_hash, first_name, last_name, role, tenant_id, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, true)
+         RETURNING id, email, first_name, last_name, role, tenant_id`,
+        [
+          invite.email,
+          passwordHash,
+          firstName || '',
+          lastName || '',
+          invite.role,
+          invite.tenant_id
+        ]
+      );
+      user = userResult.rows[0];
+    }
 
     // Mark invite as accepted
     await pool.query(

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
+import { useHelp } from '../context/HelpContext';
+import { HelpButton } from '../components/HelpModal';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -41,6 +43,7 @@ ChartJS.register(
 );
 
 function Dashboard() {
+  const { showHelp } = useHelp();
   const [stats, setStats] = useState(null);
   const [recentTasks, setRecentTasks] = useState([]);
   const [pipelineData, setPipelineData] = useState([]);
@@ -210,11 +213,14 @@ function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Executive Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Overview of your consulting operations
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Executive Dashboard</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Overview of your consulting operations
+          </p>
+        </div>
+        <HelpButton onClick={() => showHelp('dashboard')} />
       </div>
 
       {/* Stats grid */}

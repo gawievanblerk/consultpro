@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, BanknotesIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Payments() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [payments, setPayments] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,27 +88,36 @@ function Payments() {
     try {
       if (editingPayment) {
         await api.put(`/api/payments/${editingPayment.id}`, formData);
+        toast.success('Payment updated successfully');
       } else {
         await api.post('/api/payments', formData);
+        toast.success('Payment recorded successfully');
       }
       fetchPayments();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save payment:', error);
-      alert('Failed to save payment');
+      toast.error('Failed to save payment');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this payment?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Payment',
+      message: 'Are you sure you want to delete this payment? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/payments/${id}`);
+      toast.success('Payment deleted successfully');
       fetchPayments();
     } catch (error) {
       console.error('Failed to delete payment:', error);
-      alert('Failed to delete payment');
+      toast.error('Failed to delete payment');
     }
   };
 
@@ -134,8 +147,8 @@ function Payments() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-700"></div>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="table">
+        <div className="card overflow-x-auto">
+          <table className="table min-w-full">
             <thead>
               <tr>
                 <th>Date</th>
