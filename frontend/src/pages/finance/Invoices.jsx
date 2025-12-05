@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import {
   PlusIcon,
   DocumentTextIcon,
@@ -10,6 +12,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 function Invoices() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +119,7 @@ function Invoices() {
         }
       } catch (error) {
         console.error('Failed to fetch invoice details:', error);
-        alert('Failed to load invoice details');
+        toast.error('Failed to load invoice details');
         return;
       }
     } else {
@@ -180,27 +184,36 @@ function Invoices() {
 
       if (editingInvoice) {
         await api.put(`/api/invoices/${editingInvoice.id}`, payload);
+        toast.success('Invoice updated successfully');
       } else {
         await api.post('/api/invoices', payload);
+        toast.success('Invoice created successfully');
       }
       fetchInvoices();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save invoice:', error);
-      alert('Failed to save invoice');
+      toast.error('Failed to save invoice');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this invoice?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Invoice',
+      message: 'Are you sure you want to delete this invoice? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/invoices/${id}`);
+      toast.success('Invoice deleted successfully');
       fetchInvoices();
     } catch (error) {
       console.error('Failed to delete invoice:', error);
-      alert('Failed to delete invoice');
+      toast.error('Failed to delete invoice');
     }
   };
 
@@ -218,21 +231,28 @@ function Invoices() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      toast.success('PDF downloaded');
     } catch (error) {
       console.error('Failed to download PDF:', error);
-      alert('Failed to download PDF. Please try again.');
+      toast.error('Failed to download PDF. Please try again.');
     }
   };
 
   const handleSendEmail = async (invoice) => {
-    if (!confirm(`Send invoice ${invoice.invoice_number} to ${invoice.client_name}?`)) return;
+    const confirmed = await confirm({
+      title: 'Send Invoice',
+      message: `Send invoice ${invoice.invoice_number} to ${invoice.client_name}?`,
+      confirmText: 'Send',
+      variant: 'primary'
+    });
+    if (!confirmed) return;
     try {
       await api.post(`/api/invoices/${invoice.id}/send-email`);
-      alert('Invoice sent successfully!');
+      toast.success('Invoice sent successfully!');
       fetchInvoices();
     } catch (error) {
       console.error('Failed to send invoice:', error);
-      alert('Failed to send invoice email. Please try again.');
+      toast.error('Failed to send invoice email. Please try again.');
     }
   };
 

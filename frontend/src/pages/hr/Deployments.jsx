@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, ClipboardDocumentListIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Deployments() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [deployments, setDeployments] = useState([]);
   const [staff, setStaff] = useState([]);
   const [clients, setClients] = useState([]);
@@ -103,27 +107,36 @@ function Deployments() {
     try {
       if (editingDeployment) {
         await api.put(`/api/deployments/${editingDeployment.id}`, formData);
+        toast.success('Deployment updated successfully');
       } else {
         await api.post('/api/deployments', formData);
+        toast.success('Deployment created successfully');
       }
       fetchDeployments();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save deployment:', error);
-      alert('Failed to save deployment');
+      toast.error('Failed to save deployment');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this deployment?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Deployment',
+      message: 'Are you sure you want to delete this deployment? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/deployments/${id}`);
+      toast.success('Deployment deleted successfully');
       fetchDeployments();
     } catch (error) {
       console.error('Failed to delete deployment:', error);
-      alert('Failed to delete deployment');
+      toast.error('Failed to delete deployment');
     }
   };
 
