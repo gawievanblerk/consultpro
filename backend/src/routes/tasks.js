@@ -183,6 +183,12 @@ router.post('/', async (req, res) => {
 
     const id = uuidv4();
 
+    // Convert empty strings to null for UUID fields
+    const cleanClientId = client_id || null;
+    const cleanEngagementId = engagement_id || null;
+    const cleanLeadId = lead_id || null;
+    const cleanDueDate = due_date || null;
+
     const result = await pool.query(
       `INSERT INTO tasks (
         id, tenant_id, title, description, client_id, engagement_id, lead_id,
@@ -190,8 +196,8 @@ router.post('/', async (req, res) => {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *`,
       [
-        id, req.tenant_id, title, description, client_id, engagement_id, lead_id,
-        priority || 'medium', status || 'pending', due_date,
+        id, req.tenant_id, title, description, cleanClientId, cleanEngagementId, cleanLeadId,
+        priority || 'medium', status || 'pending', cleanDueDate,
         assigned_to || req.user.id, req.user.id
       ]
     );
@@ -210,6 +216,9 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
+    // UUID fields that should be null instead of empty string
+    const uuidFields = ['client_id', 'engagement_id', 'lead_id', 'assigned_to'];
+
     const allowedFields = [
       'title', 'description', 'client_id', 'engagement_id', 'lead_id',
       'priority', 'status', 'due_date', 'assigned_to'
@@ -222,7 +231,12 @@ router.put('/:id', async (req, res) => {
     for (const field of allowedFields) {
       if (updates[field] !== undefined) {
         updateFields.push(`${field} = $${paramIndex}`);
-        values.push(updates[field]);
+        // Convert empty strings to null for UUID fields
+        let value = updates[field];
+        if (uuidFields.includes(field) && value === '') {
+          value = null;
+        }
+        values.push(value);
         paramIndex++;
       }
     }
