@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, MagnifyingGlassIcon, UserIcon, TrashIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 
 // Badge helper for system role
@@ -24,6 +26,8 @@ const getEmploymentTypeBadge = (type) => {
 };
 
 function Staff() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -117,48 +121,57 @@ function Staff() {
       };
       if (editingStaff) {
         await api.put(`/api/staff/${editingStaff.id}`, data);
+        toast.success('Staff updated successfully');
       } else {
         await api.post('/api/staff', data);
+        toast.success('Staff created successfully');
       }
       fetchStaff();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save staff:', error);
-      alert('Failed to save staff');
+      toast.error('Failed to save staff');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this staff member?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Staff Member',
+      message: 'Are you sure you want to delete this staff member? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/staff/${id}`);
+      toast.success('Staff deleted successfully');
       fetchStaff();
     } catch (error) {
       console.error('Failed to delete staff:', error);
-      alert('Failed to delete staff');
+      toast.error('Failed to delete staff');
     }
   };
 
   const handleInvite = async (person) => {
     if (!person.email) {
-      alert('Staff member has no email address');
+      toast.warning('Staff member has no email address');
       return;
     }
     if (person.user_id) {
-      alert('Staff member already has a user account');
+      toast.info('Staff member already has a user account');
       return;
     }
 
     setInviting(person.id);
     try {
       await api.post(`/api/staff/${person.id}/invite`, { role: 'user' });
-      alert('Invitation sent successfully!');
-      fetchStaff(); // Refresh to show updated status
+      toast.success('Invitation sent successfully!');
+      fetchStaff();
     } catch (error) {
       console.error('Failed to send invitation:', error);
-      alert(error.response?.data?.error || 'Failed to send invitation');
+      toast.error(error.response?.data?.error || 'Failed to send invitation');
     } finally {
       setInviting(null);
     }

@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, MagnifyingGlassIcon, UserPlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Leads() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -84,27 +88,36 @@ function Leads() {
     try {
       if (editingLead) {
         await api.put(`/api/leads/${editingLead.id}`, formData);
+        toast.success('Lead updated successfully');
       } else {
         await api.post('/api/leads', formData);
+        toast.success('Lead created successfully');
       }
       fetchLeads();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save lead:', error);
-      alert('Failed to save lead');
+      toast.error('Failed to save lead');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this lead?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Lead',
+      message: 'Are you sure you want to delete this lead? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/leads/${id}`);
+      toast.success('Lead deleted successfully');
       fetchLeads();
     } catch (error) {
       console.error('Failed to delete lead:', error);
-      alert('Failed to delete lead');
+      toast.error('Failed to delete lead');
     }
   };
 

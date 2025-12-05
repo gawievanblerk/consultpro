@@ -7,11 +7,13 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import api from '../../utils/api';
+import { useToast } from '../../context/ToastContext';
 import DroppableStage from '../../components/DroppableStage';
 import DraggableLeadCard from '../../components/DraggableLeadCard';
 import StageChangeModal from '../../components/StageChangeModal';
 
 function Pipeline() {
+  const { toast } = useToast();
   const [stages, setStages] = useState([]);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -135,13 +137,14 @@ function Pipeline() {
         expected_close_date: moveData.expected_close_date || null,
         estimated_value: moveData.estimated_value
       });
+      toast.success('Lead moved successfully');
       setModalOpen(false);
       setPendingMove(null);
     } catch (error) {
       // Rollback on error
       console.error('Failed to move lead:', error);
       setLeads(previousLeads);
-      alert('Failed to move lead. Please try again.');
+      toast.error('Failed to move lead. Please try again.');
     } finally {
       setSaving(false);
     }

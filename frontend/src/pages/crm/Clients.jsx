@@ -2,9 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, MagnifyingGlassIcon, BuildingOfficeIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Clients() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -90,27 +94,36 @@ function Clients() {
     try {
       if (editingClient) {
         await api.put(`/api/clients/${editingClient.id}`, formData);
+        toast.success('Client updated successfully');
       } else {
         await api.post('/api/clients', formData);
+        toast.success('Client created successfully');
       }
       fetchClients();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save client:', error);
-      alert('Failed to save client');
+      toast.error('Failed to save client');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this client?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Client',
+      message: 'Are you sure you want to delete this client? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/clients/${id}`);
+      toast.success('Client deleted successfully');
       fetchClients();
     } catch (error) {
       console.error('Failed to delete client:', error);
-      alert('Failed to delete client');
+      toast.error('Failed to delete client');
     }
   };
 

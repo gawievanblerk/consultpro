@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, MagnifyingGlassIcon, UserIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Contacts() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [contacts, setContacts] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,27 +98,36 @@ function Contacts() {
     try {
       if (editingContact) {
         await api.put(`/api/contacts/${editingContact.id}`, formData);
+        toast.success('Contact updated successfully');
       } else {
         await api.post('/api/contacts', formData);
+        toast.success('Contact created successfully');
       }
       fetchContacts();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save contact:', error);
-      alert('Failed to save contact');
+      toast.error('Failed to save contact');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this contact?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Contact',
+      message: 'Are you sure you want to delete this contact? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/contacts/${id}`);
+      toast.success('Contact deleted successfully');
       fetchContacts();
     } catch (error) {
       console.error('Failed to delete contact:', error);
-      alert('Failed to delete contact');
+      toast.error('Failed to delete contact');
     }
   };
 

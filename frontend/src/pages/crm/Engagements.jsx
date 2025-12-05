@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import { useToast } from '../../context/ToastContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, BriefcaseIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 function Engagements() {
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const [engagements, setEngagements] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,27 +94,36 @@ function Engagements() {
     try {
       if (editingEngagement) {
         await api.put(`/api/engagements/${editingEngagement.id}`, formData);
+        toast.success('Engagement updated successfully');
       } else {
         await api.post('/api/engagements', formData);
+        toast.success('Engagement created successfully');
       }
       fetchEngagements();
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save engagement:', error);
-      alert('Failed to save engagement');
+      toast.error('Failed to save engagement');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this engagement?')) return;
+    const confirmed = await confirm({
+      title: 'Delete Engagement',
+      message: 'Are you sure you want to delete this engagement? This action cannot be undone.',
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/api/engagements/${id}`);
+      toast.success('Engagement deleted successfully');
       fetchEngagements();
     } catch (error) {
       console.error('Failed to delete engagement:', error);
-      alert('Failed to delete engagement');
+      toast.error('Failed to delete engagement');
     }
   };
 
