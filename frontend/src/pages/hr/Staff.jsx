@@ -18,7 +18,7 @@ const getRoleBadge = (role) => {
 // Badge helper for employment type
 const getEmploymentTypeBadge = (type) => {
   switch (type) {
-    case 'permanent': return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Permanent</span>;
+    case 'permanent': return <span className="text-xs bg-accent-100 text-accent-700 px-2 py-0.5 rounded">Permanent</span>;
     case 'contract': return <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Contract</span>;
     case 'temporary': return <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Temporary</span>;
     default: return <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Outsourced</span>;
@@ -270,7 +270,7 @@ function Staff() {
                       <button
                         onClick={(e) => { e.stopPropagation(); handleInvite(person); }}
                         disabled={inviting === person.id}
-                        className="p-1 text-gray-500 hover:text-green-600 disabled:opacity-50"
+                        className="p-1 text-gray-500 hover:text-accent-600 disabled:opacity-50"
                         title="Invite to create user account"
                       >
                         <EnvelopeIcon className="h-4 w-4" />

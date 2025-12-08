@@ -1,7 +1,7 @@
 /* ConsultPro User Manual Styles */
 :root {
-  --primary-navy: #0d2865;
-  --primary-teal: #41d8d1;
+  --primary-navy: #1e293b;
+  --primary-accent: #4f46e5;
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
@@ -69,7 +69,7 @@ nav#TOC a {
 }
 
 nav#TOC a:hover {
-  color: var(--primary-teal);
+  color: var(--primary-accent);
 }
 
 nav#TOC ul ul {
@@ -92,7 +92,7 @@ h1, h2, h3, h4, h5, h6 {
 h1 {
   font-size: 2rem;
   padding-bottom: 0.5rem;
-  border-bottom: 3px solid var(--primary-teal);
+  border-bottom: 3px solid var(--primary-accent);
 }
 
 h2 {
@@ -198,12 +198,12 @@ a {
 }
 
 a:hover {
-  color: var(--primary-teal);
+  color: var(--primary-accent);
 }
 
 /* Blockquotes */
 blockquote {
-  border-left: 4px solid var(--primary-teal);
+  border-left: 4px solid var(--primary-accent);
   margin: 1rem 0;
   padding: 0.5rem 1rem;
   background: var(--gray-50);
@@ -227,8 +227,8 @@ hr {
   position: fixed;
   top: 1rem;
   right: 1rem;
-  background: var(--primary-teal);
-  color: var(--primary-navy);
+  background: var(--primary-accent);
+  color: white;
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   text-decoration: none;

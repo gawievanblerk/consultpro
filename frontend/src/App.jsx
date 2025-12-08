@@ -4,12 +4,18 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import { HelpProvider } from './context/HelpContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AcceptInvite from './pages/AcceptInvite';
 import Dashboard from './pages/Dashboard';
+
+// Public marketing pages
+import Landing from './pages/public/Landing';
+import Pricing from './pages/public/Pricing';
+import SignUp from './pages/public/SignUp';
 import Clients from './pages/crm/Clients';
 import ClientDetail from './pages/crm/ClientDetail';
 import Contacts from './pages/crm/Contacts';
@@ -48,15 +54,22 @@ function App() {
       <ToastProvider>
         <ConfirmProvider>
           <HelpProvider>
-            <BrowserRouter>
-            <Routes>
-          {/* Public routes */}
+            <CurrencyProvider>
+              <BrowserRouter>
+              <Routes>
+          {/* Public marketing routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/signup" element={<SignUp />} />
+
+          {/* Auth routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/accept-invite" element={<AcceptInvite />} />
 
-          <Route path="/" element={
+          {/* Dashboard (protected) */}
+          <Route path="/dashboard" element={
             <ProtectedRoute>
               <Layout />
             </ProtectedRoute>
@@ -89,8 +102,9 @@ function App() {
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            </BrowserRouter>
+              </Routes>
+              </BrowserRouter>
+            </CurrencyProvider>
           </HelpProvider>
         </ConfirmProvider>
       </ToastProvider>
