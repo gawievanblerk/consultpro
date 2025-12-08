@@ -8,29 +8,8 @@ import {
   UserIcon,
   EnvelopeIcon,
 } from '@heroicons/react/24/outline';
+import { useCurrency } from '../../context/CurrencyContext';
 import api from '../../utils/api';
-
-const plans = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 49,
-    description: 'Up to 50 clients, 3 team members',
-  },
-  {
-    id: 'professional',
-    name: 'Professional',
-    price: 149,
-    description: 'Unlimited clients, 10 team members',
-    popular: true,
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 399,
-    description: 'Unlimited everything, custom integrations',
-  },
-];
 
 export default function SignUp() {
   const [searchParams] = useSearchParams();
@@ -39,9 +18,11 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const { currency, currencyConfig } = useCurrency();
 
   const [formData, setFormData] = useState({
-    accountType: 'business', // business or individual
+    accountType: 'business',
     email: '',
     password: '',
     confirmPassword: '',
@@ -53,15 +34,35 @@ export default function SignUp() {
     agreeToTerms: false,
   });
 
+  useEffect(() => {
+    fetch('/api/plans')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setPlans(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const updateField = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setError('');
   };
 
+  const getPrice = (plan) => {
+    const priceKey = `price_${currency.toLowerCase()}`;
+    return plan[priceKey] || plan.price_usd;
+  };
+
+  const formatPrice = (amount) => {
+    return `${currencyConfig?.symbol || '$'}${amount.toLocaleString()}`;
+  };
+
   const validateStep = () => {
     switch (step) {
       case 1:
-        return true; // Account type always valid
+        return true;
       case 2:
         if (!formData.email || !formData.email.includes('@')) {
           setError('Please enter a valid email address');
@@ -128,6 +129,7 @@ export default function SignUp() {
         phone: formData.phone,
         planId: formData.planId,
         accountType: formData.accountType,
+        currency: currency,
       });
       setSuccess(true);
     } catch (err) {
@@ -178,11 +180,16 @@ export default function SignUp() {
               Consult<span className="text-accent-600">Pro</span>
             </span>
           </Link>
-          <div className="text-sm text-primary-600">
-            Already have an account?{' '}
-            <Link to="/login" className="font-medium text-accent-600 hover:text-accent-700">
-              Sign in
-            </Link>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-primary-500">
+              {currencyConfig?.flag} {currency}
+            </span>
+            <div className="text-sm text-primary-600">
+              Already have an account?{' '}
+              <Link to="/login" className="font-medium text-accent-600 hover:text-accent-700">
+                Sign in
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -399,7 +406,10 @@ export default function SignUp() {
           {step === 4 && (
             <div>
               <h2 className="text-xl font-bold text-primary-900 mb-2">Choose your plan</h2>
-              <p className="text-primary-600 mb-6">All plans include a 30-day free trial. Cancel anytime.</p>
+              <p className="text-primary-600 mb-2">All plans include a 30-day free trial. Cancel anytime.</p>
+              <p className="text-sm text-primary-500 mb-6">
+                Prices shown in {currencyConfig?.name} ({currency})
+              </p>
 
               <div className="space-y-3 mb-6">
                 {plans.map((plan) => (
@@ -426,7 +436,9 @@ export default function SignUp() {
                         <p className="text-sm text-primary-500 mt-0.5">{plan.description}</p>
                       </div>
                       <div className="text-right">
-                        <span className="text-2xl font-bold text-primary-900">${plan.price}</span>
+                        <span className="text-2xl font-bold text-primary-900">
+                          {formatPrice(getPrice(plan))}
+                        </span>
                         <span className="text-sm text-primary-500">/mo</span>
                       </div>
                     </div>

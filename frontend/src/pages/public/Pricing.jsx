@@ -1,35 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicHeader from '../../components/public/Header';
 import PublicFooter from '../../components/public/Footer';
+import { useCurrency } from '../../context/CurrencyContext';
 import { CheckIcon, XMarkIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 
-const plans = [
-  {
-    name: 'Starter',
-    id: 'starter',
-    description: 'Perfect for small consulting practices just getting started.',
-    priceMonthly: 49,
-    priceYearly: 470,
-  },
-  {
-    name: 'Professional',
-    id: 'professional',
-    description: 'For growing consulting firms that need more power.',
-    priceMonthly: 149,
-    priceYearly: 1430,
-    popular: true,
-  },
-  {
-    name: 'Enterprise',
-    id: 'enterprise',
-    description: 'For large organizations with complex requirements.',
-    priceMonthly: 399,
-    priceYearly: 3830,
-  },
-];
-
-const features = [
+const featureList = [
   { name: 'Clients', starter: '50', professional: 'Unlimited', enterprise: 'Unlimited' },
   { name: 'Team members', starter: '3', professional: '10', enterprise: 'Unlimited' },
   { name: 'Client management (CRM)', starter: true, professional: true, enterprise: true },
@@ -65,7 +41,7 @@ const faqs = [
   },
   {
     question: 'What payment methods do you accept?',
-    answer: 'We accept all major credit cards (Visa, MasterCard, American Express), PayPal, and bank transfers for annual plans. For Enterprise customers, we also offer invoicing with NET-30 terms.',
+    answer: 'We accept all major credit cards (Visa, MasterCard, American Express), PayPal, and bank transfers for annual plans. For customers in Nigeria, we also support Paystack. For South Africa, we support EFT payments.',
   },
   {
     question: 'Is there a discount for annual billing?',
@@ -73,7 +49,7 @@ const faqs = [
   },
   {
     question: 'Can I add more team members than my plan allows?',
-    answer: 'Absolutely. Additional team members can be added for $15/user/month on the Starter plan and $10/user/month on the Professional plan. Enterprise plans include unlimited users.',
+    answer: 'Absolutely. Additional team members can be added for a small per-user fee. Enterprise plans include unlimited users.',
   },
   {
     question: 'Do you offer refunds?',
@@ -84,6 +60,29 @@ const faqs = [
 export default function Pricing() {
   const [annual, setAnnual] = useState(false);
   const [openFaq, setOpenFaq] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const { currency, currencyConfig } = useCurrency();
+
+  useEffect(() => {
+    fetch('/api/plans')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setPlans(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const getPrice = (plan, isYearly = false) => {
+    const suffix = isYearly ? '_yearly' : '';
+    const priceKey = `price_${currency.toLowerCase()}${suffix}`;
+    return plan[priceKey] || plan[`price_usd${suffix}`] || 0;
+  };
+
+  const formatPrice = (amount) => {
+    return `${currencyConfig?.symbol || '$'}${amount.toLocaleString()}`;
+  };
 
   return (
     <div className="bg-white">
@@ -99,8 +98,13 @@ export default function Pricing() {
             Choose the perfect plan for your consulting practice. All plans include a 30-day free trial.
           </p>
 
+          {/* Currency indicator */}
+          <p className="mt-4 text-sm text-primary-500">
+            Prices shown in {currencyConfig?.name} ({currency})
+          </p>
+
           {/* Billing toggle */}
-          <div className="mt-10 flex items-center justify-center gap-4">
+          <div className="mt-8 flex items-center justify-center gap-4">
             <span className={`text-sm font-medium ${!annual ? 'text-primary-900' : 'text-primary-500'}`}>
               Monthly
             </span>
@@ -130,53 +134,59 @@ export default function Pricing() {
       <section className="py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="grid gap-8 lg:grid-cols-3">
-            {plans.map((plan) => (
-              <div
-                key={plan.id}
-                className={`relative rounded-2xl p-8 ${
-                  plan.popular
-                    ? 'bg-accent-600 text-white ring-4 ring-accent-400 lg:scale-105 lg:z-10'
-                    : 'bg-white border border-primary-200'
-                }`}
-              >
-                {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center rounded-full bg-accent-400 px-4 py-1 text-xs font-semibold text-accent-900">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <h3 className={`text-xl font-semibold ${plan.popular ? 'text-white' : 'text-primary-900'}`}>
-                    {plan.name}
-                  </h3>
-                  <p className={`mt-2 text-sm ${plan.popular ? 'text-accent-100' : 'text-primary-500'}`}>
-                    {plan.description}
-                  </p>
-                  <div className="mt-6">
-                    <span className={`text-5xl font-bold ${plan.popular ? 'text-white' : 'text-primary-900'}`}>
-                      ${annual ? Math.round(plan.priceYearly / 12) : plan.priceMonthly}
-                    </span>
-                    <span className={`text-sm ${plan.popular ? 'text-accent-100' : 'text-primary-500'}`}>/month</span>
-                    {annual && (
-                      <p className={`mt-1 text-sm ${plan.popular ? 'text-accent-200' : 'text-primary-400'}`}>
-                        Billed ${plan.priceYearly} annually
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Link
-                  to={`/signup?plan=${plan.id}`}
-                  className={`mt-8 block w-full rounded-lg py-3 text-center text-sm font-semibold transition-colors ${
+            {plans.map((plan) => {
+              const monthlyPrice = getPrice(plan, false);
+              const yearlyPrice = getPrice(plan, true);
+              const displayPrice = annual ? Math.round(yearlyPrice / 12) : monthlyPrice;
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`relative rounded-2xl p-8 ${
                     plan.popular
-                      ? 'bg-white text-accent-600 hover:bg-accent-50'
-                      : 'bg-accent-600 text-white hover:bg-accent-700'
+                      ? 'bg-accent-600 text-white ring-4 ring-accent-400 lg:scale-105 lg:z-10'
+                      : 'bg-white border border-primary-200'
                   }`}
                 >
-                  Start Free Trial
-                </Link>
-              </div>
-            ))}
+                  {plan.popular && (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                      <span className="inline-flex items-center rounded-full bg-accent-400 px-4 py-1 text-xs font-semibold text-accent-900">
+                        Most Popular
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <h3 className={`text-xl font-semibold ${plan.popular ? 'text-white' : 'text-primary-900'}`}>
+                      {plan.name}
+                    </h3>
+                    <p className={`mt-2 text-sm ${plan.popular ? 'text-accent-100' : 'text-primary-500'}`}>
+                      {plan.description}
+                    </p>
+                    <div className="mt-6">
+                      <span className={`text-5xl font-bold ${plan.popular ? 'text-white' : 'text-primary-900'}`}>
+                        {formatPrice(displayPrice)}
+                      </span>
+                      <span className={`text-sm ${plan.popular ? 'text-accent-100' : 'text-primary-500'}`}>/month</span>
+                      {annual && (
+                        <p className={`mt-1 text-sm ${plan.popular ? 'text-accent-200' : 'text-primary-400'}`}>
+                          Billed {formatPrice(yearlyPrice)} annually
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Link
+                    to={`/signup?plan=${plan.id}`}
+                    className={`mt-8 block w-full rounded-lg py-3 text-center text-sm font-semibold transition-colors ${
+                      plan.popular
+                        ? 'bg-white text-accent-600 hover:bg-accent-50'
+                        : 'bg-accent-600 text-white hover:bg-accent-700'
+                    }`}
+                  >
+                    Start Free Trial
+                  </Link>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -198,7 +208,7 @@ export default function Pricing() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-100">
-                {features.map((feature, index) => (
+                {featureList.map((feature, index) => (
                   <tr key={feature.name} className={index % 2 === 0 ? 'bg-white' : 'bg-primary-50/50'}>
                     <td className="py-4 px-4 text-sm text-primary-700">{feature.name}</td>
                     <td className="py-4 px-4 text-center">

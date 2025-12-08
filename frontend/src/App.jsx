@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import { HelpProvider } from './context/HelpContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -53,8 +54,9 @@ function App() {
       <ToastProvider>
         <ConfirmProvider>
           <HelpProvider>
-            <BrowserRouter>
-            <Routes>
+            <CurrencyProvider>
+              <BrowserRouter>
+              <Routes>
           {/* Public marketing routes */}
           <Route path="/" element={<Landing />} />
           <Route path="/pricing" element={<Pricing />} />
@@ -100,8 +102,9 @@ function App() {
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            </BrowserRouter>
+              </Routes>
+              </BrowserRouter>
+            </CurrencyProvider>
           </HelpProvider>
         </ConfirmProvider>
       </ToastProvider>

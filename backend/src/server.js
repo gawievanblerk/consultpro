@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const authenticate = require('./middleware/auth');
 const tenantMiddleware = require('./middleware/tenant');
 const pool = require('./utils/db');
+const { geoMiddleware } = require('./utils/geo');
 
 const app = express();
 const PORT = process.env.PORT || 4020;
@@ -34,6 +35,72 @@ app.get('/health', (req, res) => {
     service: 'consultpro-backend',
     timestamp: new Date().toISOString(),
     version: '1.0.0'
+  });
+});
+
+// ============================================================================
+// Public Routes (No auth required)
+// ============================================================================
+
+// Geo detection endpoint for currency selection
+app.get('/api/geo', geoMiddleware, (req, res) => {
+  res.json({
+    success: true,
+    data: req.geo
+  });
+});
+
+// Public plans/pricing endpoint
+app.get('/api/plans', (req, res) => {
+  const plans = [
+    {
+      id: 'starter',
+      name: 'Starter',
+      description: 'Perfect for small consulting practices',
+      price_usd: 49,
+      price_zar: 899,
+      price_ngn: 75000,
+      price_usd_yearly: 470,
+      price_zar_yearly: 8630,
+      price_ngn_yearly: 720000,
+      max_clients: 50,
+      max_users: 3,
+      features: ['Basic CRM', 'Invoice generation', 'Email support']
+    },
+    {
+      id: 'professional',
+      name: 'Professional',
+      description: 'For growing consulting firms',
+      price_usd: 149,
+      price_zar: 2699,
+      price_ngn: 225000,
+      price_usd_yearly: 1430,
+      price_zar_yearly: 25910,
+      price_ngn_yearly: 2160000,
+      max_clients: -1, // unlimited
+      max_users: 10,
+      popular: true,
+      features: ['Full CRM & BD tools', 'HR management', 'Financial reporting', 'Priority support']
+    },
+    {
+      id: 'enterprise',
+      name: 'Enterprise',
+      description: 'For large organizations',
+      price_usd: 399,
+      price_zar: 7199,
+      price_ngn: 600000,
+      price_usd_yearly: 3830,
+      price_zar_yearly: 69110,
+      price_ngn_yearly: 5760000,
+      max_clients: -1,
+      max_users: -1,
+      features: ['Custom integrations', 'Dedicated account manager', 'SLA guarantee', 'On-premise option']
+    }
+  ];
+
+  res.json({
+    success: true,
+    data: plans
   });
 });
 

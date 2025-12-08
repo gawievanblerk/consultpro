@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PublicHeader from '../../components/public/Header';
 import PublicFooter from '../../components/public/Footer';
+import { useCurrency } from '../../context/CurrencyContext';
 import {
   UserGroupIcon,
   BriefcaseIcon,
@@ -15,9 +16,9 @@ import {
 
 // Hero background images - consulting/business themed
 const heroImages = [
-  'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1920&q=80', // Team meeting
-  'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=1920&q=80', // Business strategy
-  'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1920&q=80', // Team collaboration
+  'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=1920&q=80',
+  'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1920&q=80',
 ];
 
 const features = [
@@ -54,30 +55,10 @@ const stats = [
   { label: 'Support Response', value: '<2hrs' },
 ];
 
-const pricingPlans = [
-  {
-    name: 'Starter',
-    description: 'Perfect for small consulting practices',
-    price: 49,
-    features: ['Up to 50 clients', '3 team members', 'Basic CRM', 'Invoice generation', 'Email support'],
-  },
-  {
-    name: 'Professional',
-    description: 'For growing consulting firms',
-    price: 149,
-    popular: true,
-    features: ['Unlimited clients', '10 team members', 'Full CRM & BD tools', 'HR management', 'Financial reporting', 'Priority support'],
-  },
-  {
-    name: 'Enterprise',
-    description: 'For large organizations',
-    price: 399,
-    features: ['Unlimited everything', 'Unlimited team members', 'Custom integrations', 'Dedicated account manager', 'SLA guarantee', 'On-premise option'],
-  },
-];
-
 export default function Landing() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [plans, setPlans] = useState([]);
+  const { currency, formatPrice, currencyConfig } = useCurrency();
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -86,13 +67,30 @@ export default function Landing() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    // Fetch plans from API
+    fetch('/api/plans')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setPlans(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const getPriceDisplay = (plan) => {
+    const priceKey = `price_${currency.toLowerCase()}`;
+    const amount = plan[priceKey] || plan.price_usd;
+    return `${currencyConfig?.symbol || '$'}${amount.toLocaleString()}`;
+  };
+
   return (
     <div className="bg-white">
       <PublicHeader />
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center pt-20">
-        {/* Background Images */}
         {heroImages.map((image, index) => (
           <div
             key={index}
@@ -100,16 +98,11 @@ export default function Landing() {
               index === currentImageIndex ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            <img
-              src={image}
-              alt=""
-              className="h-full w-full object-cover"
-            />
+            <img src={image} alt="" className="h-full w-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-r from-primary-900/90 via-primary-900/70 to-primary-900/50" />
           </div>
         ))}
 
-        {/* Content */}
         <div className="relative mx-auto max-w-7xl px-6 py-24 lg:px-8 lg:py-32">
           <div className="max-w-2xl">
             <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
@@ -139,7 +132,6 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
           <svg className="w-6 h-6 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
@@ -160,7 +152,7 @@ export default function Landing() {
           </div>
 
           <div className="mt-16 grid gap-8 md:grid-cols-2">
-            {features.map((feature, index) => (
+            {features.map((feature) => (
               <div
                 key={feature.name}
                 className="group relative bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300"
@@ -212,12 +204,15 @@ export default function Landing() {
             <p className="mt-4 text-lg text-primary-600">
               Choose the plan that fits your business. All plans include a 30-day free trial.
             </p>
+            <p className="mt-2 text-sm text-primary-500">
+              Prices shown in {currencyConfig?.name || 'US Dollar'} ({currency})
+            </p>
           </div>
 
           <div className="mt-16 grid gap-8 lg:grid-cols-3">
-            {pricingPlans.map((plan) => (
+            {plans.map((plan) => (
               <div
-                key={plan.name}
+                key={plan.id}
                 className={`relative rounded-2xl p-8 ${
                   plan.popular
                     ? 'bg-accent-600 text-white ring-4 ring-accent-400 scale-105'
@@ -240,13 +235,13 @@ export default function Landing() {
                   </p>
                   <div className="mt-6">
                     <span className={`text-4xl font-bold ${plan.popular ? 'text-white' : 'text-primary-900'}`}>
-                      ${plan.price}
+                      {getPriceDisplay(plan)}
                     </span>
                     <span className={`text-sm ${plan.popular ? 'text-accent-100' : 'text-primary-500'}`}>/month</span>
                   </div>
                 </div>
                 <ul className="mt-8 space-y-3">
-                  {plan.features.map((feature) => (
+                  {plan.features?.map((feature) => (
                     <li key={feature} className="flex items-start gap-3">
                       <CheckCircleIcon className={`h-5 w-5 flex-shrink-0 ${plan.popular ? 'text-accent-200' : 'text-accent-600'}`} />
                       <span className={`text-sm ${plan.popular ? 'text-accent-50' : 'text-primary-600'}`}>{feature}</span>
@@ -254,7 +249,7 @@ export default function Landing() {
                   ))}
                 </ul>
                 <Link
-                  to={`/signup?plan=${plan.name.toLowerCase()}`}
+                  to={`/signup?plan=${plan.id}`}
                   className={`mt-8 block w-full rounded-lg py-3 text-center text-sm font-semibold transition-colors ${
                     plan.popular
                       ? 'bg-white text-accent-600 hover:bg-accent-50'
