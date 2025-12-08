@@ -144,8 +144,8 @@ function AcceptInvite() {
             </div>
           ) : success ? (
             <div className="text-center">
-              <div className="mx-auto h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                <CheckCircleIcon className="h-8 w-8 text-green-600" />
+              <div className="mx-auto h-16 w-16 rounded-full bg-accent-100 flex items-center justify-center mb-4">
+                <CheckCircleIcon className="h-8 w-8 text-accent-600" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Welcome!</h2>
               <p className="text-gray-600 mb-6">

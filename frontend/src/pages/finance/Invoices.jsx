@@ -80,8 +80,8 @@ function Invoices() {
       return sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
     }, 0);
 
-    const vatRate = 0.075; // 7.5% VAT
-    const whtRate = whtType === 'professional' ? 0.10 : 0.05; // 10% or 5% WHT
+    const vatRate = 0.075;
+    const whtRate = whtType === 'professional' ? 0.10 : 0.05;
 
     const vat = applyVat ? subtotal * vatRate : 0;
     const wht = applyWht ? subtotal * whtRate : 0;
@@ -92,7 +92,6 @@ function Invoices() {
 
   const handleOpenModal = async (invoice = null) => {
     if (invoice) {
-      // Fetch full invoice with items
       try {
         const response = await api.get(`/api/invoices/${invoice.id}`);
         if (response.data.success) {
@@ -270,168 +269,187 @@ function Invoices() {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'paid': return <span className="badge-success">Paid</span>;
-      case 'sent': return <span className="badge-primary">Sent</span>;
+      case 'sent': return <span className="badge-info">Sent</span>;
       case 'partial': return <span className="badge-warning">Partial</span>;
-      case 'overdue': return <span className="badge bg-red-100 text-red-700">Overdue</span>;
-      case 'draft': return <span className="badge">Draft</span>;
-      default: return <span className="badge">{status}</span>;
+      case 'overdue': return <span className="badge-danger">Overdue</span>;
+      case 'draft': return <span className="badge-neutral">Draft</span>;
+      default: return <span className="badge-neutral">{status}</span>;
     }
   };
 
   const totals = calculateTotals(formData.items, formData.apply_vat, formData.apply_wht, formData.wht_type);
 
+  const filterTabs = [
+    { key: 'all', label: 'All' },
+    { key: 'draft', label: 'Draft' },
+    { key: 'sent', label: 'Sent' },
+    { key: 'paid', label: 'Paid' },
+    { key: 'overdue', label: 'Overdue' }
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Invoices</h1>
-          <p className="mt-1 text-sm text-gray-500">Manage billing and invoices</p>
+          <h1 className="text-2xl font-semibold text-primary-900 tracking-tight">Invoices</h1>
+          <p className="mt-1 text-primary-500">Manage billing and invoices</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <HelpButton onClick={() => showHelp('invoices')} />
           <button onClick={() => handleOpenModal()} className="btn-primary">
-            <PlusIcon className="h-5 w-5 mr-2" />
+            <PlusIcon className="h-4 w-4" />
             Create Invoice
           </button>
         </div>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <p className="text-sm text-gray-500">Total Outstanding</p>
-          <p className="text-xl font-semibold text-gray-900">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-primary-100 p-5">
+          <p className="text-sm font-medium text-primary-500">Outstanding</p>
+          <p className="mt-2 text-2xl font-semibold text-primary-900 tracking-tight">
             {formatCurrency(invoices.filter(i => i.status !== 'paid').reduce((sum, i) => sum + parseFloat(i.total_amount) - parseFloat(i.paid_amount || 0), 0))}
           </p>
         </div>
-        <div className="card p-4">
-          <p className="text-sm text-gray-500">Paid This Month</p>
-          <p className="text-xl font-semibold text-green-700">
+        <div className="bg-white rounded-xl border border-primary-100 p-5">
+          <p className="text-sm font-medium text-primary-500">Paid</p>
+          <p className="mt-2 text-2xl font-semibold text-accent-600 tracking-tight">
             {formatCurrency(invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + parseFloat(i.total_amount), 0))}
           </p>
         </div>
-        <div className="card p-4">
-          <p className="text-sm text-gray-500">Overdue</p>
-          <p className="text-xl font-semibold text-red-700">
+        <div className="bg-white rounded-xl border border-primary-100 p-5">
+          <p className="text-sm font-medium text-primary-500">Overdue</p>
+          <p className="mt-2 text-2xl font-semibold text-danger-600 tracking-tight">
             {formatCurrency(invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + parseFloat(i.total_amount), 0))}
           </p>
         </div>
-        <div className="card p-4">
-          <p className="text-sm text-gray-500">Draft</p>
-          <p className="text-xl font-semibold text-gray-500">{invoices.filter(i => i.status === 'draft').length} invoices</p>
+        <div className="bg-white rounded-xl border border-primary-100 p-5">
+          <p className="text-sm font-medium text-primary-500">Drafts</p>
+          <p className="mt-2 text-2xl font-semibold text-primary-400 tracking-tight">
+            {invoices.filter(i => i.status === 'draft').length}
+          </p>
         </div>
       </div>
 
-      <div className="card">
-        <div className="p-4">
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="form-input w-full sm:w-48"
-          >
-            <option value="all">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="sent">Sent</option>
-            <option value="paid">Paid</option>
-            <option value="partial">Partial</option>
-            <option value="overdue">Overdue</option>
-          </select>
+      {/* Filter tabs */}
+      <div className="bg-white rounded-xl border border-primary-100 p-2">
+        <div className="flex gap-1 flex-wrap">
+          {filterTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                ${filter === tab.key
+                  ? 'bg-primary-900 text-white'
+                  : 'text-primary-600 hover:bg-primary-50 hover:text-primary-900'
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
+      {/* Invoices list */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-700"></div>
+          <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
         </div>
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="table min-w-full">
-            <thead>
-              <tr>
-                <th>Invoice #</th>
-                <th>Client</th>
-                <th>Date</th>
-                <th>Due Date</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {invoices.map((invoice) => (
-                <tr
-                  key={invoice.id}
-                  onClick={() => handleOpenModal(invoice)}
-                  className="cursor-pointer hover:bg-gray-50"
-                >
-                  <td>
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0 bg-primary-100 rounded-lg flex items-center justify-center">
-                        <DocumentTextIcon className="h-5 w-5 text-primary-700" />
-                      </div>
-                      <div className="ml-3">
-                        <p className="font-medium">{invoice.invoice_number}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{invoice.client_name}</td>
-                  <td>{new Date(invoice.invoice_date).toLocaleDateString()}</td>
-                  <td>{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}</td>
-                  <td>
-                    <p className="font-medium">{formatCurrency(invoice.total_amount)}</p>
-                    {invoice.paid_amount > 0 && invoice.status !== 'paid' && (
-                      <p className="text-xs text-gray-500">Paid: {formatCurrency(invoice.paid_amount)}</p>
-                    )}
-                  </td>
-                  <td>{getStatusBadge(invoice.status)}</td>
-                  <td>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDownloadPdf(invoice); }}
-                        className="p-1 text-gray-500 hover:text-accent-600"
-                        title="Download PDF"
-                      >
-                        <DocumentArrowDownIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleSendEmail(invoice); }}
-                        className="p-1 text-gray-500 hover:text-green-600"
-                        title="Send Email"
-                      >
-                        <EnvelopeIcon className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(invoice.id); }}
-                        className="p-1 text-gray-500 hover:text-red-600"
-                        title="Delete"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
+        <div className="bg-white rounded-xl border border-primary-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-primary-100">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Invoice</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Client</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Due</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-primary-500 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-              {invoices.length === 0 && (
-                <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">No invoices found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {invoices.map((invoice, idx) => (
+                  <tr
+                    key={invoice.id}
+                    onClick={() => handleOpenModal(invoice)}
+                    className={`cursor-pointer transition-colors hover:bg-primary-50/50 ${idx !== invoices.length - 1 ? 'border-b border-primary-50' : ''}`}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 flex-shrink-0 bg-primary-50 rounded-lg flex items-center justify-center">
+                          <DocumentTextIcon className="h-5 w-5 text-primary-400" />
+                        </div>
+                        <p className="font-medium text-primary-900">{invoice.invoice_number}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-primary-700">{invoice.client_name}</td>
+                    <td className="px-6 py-4 text-sm text-primary-600">{new Date(invoice.invoice_date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-sm text-primary-600">{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}</td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-medium text-primary-900">{formatCurrency(invoice.total_amount)}</p>
+                      {invoice.paid_amount > 0 && invoice.status !== 'paid' && (
+                        <p className="text-xs text-primary-400">Paid: {formatCurrency(invoice.paid_amount)}</p>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">{getStatusBadge(invoice.status)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDownloadPdf(invoice); }}
+                          className="p-2 text-primary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Download PDF"
+                        >
+                          <DocumentArrowDownIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSendEmail(invoice); }}
+                          className="p-2 text-primary-400 hover:text-accent-600 hover:bg-accent-50 rounded-lg transition-colors"
+                          title="Send Email"
+                        >
+                          <EnvelopeIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(invoice.id); }}
+                          className="p-2 text-primary-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {invoices.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-16 text-center">
+                      <DocumentTextIcon className="h-12 w-12 text-primary-200 mx-auto mb-4" />
+                      <p className="text-primary-500 font-medium">No invoices found</p>
+                      <p className="text-sm text-primary-400 mt-1">Create your first invoice to get started</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
+      {/* Modal */}
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingInvoice ? 'Edit Invoice' : 'Create Invoice'} size="xl">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Header Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="md:col-span-2">
-              <label className="form-label">Client *</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Client *</label>
               <select
                 required
                 value={formData.client_id}
                 onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-700 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               >
                 <option value="">Select a client</option>
                 {clients.map(client => (
@@ -440,21 +458,21 @@ function Invoices() {
               </select>
             </div>
             <div>
-              <label className="form-label">Invoice Number *</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Invoice Number *</label>
               <input
                 type="text"
                 required
                 value={formData.invoice_number}
                 onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div>
-              <label className="form-label">Status</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Status</label>
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-700 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               >
                 <option value="draft">Draft</option>
                 <option value="sent">Sent</option>
@@ -464,36 +482,36 @@ function Invoices() {
               </select>
             </div>
             <div>
-              <label className="form-label">Invoice Date *</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Invoice Date *</label>
               <input
                 type="date"
                 required
                 value={formData.invoice_date}
                 onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-700 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div>
-              <label className="form-label">Due Date</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Due Date</label>
               <input
                 type="date"
                 value={formData.due_date}
                 onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-700 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
           </div>
 
           {/* Line Items Section */}
-          <div className="border-t pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <label className="form-label mb-0">Line Items</label>
+          <div className="border-t border-primary-100 pt-5">
+            <div className="flex items-center justify-between mb-4">
+              <label className="text-sm font-medium text-primary-700">Line Items</label>
               <button
                 type="button"
                 onClick={handleAddItem}
-                className="text-sm text-primary-700 hover:text-primary-800 font-medium flex items-center"
+                className="text-sm text-primary-600 hover:text-primary-800 font-medium flex items-center gap-1"
               >
-                <PlusIcon className="h-4 w-4 mr-1" />
+                <PlusIcon className="h-4 w-4" />
                 Add Item
               </button>
             </div>
@@ -501,56 +519,56 @@ function Invoices() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50">
-                    <th className="text-left p-2 font-medium text-gray-600">Description</th>
-                    <th className="text-right p-2 font-medium text-gray-600 w-24">Qty</th>
-                    <th className="text-right p-2 font-medium text-gray-600 w-32">Unit Price</th>
-                    <th className="text-right p-2 font-medium text-gray-600 w-32">Amount</th>
-                    <th className="p-2 w-12"></th>
+                  <tr className="border-b border-primary-100">
+                    <th className="text-left py-3 px-2 text-xs font-semibold text-primary-500 uppercase">Description</th>
+                    <th className="text-right py-3 px-2 text-xs font-semibold text-primary-500 uppercase w-20">Qty</th>
+                    <th className="text-right py-3 px-2 text-xs font-semibold text-primary-500 uppercase w-28">Unit Price</th>
+                    <th className="text-right py-3 px-2 text-xs font-semibold text-primary-500 uppercase w-28">Amount</th>
+                    <th className="py-3 px-2 w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {formData.items.map((item, index) => {
                     const amount = (parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0);
                     return (
-                      <tr key={index} className="border-b border-gray-100">
-                        <td className="p-2">
+                      <tr key={index} className="border-b border-primary-50">
+                        <td className="py-2 px-2">
                           <input
                             type="text"
                             placeholder="Service description"
                             value={item.description}
                             onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                            className="form-input text-sm"
+                            className="w-full px-3 py-2 bg-primary-50/50 border border-primary-200 rounded-lg text-sm text-primary-900 placeholder-primary-400 focus:outline-none focus:bg-white focus:border-primary-400"
                           />
                         </td>
-                        <td className="p-2">
+                        <td className="py-2 px-2">
                           <input
                             type="number"
                             min="1"
                             value={item.quantity}
                             onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                            className="form-input text-sm text-right"
+                            className="w-full px-3 py-2 bg-primary-50/50 border border-primary-200 rounded-lg text-sm text-right text-primary-900 focus:outline-none focus:bg-white focus:border-primary-400"
                           />
                         </td>
-                        <td className="p-2">
+                        <td className="py-2 px-2">
                           <input
                             type="number"
                             min="0"
                             step="0.01"
                             value={item.unit_price}
                             onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
-                            className="form-input text-sm text-right"
+                            className="w-full px-3 py-2 bg-primary-50/50 border border-primary-200 rounded-lg text-sm text-right text-primary-900 focus:outline-none focus:bg-white focus:border-primary-400"
                           />
                         </td>
-                        <td className="p-2 text-right font-medium">
+                        <td className="py-2 px-2 text-right font-medium text-primary-900">
                           {formatCurrency(amount)}
                         </td>
-                        <td className="p-2">
+                        <td className="py-2 px-2">
                           {formData.items.length > 1 && (
                             <button
                               type="button"
                               onClick={() => handleRemoveItem(index)}
-                              className="text-gray-400 hover:text-red-500"
+                              className="p-1 text-primary-400 hover:text-danger-500 transition-colors"
                             >
                               <TrashIcon className="h-4 w-4" />
                             </button>
@@ -565,38 +583,38 @@ function Invoices() {
           </div>
 
           {/* Tax Options and Totals */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-            <div className="space-y-3">
-              <div className="flex items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-primary-100 pt-5">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
                   id="apply_vat"
                   checked={formData.apply_vat}
                   onChange={(e) => setFormData({ ...formData, apply_vat: e.target.checked })}
-                  className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                  className="h-4 w-4 text-primary-600 rounded border-primary-300 focus:ring-primary-500"
                 />
-                <label htmlFor="apply_vat" className="ml-2 text-sm text-gray-700">
+                <label htmlFor="apply_vat" className="text-sm text-primary-700">
                   Apply VAT (7.5%)
                 </label>
               </div>
-              <div className="flex items-center">
+              <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
                   id="apply_wht"
                   checked={formData.apply_wht}
                   onChange={(e) => setFormData({ ...formData, apply_wht: e.target.checked })}
-                  className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                  className="h-4 w-4 text-primary-600 rounded border-primary-300 focus:ring-primary-500"
                 />
-                <label htmlFor="apply_wht" className="ml-2 text-sm text-gray-700">
+                <label htmlFor="apply_wht" className="text-sm text-primary-700">
                   Apply WHT
                 </label>
               </div>
               {formData.apply_wht && (
-                <div className="ml-6">
+                <div className="ml-7">
                   <select
                     value={formData.wht_type}
                     onChange={(e) => setFormData({ ...formData, wht_type: e.target.value })}
-                    className="form-input text-sm"
+                    className="w-full px-3 py-2 bg-primary-50/50 border border-primary-200 rounded-lg text-sm text-primary-700 focus:outline-none focus:bg-white focus:border-primary-400"
                   >
                     <option value="services">Services (5%)</option>
                     <option value="professional">Professional (10%)</option>
@@ -605,25 +623,25 @@ function Invoices() {
               )}
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+            <div className="bg-primary-50/50 p-5 rounded-xl space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Subtotal:</span>
-                <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
+                <span className="text-primary-500">Subtotal</span>
+                <span className="font-medium text-primary-900">{formatCurrency(totals.subtotal)}</span>
               </div>
               {formData.apply_vat && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">VAT (7.5%):</span>
-                  <span className="font-medium text-green-700">+{formatCurrency(totals.vat)}</span>
+                  <span className="text-primary-500">VAT (7.5%)</span>
+                  <span className="font-medium text-accent-600">+{formatCurrency(totals.vat)}</span>
                 </div>
               )}
               {formData.apply_wht && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">WHT ({formData.wht_type === 'professional' ? '10%' : '5%'}):</span>
-                  <span className="font-medium text-red-700">-{formatCurrency(totals.wht)}</span>
+                  <span className="text-primary-500">WHT ({formData.wht_type === 'professional' ? '10%' : '5%'})</span>
+                  <span className="font-medium text-danger-600">-{formatCurrency(totals.wht)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-base pt-2 border-t border-gray-200">
-                <span className="font-semibold text-gray-900">Total:</span>
+              <div className="flex justify-between text-base pt-3 border-t border-primary-200">
+                <span className="font-semibold text-primary-900">Total</span>
                 <span className="font-bold text-primary-900">{formatCurrency(totals.total)}</span>
               </div>
             </div>
@@ -631,19 +649,21 @@ function Invoices() {
 
           {/* Notes */}
           <div>
-            <label className="form-label">Notes</label>
+            <label className="block text-sm font-medium text-primary-700 mb-2">Notes</label>
             <textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="form-input"
+              className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               rows={2}
               placeholder="Additional notes or payment terms..."
             />
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
+          <div className="flex justify-end gap-3 pt-5 border-t border-primary-100">
+            <button type="button" onClick={handleCloseModal} className="btn-secondary">
+              Cancel
+            </button>
             <button type="submit" disabled={saving} className="btn-primary">
               {saving ? 'Saving...' : (editingInvoice ? 'Update Invoice' : 'Create Invoice')}
             </button>

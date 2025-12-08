@@ -91,7 +91,7 @@ export function HelpList({ items }) {
     <ul className="space-y-2">
       {items.map((item, index) => (
         <li key={index} className="flex items-start gap-2 text-sm text-gray-600">
-          <CheckCircleIcon className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+          <CheckCircleIcon className="h-5 w-5 text-accent-500 flex-shrink-0 mt-0.5" />
           <span>{item}</span>
         </li>
       ))}
