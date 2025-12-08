@@ -21,27 +21,27 @@ import {
 } from '@heroicons/react/24/outline';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'CRM', children: [
-    { name: 'Clients', href: '/clients', icon: BuildingOfficeIcon },
-    { name: 'Contacts', href: '/contacts', icon: UserGroupIcon },
-    { name: 'Engagements', href: '/engagements', icon: BriefcaseIcon },
+    { name: 'Clients', href: '/dashboard/clients', icon: BuildingOfficeIcon },
+    { name: 'Contacts', href: '/dashboard/contacts', icon: UserGroupIcon },
+    { name: 'Engagements', href: '/dashboard/engagements', icon: BriefcaseIcon },
   ]},
   { name: 'Business Development', children: [
-    { name: 'Leads', href: '/leads', icon: UsersIcon },
-    { name: 'Pipeline', href: '/pipeline', icon: ChartBarIcon },
+    { name: 'Leads', href: '/dashboard/leads', icon: UsersIcon },
+    { name: 'Pipeline', href: '/dashboard/pipeline', icon: ChartBarIcon },
   ]},
   { name: 'HR Outsourcing', children: [
-    { name: 'Staff Pool', href: '/staff', icon: UsersIcon },
-    { name: 'Deployments', href: '/deployments', icon: ClipboardDocumentListIcon },
+    { name: 'Staff Pool', href: '/dashboard/staff', icon: UsersIcon },
+    { name: 'Deployments', href: '/dashboard/deployments', icon: ClipboardDocumentListIcon },
   ]},
   { name: 'Finance', children: [
-    { name: 'Invoices', href: '/invoices', icon: DocumentTextIcon },
-    { name: 'Payments', href: '/payments', icon: BanknotesIcon },
+    { name: 'Invoices', href: '/dashboard/invoices', icon: DocumentTextIcon },
+    { name: 'Payments', href: '/dashboard/payments', icon: BanknotesIcon },
   ]},
-  { name: 'Tasks', href: '/tasks', icon: CheckCircleIcon },
+  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon },
   { name: 'Settings', roles: ['admin'], children: [
-    { name: 'Users', href: '/users', icon: UserCircleIcon },
+    { name: 'Users', href: '/dashboard/users', icon: UserCircleIcon },
   ]},
 ];
 
