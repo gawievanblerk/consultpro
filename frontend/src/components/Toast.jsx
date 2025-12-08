@@ -9,27 +9,27 @@ import {
 
 const typeStyles = {
   success: {
-    bg: 'bg-green-50 border-green-200',
-    icon: 'text-green-500',
-    text: 'text-green-800',
+    bg: 'bg-white border-l-4 border-l-accent-500',
+    icon: 'text-accent-500',
+    text: 'text-primary-700',
     Icon: CheckCircleIcon
   },
   error: {
-    bg: 'bg-red-50 border-red-200',
-    icon: 'text-red-500',
-    text: 'text-red-800',
+    bg: 'bg-white border-l-4 border-l-danger-500',
+    icon: 'text-danger-500',
+    text: 'text-primary-700',
     Icon: XCircleIcon
   },
   warning: {
-    bg: 'bg-amber-50 border-amber-200',
-    icon: 'text-amber-500',
-    text: 'text-amber-800',
+    bg: 'bg-white border-l-4 border-l-warning-500',
+    icon: 'text-warning-500',
+    text: 'text-primary-700',
     Icon: ExclamationTriangleIcon
   },
   info: {
-    bg: 'bg-blue-50 border-blue-200',
-    icon: 'text-blue-500',
-    text: 'text-blue-800',
+    bg: 'bg-white border-l-4 border-l-info-500',
+    icon: 'text-info-500',
+    text: 'text-primary-700',
     Icon: InformationCircleIcon
   }
 };
@@ -40,7 +40,6 @@ export default function Toast({ message, type = 'info', onClose }) {
   const Icon = styles.Icon;
 
   useEffect(() => {
-    // Trigger enter animation
     requestAnimationFrame(() => {
       setIsVisible(true);
     });
@@ -48,27 +47,28 @@ export default function Toast({ message, type = 'info', onClose }) {
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(onClose, 200); // Wait for exit animation
+    setTimeout(onClose, 200);
   };
 
   return (
     <div
       className={`
         pointer-events-auto
-        transform transition-all duration-200 ease-out
+        transform transition-all duration-300 ease-out
         ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
         ${styles.bg}
-        border rounded-lg shadow-lg p-4
-        flex items-start gap-3
+        border border-primary-100 rounded-lg shadow-lg p-4
+        flex items-center gap-3
+        min-w-[320px] max-w-md
       `}
     >
       <Icon className={`h-5 w-5 flex-shrink-0 ${styles.icon}`} />
       <p className={`text-sm font-medium flex-1 ${styles.text}`}>{message}</p>
       <button
         onClick={handleClose}
-        className={`flex-shrink-0 ${styles.text} hover:opacity-70 transition-opacity`}
+        className="flex-shrink-0 p-1 text-primary-400 hover:text-primary-600 hover:bg-primary-50 rounded transition-colors"
       >
-        <XMarkIcon className="h-5 w-5" />
+        <XMarkIcon className="h-4 w-4" />
       </button>
     </div>
   );

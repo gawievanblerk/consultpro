@@ -169,8 +169,8 @@ function Payments() {
                 >
                   <td>
                     <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0 bg-green-50 rounded-lg flex items-center justify-center">
-                        <BanknotesIcon className="h-5 w-5 text-green-700" />
+                      <div className="h-10 w-10 flex-shrink-0 bg-accent-50 rounded-lg flex items-center justify-center">
+                        <BanknotesIcon className="h-5 w-5 text-accent-700" />
                       </div>
                       <div className="ml-3">
                         <p className="font-medium">{new Date(payment.payment_date).toLocaleDateString()}</p>
@@ -181,7 +181,7 @@ function Payments() {
                   <td>{payment.client_name}</td>
                   <td className="capitalize">{payment.payment_method?.replace('_', ' ') || '-'}</td>
                   <td>{payment.reference_number || '-'}</td>
-                  <td className="font-semibold text-green-700">{formatCurrency(payment.amount)}</td>
+                  <td className="font-semibold text-accent-700">{formatCurrency(payment.amount)}</td>
                   <td>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(payment.id); }}
