@@ -78,7 +78,7 @@ function AcceptInvite() {
         });
 
         // Redirect after brief delay
-        setTimeout(() => navigate('/'), 2000);
+        setTimeout(() => navigate('/dashboard'), 2000);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create account');
