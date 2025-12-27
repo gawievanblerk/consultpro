@@ -116,6 +116,16 @@ if (DEMO_MODE) {
 }
 
 // ============================================================================
+// Super Admin Routes (Separate auth - platform level)
+// ============================================================================
+app.use('/api/superadmin', require('./routes/superadmin'));
+
+// ============================================================================
+// Public Onboarding Routes (No auth required)
+// ============================================================================
+app.use('/api/onboard', require('./routes/onboarding'));
+
+// ============================================================================
 // Apply auth middleware to all other /api routes
 // ============================================================================
 app.use('/api', authenticate, tenantMiddleware);
@@ -167,6 +177,12 @@ app.use('/api/approvals', require('./routes/approvals'));
 // Admin/Settings Routes
 // ============================================================================
 app.use('/api/users', require('./routes/users'));
+
+// ============================================================================
+// CoreHR Hierarchy Routes (Consultant → Company → Employee)
+// ============================================================================
+app.use('/api/companies', require('./routes/companies'));
+app.use('/api/employees', require('./routes/employees'));
 
 // ============================================================================
 // Error Handlers

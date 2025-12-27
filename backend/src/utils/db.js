@@ -35,4 +35,24 @@ pool.on('error', (err) => {
   console.error('Database connection error:', err.message);
 });
 
+// Helper function for queries - binds to pool to avoid context issues
+const queryFn = pool.query.bind(pool);
+
+// Export pool as default for backward compatibility
+// Files using `const pool = require('./db')` will get the pool
 module.exports = pool;
+
+// Also add named exports for new patterns
+// Files using `const { query } = require('./db')` will get the query function
+// Using Object.defineProperty to avoid overwriting pool's native query method
+Object.defineProperty(module.exports, 'pool', {
+  value: pool,
+  writable: false,
+  enumerable: true
+});
+
+Object.defineProperty(module.exports, 'query', {
+  value: queryFn,
+  writable: false,
+  enumerable: true
+});

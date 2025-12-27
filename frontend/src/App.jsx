@@ -29,6 +29,16 @@ import Payments from './pages/finance/Payments';
 import Tasks from './pages/Tasks';
 import Users from './pages/settings/Users';
 
+// Super Admin pages
+import SuperAdminLayout from './components/superadmin/Layout';
+import SuperAdminLogin from './pages/superadmin/Login';
+import SuperAdminDashboard from './pages/superadmin/Dashboard';
+import SuperAdminConsultants from './pages/superadmin/Consultants';
+
+// Onboarding pages
+import ConsultantOnboard from './pages/onboard/ConsultantOnboard';
+import ESSActivate from './pages/onboard/ESSActivate';
+
 // Protected route wrapper
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -67,6 +77,18 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/accept-invite" element={<AcceptInvite />} />
+
+          {/* Super Admin routes */}
+          <Route path="/superadmin/login" element={<SuperAdminLogin />} />
+          <Route path="/superadmin" element={<SuperAdminLayout />}>
+            <Route index element={<Navigate to="/superadmin/dashboard" replace />} />
+            <Route path="dashboard" element={<SuperAdminDashboard />} />
+            <Route path="consultants" element={<SuperAdminConsultants />} />
+          </Route>
+
+          {/* Onboarding routes */}
+          <Route path="/onboard/consultant" element={<ConsultantOnboard />} />
+          <Route path="/onboard/ess" element={<ESSActivate />} />
 
           {/* Dashboard (protected) */}
           <Route path="/dashboard" element={
