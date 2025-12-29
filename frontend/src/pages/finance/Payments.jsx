@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, BanknotesIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -22,6 +23,17 @@ function Payments() {
     reference_number: '',
     notes: ''
   });
+
+  const {
+    selectedIds,
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected
+  } = useBulkSelection(payments);
 
   useEffect(() => {
     fetchPayments();
@@ -121,6 +133,25 @@ function Payments() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Payments',
+      message: `Are you sure you want to delete ${selectedCount} payment(s)? This action cannot be undone.`,
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all([...selectedIds].map(id => api.delete(`/api/payments/${id}`)));
+      toast.success(`${selectedCount} payment(s) deleted successfully`);
+      clearSelection();
+      fetchPayments();
+    } catch (error) {
+      console.error('Failed to delete payments:', error);
+      toast.error('Failed to delete some payments');
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -151,6 +182,13 @@ function Payments() {
           <table className="table min-w-full">
             <thead>
               <tr>
+                <th className="w-10">
+                  <SelectCheckbox
+                    checked={isAllSelected}
+                    indeterminate={isPartiallySelected}
+                    onChange={(e) => { e.stopPropagation(); toggleAll(); }}
+                  />
+                </th>
                 <th>Date</th>
                 <th>Invoice</th>
                 <th>Client</th>
@@ -165,8 +203,14 @@ function Payments() {
                 <tr
                   key={payment.id}
                   onClick={() => handleOpenModal(payment)}
-                  className="cursor-pointer hover:bg-gray-50"
+                  className={`cursor-pointer hover:bg-gray-50 ${isSelected(payment.id) ? 'bg-accent-50' : ''}`}
                 >
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <SelectCheckbox
+                      checked={isSelected(payment.id)}
+                      onChange={() => toggleItem(payment.id)}
+                    />
+                  </td>
                   <td>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-accent-50 rounded-lg flex items-center justify-center">
@@ -194,13 +238,19 @@ function Payments() {
               ))}
               {payments.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">No payments found</td>
+                  <td colSpan="8" className="text-center py-8 text-gray-500">No payments found</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       )}
+
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+      />
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingPayment ? 'Edit Payment' : 'Record Payment'}>
         <form onSubmit={handleSubmit} className="space-y-4">

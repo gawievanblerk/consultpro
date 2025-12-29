@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useHelp } from '../../context/HelpContext';
@@ -36,6 +37,18 @@ function Invoices() {
     wht_type: 'services',
     items: [{ description: '', quantity: 1, unit_price: 0 }]
   });
+
+  // Bulk selection
+  const {
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected,
+    selectedIds
+  } = useBulkSelection(invoices);
 
   useEffect(() => {
     fetchInvoices();
@@ -219,6 +232,27 @@ function Invoices() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Invoices',
+      message: `Are you sure you want to delete ${selectedCount} invoice(s)? This action cannot be undone.`,
+      confirmText: 'Delete All',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id => api.delete(`/api/invoices/${id}`))
+      );
+      toast.success(`${selectedCount} invoice(s) deleted successfully`);
+      clearSelection();
+      fetchInvoices();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      toast.error('Failed to delete some invoices');
+    }
+  };
+
   const handleDownloadPdf = async (invoice) => {
     try {
       const response = await api.get(`/api/invoices/${invoice.id}/pdf`, {
@@ -362,6 +396,13 @@ function Invoices() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-primary-100">
+                  <th className="px-4 py-4 text-left">
+                    <SelectCheckbox
+                      checked={isAllSelected}
+                      indeterminate={isPartiallySelected}
+                      onChange={toggleAll}
+                    />
+                  </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Invoice</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Client</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Date</th>
@@ -375,10 +416,15 @@ function Invoices() {
                 {invoices.map((invoice, idx) => (
                   <tr
                     key={invoice.id}
-                    onClick={() => handleOpenModal(invoice)}
-                    className={`cursor-pointer transition-colors hover:bg-primary-50/50 ${idx !== invoices.length - 1 ? 'border-b border-primary-50' : ''}`}
+                    className={`cursor-pointer transition-colors hover:bg-primary-50/50 ${isSelected(invoice.id) ? 'bg-accent-50' : ''} ${idx !== invoices.length - 1 ? 'border-b border-primary-50' : ''}`}
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                      <SelectCheckbox
+                        checked={isSelected(invoice.id)}
+                        onChange={() => toggleItem(invoice.id)}
+                      />
+                    </td>
+                    <td className="px-6 py-4" onClick={() => handleOpenModal(invoice)}>
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 flex-shrink-0 bg-primary-50 rounded-lg flex items-center justify-center">
                           <DocumentTextIcon className="h-5 w-5 text-primary-400" />
@@ -386,16 +432,16 @@ function Invoices() {
                         <p className="font-medium text-primary-900">{invoice.invoice_number}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-primary-700">{invoice.client_name}</td>
-                    <td className="px-6 py-4 text-sm text-primary-600">{new Date(invoice.invoice_date).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-sm text-primary-600">{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 text-sm text-primary-700" onClick={() => handleOpenModal(invoice)}>{invoice.client_name}</td>
+                    <td className="px-6 py-4 text-sm text-primary-600" onClick={() => handleOpenModal(invoice)}>{new Date(invoice.invoice_date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-sm text-primary-600" onClick={() => handleOpenModal(invoice)}>{invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-'}</td>
+                    <td className="px-6 py-4" onClick={() => handleOpenModal(invoice)}>
                       <p className="text-sm font-medium text-primary-900">{formatCurrency(invoice.total_amount)}</p>
                       {invoice.paid_amount > 0 && invoice.status !== 'paid' && (
                         <p className="text-xs text-primary-400">Paid: {formatCurrency(invoice.paid_amount)}</p>
                       )}
                     </td>
-                    <td className="px-6 py-4">{getStatusBadge(invoice.status)}</td>
+                    <td className="px-6 py-4" onClick={() => handleOpenModal(invoice)}>{getStatusBadge(invoice.status)}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -425,7 +471,7 @@ function Invoices() {
                 ))}
                 {invoices.length === 0 && (
                   <tr>
-                    <td colSpan="7" className="px-6 py-16 text-center">
+                    <td colSpan="8" className="px-6 py-16 text-center">
                       <DocumentTextIcon className="h-12 w-12 text-primary-200 mx-auto mb-4" />
                       <p className="text-primary-500 font-medium">No invoices found</p>
                       <p className="text-sm text-primary-400 mt-1">Create your first invoice to get started</p>
@@ -437,6 +483,13 @@ function Invoices() {
           </div>
         </div>
       )}
+
+      {/* Bulk Actions Bar */}
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+      />
 
       {/* Modal */}
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingInvoice ? 'Edit Invoice' : 'Create Invoice'} size="xl">

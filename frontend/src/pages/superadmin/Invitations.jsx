@@ -2,11 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { EnvelopeIcon, ClipboardIcon, TrashIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { CheckIcon } from '@heroicons/react/24/solid';
 import api from '../../utils/api';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 
 function SuperAdminInvitations() {
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
+
+  const {
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected,
+    selectedIds
+  } = useBulkSelection(invitations);
 
   const getAuthHeaders = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('superadmin_token')}` }
@@ -59,6 +71,40 @@ function SuperAdminInvitations() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedCount} invitation(s)?`)) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id =>
+          api.delete(`/api/superadmin/invitations/${id}`, getAuthHeaders())
+        )
+      );
+      clearSelection();
+      fetchInvitations();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      alert('Failed to delete some invitations');
+    }
+  };
+
+  const handleBulkResend = async () => {
+    if (!confirm(`Are you sure you want to resend ${selectedCount} invitation(s)?`)) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id =>
+          api.post(`/api/superadmin/invitations/${id}/resend`, {}, getAuthHeaders())
+        )
+      );
+      clearSelection();
+      alert('Invitations resent successfully');
+    } catch (error) {
+      console.error('Failed to bulk resend:', error);
+      alert('Failed to resend some invitations');
+    }
+  };
+
   const getStatusBadge = (invitation) => {
     const now = new Date();
     const expiresAt = new Date(invitation.expires_at);
@@ -71,6 +117,15 @@ function SuperAdminInvitations() {
     }
     return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">Pending</span>;
   };
+
+  const bulkActions = [
+    {
+      label: 'Resend',
+      icon: EnvelopeIcon,
+      onClick: handleBulkResend,
+      className: 'bg-accent-600 hover:bg-accent-700'
+    }
+  ];
 
   return (
     <div>
@@ -103,6 +158,13 @@ function SuperAdminInvitations() {
           <table className="w-full">
             <thead className="bg-primary-50 border-b border-primary-100">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <SelectCheckbox
+                    checked={isAllSelected}
+                    indeterminate={isPartiallySelected}
+                    onChange={toggleAll}
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-primary-600 uppercase tracking-wider">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-primary-600 uppercase tracking-wider">Company</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-primary-600 uppercase tracking-wider">Tier</th>
@@ -113,7 +175,16 @@ function SuperAdminInvitations() {
             </thead>
             <tbody className="divide-y divide-primary-100">
               {invitations.map((invitation) => (
-                <tr key={invitation.id} className="hover:bg-primary-50/50">
+                <tr
+                  key={invitation.id}
+                  className={`hover:bg-primary-50/50 ${isSelected(invitation.id) ? 'bg-accent-50' : ''}`}
+                >
+                  <td className="px-4 py-4">
+                    <SelectCheckbox
+                      checked={isSelected(invitation.id)}
+                      onChange={() => toggleItem(invitation.id)}
+                    />
+                  </td>
                   <td className="px-6 py-4">
                     <p className="font-medium text-primary-900">{invitation.email}</p>
                   </td>
@@ -162,6 +233,14 @@ function SuperAdminInvitations() {
           </table>
         )}
       </div>
+
+      {/* Bulk Actions Bar */}
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+        customActions={bulkActions}
+      />
     </div>
   );
 }

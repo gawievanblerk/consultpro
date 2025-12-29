@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/api';
 import Modal from '../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../components/BulkActions';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useHelp } from '../context/HelpContext';
@@ -26,6 +27,17 @@ function Tasks() {
     status: 'pending',
     due_date: ''
   });
+
+  const {
+    selectedIds,
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected
+  } = useBulkSelection(tasks);
 
   useEffect(() => {
     fetchTasks();
@@ -126,6 +138,25 @@ function Tasks() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Tasks',
+      message: `Are you sure you want to delete ${selectedCount} task(s)? This action cannot be undone.`,
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all([...selectedIds].map(id => api.delete(`/api/tasks/${id}`)));
+      toast.success(`${selectedCount} task(s) deleted successfully`);
+      clearSelection();
+      fetchTasks();
+    } catch (error) {
+      console.error('Failed to delete tasks:', error);
+      toast.error('Failed to delete some tasks');
+    }
+  };
+
   const completeTask = async (taskId) => {
     try {
       await api.put(`/api/tasks/${taskId}`, { status: 'completed' });
@@ -207,10 +238,18 @@ function Tasks() {
           {tasks.map((task) => (
             <div
               key={task.id}
-              className="bg-white rounded-xl border border-primary-100 p-5 hover:border-primary-200 hover:shadow-sm transition-all duration-200 cursor-pointer"
+              className={`bg-white rounded-xl border border-primary-100 p-5 hover:border-primary-200 hover:shadow-sm transition-all duration-200 cursor-pointer ${isSelected(task.id) ? 'bg-accent-50 border-accent-200' : ''}`}
               onClick={() => handleOpenModal(task)}
             >
               <div className="flex items-start gap-4">
+                {/* Selection checkbox */}
+                <div onClick={(e) => e.stopPropagation()} className="mt-0.5">
+                  <SelectCheckbox
+                    checked={isSelected(task.id)}
+                    onChange={() => toggleItem(task.id)}
+                  />
+                </div>
+
                 {/* Completion button */}
                 <button
                   onClick={(e) => { e.stopPropagation(); task.status !== 'completed' && completeTask(task.id); }}
@@ -270,6 +309,12 @@ function Tasks() {
           )}
         </div>
       )}
+
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+      />
 
       {/* Modal */}
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingTask ? 'Edit Task' : 'New Task'}>

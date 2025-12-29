@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, MagnifyingGlassIcon, UserPlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
@@ -26,6 +27,18 @@ function Leads() {
     expected_close_date: '',
     notes: ''
   });
+
+  // Bulk selection
+  const {
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected,
+    selectedIds
+  } = useBulkSelection(leads);
 
   useEffect(() => {
     fetchLeads();
@@ -121,6 +134,27 @@ function Leads() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Leads',
+      message: `Are you sure you want to delete ${selectedCount} lead(s)? This action cannot be undone.`,
+      confirmText: 'Delete All',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id => api.delete(`/api/leads/${id}`))
+      );
+      toast.success(`${selectedCount} lead(s) deleted successfully`);
+      clearSelection();
+      fetchLeads();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      toast.error('Failed to delete some leads');
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -183,6 +217,13 @@ function Leads() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-primary-100">
+                  <th className="px-4 py-4 text-left">
+                    <SelectCheckbox
+                      checked={isAllSelected}
+                      indeterminate={isPartiallySelected}
+                      onChange={toggleAll}
+                    />
+                  </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Company</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Source</th>
@@ -196,10 +237,15 @@ function Leads() {
                 {filteredLeads.map((lead, idx) => (
                   <tr
                     key={lead.id}
-                    onClick={() => handleOpenModal(lead)}
-                    className={`cursor-pointer transition-colors hover:bg-primary-50/50 ${idx !== filteredLeads.length - 1 ? 'border-b border-primary-50' : ''}`}
+                    className={`cursor-pointer transition-colors hover:bg-primary-50/50 ${isSelected(lead.id) ? 'bg-accent-50' : ''} ${idx !== filteredLeads.length - 1 ? 'border-b border-primary-50' : ''}`}
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                      <SelectCheckbox
+                        checked={isSelected(lead.id)}
+                        onChange={() => toggleItem(lead.id)}
+                      />
+                    </td>
+                    <td className="px-6 py-4" onClick={() => handleOpenModal(lead)}>
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 flex-shrink-0 bg-accent-50 rounded-lg flex items-center justify-center">
                           <UserPlusIcon className="h-5 w-5 text-accent-600" />
@@ -238,7 +284,7 @@ function Leads() {
                 ))}
                 {filteredLeads.length === 0 && (
                   <tr>
-                    <td colSpan="7" className="px-6 py-16 text-center">
+                    <td colSpan="8" className="px-6 py-16 text-center">
                       <UserPlusIcon className="h-12 w-12 text-primary-200 mx-auto mb-4" />
                       <p className="text-primary-500 font-medium">No leads found</p>
                       <p className="text-sm text-primary-400 mt-1">Add your first lead to get started</p>
@@ -250,6 +296,13 @@ function Leads() {
           </div>
         </div>
       )}
+
+      {/* Bulk Actions Bar */}
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+      />
 
       {/* Modal */}
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingLead ? 'Edit Lead' : 'New Lead'} size="lg">

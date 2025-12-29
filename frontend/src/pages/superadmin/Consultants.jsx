@@ -3,13 +3,14 @@ import {
   BuildingOffice2Icon,
   PlusIcon,
   MagnifyingGlassIcon,
-  EllipsisVerticalIcon,
   EnvelopeIcon,
   CheckCircleIcon,
   XCircleIcon,
-  PauseCircleIcon
+  PauseCircleIcon,
+  PlayIcon
 } from '@heroicons/react/24/outline';
 import api from '../../utils/api';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 
 function Consultants() {
   const [consultants, setConsultants] = useState([]);
@@ -26,6 +27,17 @@ function Consultants() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
+
+  const {
+    selectedIds,
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected
+  } = useBulkSelection(consultants);
 
   useEffect(() => {
     fetchConsultants();
@@ -86,6 +98,40 @@ function Consultants() {
     }
   };
 
+  const handleBulkSuspend = async () => {
+    if (!confirm(`Are you sure you want to suspend ${selectedCount} consultant(s)?`)) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id =>
+          api.put(`/api/superadmin/consultants/${id}/suspend`, {}, getAuthHeaders())
+        )
+      );
+      clearSelection();
+      fetchConsultants();
+    } catch (err) {
+      console.error('Failed to bulk suspend:', err);
+      alert('Failed to suspend some consultants');
+    }
+  };
+
+  const handleBulkActivate = async () => {
+    if (!confirm(`Are you sure you want to activate ${selectedCount} consultant(s)?`)) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id =>
+          api.put(`/api/superadmin/consultants/${id}/activate`, {}, getAuthHeaders())
+        )
+      );
+      clearSelection();
+      fetchConsultants();
+    } catch (err) {
+      console.error('Failed to bulk activate:', err);
+      alert('Failed to activate some consultants');
+    }
+  };
+
   const getStatusBadge = (status) => {
     const badges = {
       active: { bg: 'bg-green-50', text: 'text-green-700', icon: CheckCircleIcon },
@@ -114,6 +160,21 @@ function Consultants() {
       </span>
     );
   };
+
+  const bulkActions = [
+    {
+      label: 'Activate',
+      icon: PlayIcon,
+      onClick: handleBulkActivate,
+      className: 'bg-green-600 hover:bg-green-700'
+    },
+    {
+      label: 'Suspend',
+      icon: PauseCircleIcon,
+      onClick: handleBulkSuspend,
+      className: 'bg-red-600 hover:bg-red-700'
+    }
+  ];
 
   return (
     <div>
@@ -179,6 +240,13 @@ function Consultants() {
           <table className="w-full">
             <thead className="bg-primary-50 border-b border-primary-100">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <SelectCheckbox
+                    checked={isAllSelected}
+                    indeterminate={isPartiallySelected}
+                    onChange={toggleAll}
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-primary-600 uppercase tracking-wider">Consultant</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-primary-600 uppercase tracking-wider">Tier</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-primary-600 uppercase tracking-wider">Status</th>
@@ -190,7 +258,16 @@ function Consultants() {
             </thead>
             <tbody className="divide-y divide-primary-100">
               {consultants.map((consultant) => (
-                <tr key={consultant.id} className="hover:bg-primary-50/50">
+                <tr
+                  key={consultant.id}
+                  className={`hover:bg-primary-50/50 ${isSelected(consultant.id) ? 'bg-accent-50' : ''}`}
+                >
+                  <td className="px-4 py-4">
+                    <SelectCheckbox
+                      checked={isSelected(consultant.id)}
+                      onChange={() => toggleItem(consultant.id)}
+                    />
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-lg bg-accent-100 flex items-center justify-center text-accent-700 font-semibold">
@@ -234,6 +311,13 @@ function Consultants() {
           </table>
         )}
       </div>
+
+      {/* Bulk Actions Bar */}
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        customActions={bulkActions}
+      />
 
       {/* Invite Modal */}
       {showInviteModal && (
