@@ -23,8 +23,8 @@ try {
   console.log('Resend package not available - emails will be logged to console');
 }
 
-// Default sender - Resend provides onboarding@resend.dev for testing
-const defaultFrom = process.env.EMAIL_FROM || 'CoreHR <onboarding@resend.dev>';
+// Default sender - using rozitech.com domain
+const defaultFrom = process.env.EMAIL_FROM || 'CoreHR <noreply@rozitech.com>';
 
 // Frontend URL for links
 const getFrontendUrl = () => {
