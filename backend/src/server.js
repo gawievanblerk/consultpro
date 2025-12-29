@@ -159,10 +159,22 @@ app.use('/api/staff', require('./routes/staff'));
 app.use('/api/deployments', require('./routes/deployments'));
 
 // ============================================================================
+// Leave Management Module Routes (Phase 1)
+// ============================================================================
+app.use('/api/leave-types', require('./routes/leaveTypes'));
+app.use('/api/leave-requests', require('./routes/leaveRequests'));
+app.use('/api/leave-balances', require('./routes/leaveBalances'));
+
+// ============================================================================
 // Finance Module Routes (Module 1.4)
 // ============================================================================
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/payments', require('./routes/payments'));
+
+// ============================================================================
+// Payroll Module Routes (Nigeria PAYE Calculator)
+// ============================================================================
+app.use('/api/payroll', require('./routes/payroll'));
 
 // ============================================================================
 // Collaboration Module Routes (Module 1.5)
@@ -183,6 +195,16 @@ app.use('/api/users', require('./routes/users'));
 // ============================================================================
 app.use('/api/companies', require('./routes/companies'));
 app.use('/api/employees', require('./routes/employees'));
+
+// ============================================================================
+// Policy & Training LMS Routes
+// ============================================================================
+app.use('/api/policy-categories', require('./routes/policyCategories'));
+app.use('/api/policies', require('./routes/policies'));
+app.use('/api/training-modules', require('./routes/trainingModules'));
+app.use('/api/training-progress', require('./routes/trainingProgress'));
+app.use('/api/compliance', require('./routes/compliance'));
+app.use('/api/certificates', require('./routes/certificates'));
 
 // ============================================================================
 // Error Handlers

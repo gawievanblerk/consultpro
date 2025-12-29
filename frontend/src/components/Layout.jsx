@@ -17,38 +17,76 @@ import {
   XMarkIcon,
   QuestionMarkCircleIcon,
   Cog6ToothIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  CalendarDaysIcon,
+  ClockIcon,
+  CalculatorIcon,
+  AcademicCapIcon,
+  ClipboardDocumentCheckIcon,
+  TrophyIcon,
+  BookOpenIcon
 } from '@heroicons/react/24/outline';
 
+// Navigation config with user_type filtering
+// user_types: consultant (full access), company_admin (HR only), employee (ESS only)
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'CRM', children: [
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, userTypes: ['consultant', 'company_admin', 'employee'] },
+  { name: 'CRM', userTypes: ['consultant'], children: [
     { name: 'Clients', href: '/dashboard/clients', icon: BuildingOfficeIcon },
     { name: 'Contacts', href: '/dashboard/contacts', icon: UserGroupIcon },
     { name: 'Engagements', href: '/dashboard/engagements', icon: BriefcaseIcon },
   ]},
-  { name: 'Business Development', children: [
+  { name: 'Business Development', userTypes: ['consultant'], children: [
     { name: 'Leads', href: '/dashboard/leads', icon: UsersIcon },
     { name: 'Pipeline', href: '/dashboard/pipeline', icon: ChartBarIcon },
   ]},
-  { name: 'HR Outsourcing', children: [
+  { name: 'HR Outsourcing', userTypes: ['consultant'], children: [
     { name: 'Staff Pool', href: '/dashboard/staff', icon: UsersIcon },
     { name: 'Deployments', href: '/dashboard/deployments', icon: ClipboardDocumentListIcon },
   ]},
-  { name: 'Finance', children: [
+  { name: 'Employees', userTypes: ['company_admin'], children: [
+    { name: 'Staff', href: '/dashboard/staff', icon: UsersIcon },
+  ]},
+  { name: 'Leave Management', userTypes: ['consultant', 'company_admin'], children: [
+    { name: 'Leave Requests', href: '/dashboard/leave-requests', icon: CalendarDaysIcon },
+    { name: 'Leave Balances', href: '/dashboard/leave-balances', icon: ClockIcon },
+  ]},
+  { name: 'My Leave', userTypes: ['employee'], children: [
+    { name: 'Request Leave', href: '/dashboard/leave-requests', icon: CalendarDaysIcon },
+    { name: 'My Balances', href: '/dashboard/leave-balances', icon: ClockIcon },
+  ]},
+  { name: 'Finance', userTypes: ['consultant'], children: [
     { name: 'Invoices', href: '/dashboard/invoices', icon: DocumentTextIcon },
     { name: 'Payments', href: '/dashboard/payments', icon: BanknotesIcon },
+    { name: 'PAYE Calculator', href: '/dashboard/paye-calculator', icon: CalculatorIcon },
   ]},
-  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon },
-  { name: 'Settings', roles: ['admin'], children: [
+  { name: 'Compliance', userTypes: ['consultant', 'company_admin'], children: [
+    { name: 'Dashboard', href: '/dashboard/compliance', icon: ChartBarIcon },
+    { name: 'Policies', href: '/dashboard/policies', icon: ClipboardDocumentCheckIcon },
+    { name: 'Training', href: '/dashboard/training-modules', icon: AcademicCapIcon },
+  ]},
+  { name: 'My Compliance', userTypes: ['employee'], children: [
+    { name: 'Policy Library', href: '/dashboard/policy-library', icon: BookOpenIcon },
+    { name: 'My Training', href: '/dashboard/my-training', icon: AcademicCapIcon },
+    { name: 'My Certificates', href: '/dashboard/my-certificates', icon: TrophyIcon },
+  ]},
+  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon, userTypes: ['consultant', 'company_admin'] },
+  { name: 'Settings', roles: ['admin'], userTypes: ['consultant', 'company_admin'], children: [
     { name: 'Users', href: '/dashboard/users', icon: UserCircleIcon },
   ]},
 ];
 
-const getFilteredNavigation = (userRole) => {
+const getFilteredNavigation = (userRole, userType) => {
   return navigation.filter(item => {
-    if (!item.roles) return true;
-    return item.roles.includes(userRole);
+    // Filter by user type first
+    if (item.userTypes && !item.userTypes.includes(userType || 'consultant')) {
+      return false;
+    }
+    // Then filter by role
+    if (item.roles && !item.roles.includes(userRole)) {
+      return false;
+    }
+    return true;
   });
 };
 
@@ -58,7 +96,7 @@ function Layout() {
   const location = useLocation();
 
   const isActive = (href) => location.pathname === href;
-  const filteredNav = getFilteredNavigation(user?.role);
+  const filteredNav = getFilteredNavigation(user?.role, user?.userType);
 
   return (
     <div className="min-h-screen bg-primary-50/30">

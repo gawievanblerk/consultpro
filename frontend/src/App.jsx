@@ -28,8 +28,20 @@ import LeaveRequests from './pages/leave/LeaveRequests';
 import LeaveBalances from './pages/leave/LeaveBalances';
 import Invoices from './pages/finance/Invoices';
 import Payments from './pages/finance/Payments';
+import PAYECalculator from './pages/finance/PAYECalculator';
 import Tasks from './pages/Tasks';
 import Users from './pages/settings/Users';
+
+// Compliance & Training pages (Admin)
+import Policies from './pages/compliance/Policies';
+import TrainingModules from './pages/training/TrainingModules';
+import ComplianceDashboard from './pages/compliance/ComplianceDashboard';
+
+// Compliance & Training pages (Employee)
+import PolicyLibrary from './pages/compliance/PolicyLibrary';
+import MyTraining from './pages/training/MyTraining';
+import TakeTraining from './pages/training/TakeTraining';
+import MyCertificates from './pages/training/MyCertificates';
 
 // Super Admin pages
 import SuperAdminLayout from './components/superadmin/Layout';
@@ -125,9 +137,21 @@ function App() {
             {/* Finance Module */}
             <Route path="invoices" element={<Invoices />} />
             <Route path="payments" element={<Payments />} />
+            <Route path="paye-calculator" element={<PAYECalculator />} />
 
             {/* Collaboration Module */}
             <Route path="tasks" element={<Tasks />} />
+
+            {/* Compliance & Training Module (Admin) */}
+            <Route path="policies" element={<Policies />} />
+            <Route path="training-modules" element={<TrainingModules />} />
+            <Route path="compliance" element={<ComplianceDashboard />} />
+
+            {/* Compliance & Training Module (Employee) */}
+            <Route path="policy-library" element={<PolicyLibrary />} />
+            <Route path="my-training" element={<MyTraining />} />
+            <Route path="take-training/:assignmentId" element={<TakeTraining />} />
+            <Route path="my-certificates" element={<MyCertificates />} />
 
             {/* Settings/Admin */}
             <Route path="users" element={<Users />} />
