@@ -1,10 +1,10 @@
 const jwt = require('jsonwebtoken');
 
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
-const JWT_SECRET = process.env.JWT_SECRET || 'consultpro_docker_demo_secret_key_2025_standalone';
+const JWT_SECRET = process.env.JWT_SECRET || 'corehr_docker_demo_secret_key_2025_standalone';
 
 /**
- * Authentication middleware for ConsultPro
+ * Authentication middleware for CoreHR
  * Validates JWT token and attaches user data to request
  * In DEMO_MODE, validates JWT locally without external auth server
  */
@@ -39,9 +39,9 @@ async function authenticate(req, res, next) {
           email: decoded.email,
           org: decoded.org,
           role: decoded.role,
-          products: decoded.products || ['consultpro'],
+          products: decoded.products || ['corehr'],
           limits: decoded.limits || {
-            consultpro: {
+            corehr: {
               clients: 1000,
               leads: 5000,
               invoices: 10000,

@@ -32,7 +32,7 @@ app.set('pool', pool);
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'consultpro-backend',
+    service: 'corehr-backend',
     timestamp: new Date().toISOString(),
     version: '1.0.0'
   });
@@ -208,10 +208,10 @@ app.use((req, res) => {
 // Start server only if not in test mode
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    console.log(`ConsultPro Backend running on port ${PORT}`);
+    console.log(`CoreHR Backend running on port ${PORT}`);
     console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`   Demo Mode: ${DEMO_MODE}`);
-    console.log(`   Database: ${process.env.DATABASE_NAME || 'consultpro_dev'}`);
+    console.log(`   Database: ${process.env.DATABASE_NAME || 'corehr_dev'}`);
   });
 }
 

@@ -1,5 +1,5 @@
 /**
- * Tenant middleware for ConsultPro
+ * Tenant middleware for CoreHR
  * Ensures tenant_id is available for all database queries
  * Must be applied AFTER authentication middleware
  */

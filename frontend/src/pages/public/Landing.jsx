@@ -283,7 +283,7 @@ export default function Landing() {
                 Built for consultants, by consultants
               </h2>
               <p className="mt-6 text-lg text-primary-600 leading-relaxed">
-                ConsultPro was born from the real challenges faced by consulting firms and HR professionals. We understand the complexity of managing client relationships, tracking staff deployments, and keeping finances in order.
+                CoreHR was born from the real challenges faced by consulting firms and HR professionals. We understand the complexity of managing client relationships, tracking staff deployments, and keeping finances in order.
               </p>
               <p className="mt-4 text-lg text-primary-600 leading-relaxed">
                 Our platform brings all these essential functions together in one intuitive interface, so you can focus on what matters most - delivering exceptional service to your clients.
@@ -336,7 +336,7 @@ export default function Landing() {
             Ready to transform your consulting practice?
           </h2>
           <p className="mt-4 text-lg text-primary-300">
-            Join hundreds of consulting firms already using ConsultPro to streamline their operations.
+            Join hundreds of consulting firms already using CoreHR to streamline their operations.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-4">
             <Link

@@ -334,7 +334,7 @@ router.post('/:id/invite', async (req, res) => {
       'SELECT name FROM tenants WHERE id = $1',
       [req.tenant_id]
     );
-    const organizationName = tenantResult.rows[0]?.name || 'ConsultPro';
+    const organizationName = tenantResult.rows[0]?.name || 'CoreHR';
 
     const inviterName = req.user.firstName
       ? `${req.user.firstName} ${req.user.lastName || ''}`.trim()

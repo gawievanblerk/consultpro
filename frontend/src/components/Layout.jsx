@@ -80,7 +80,7 @@ function Layout() {
           <div className="flex-1">
             <img
               src="/logo.svg"
-              alt="ConsultPro"
+              alt="CoreHR"
               className="h-12 w-auto"
             />
           </div>

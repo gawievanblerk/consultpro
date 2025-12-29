@@ -39,8 +39,8 @@ function ForgotPassword() {
               }}
             />
           </div>
-          <h1 className="text-3xl font-bold text-white">ConsultPro</h1>
-          <p className="mt-2 text-primary-200">TeamACE HR Platform</p>
+          <h1 className="text-3xl font-bold text-white">CoreHR</h1>
+          <p className="mt-2 text-primary-200">HR & Consulting Platform</p>
         </div>
 
         {/* Form card */}

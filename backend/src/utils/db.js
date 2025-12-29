@@ -16,7 +16,7 @@ const poolConfig = process.env.DATABASE_URL
   : {
       host: process.env.DATABASE_HOST || 'localhost',
       port: process.env.DATABASE_PORT || 5432,
-      database: process.env.DATABASE_NAME || 'consultpro_dev',
+      database: process.env.DATABASE_NAME || 'corehr_dev',
       user: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
       max: 30,
@@ -28,7 +28,7 @@ const pool = new Pool(poolConfig);
 
 // Test connection
 pool.on('connect', () => {
-  console.log('ConsultPro database connected');
+  console.log('CoreHR database connected');
 });
 
 pool.on('error', (err) => {

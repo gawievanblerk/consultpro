@@ -1,5 +1,5 @@
 /**
- * Email Utility for ConsultPro
+ * Email Utility for CoreHR
  * Uses Resend API for reliable email delivery
  */
 
@@ -24,11 +24,11 @@ try {
 }
 
 // Default sender - Resend provides onboarding@resend.dev for testing
-const defaultFrom = process.env.EMAIL_FROM || 'ConsultPro <onboarding@resend.dev>';
+const defaultFrom = process.env.EMAIL_FROM || 'CoreHR <onboarding@resend.dev>';
 
 // Frontend URL for links
 const getFrontendUrl = () => {
-  return process.env.FRONTEND_URL || 'https://consultpro-frontend.onrender.com';
+  return process.env.FRONTEND_URL || 'https://corehr-frontend.onrender.com';
 };
 
 /**
@@ -96,12 +96,12 @@ const sendPasswordResetEmail = async (email, token, userName) => {
     <body>
       <div class="container">
         <div class="header">
-          <h1>ConsultPro</h1>
+          <h1>CoreHR</h1>
         </div>
         <div class="content">
           <h2>Password Reset Request</h2>
           <p>Hi${userName ? ' ' + userName : ''},</p>
-          <p>We received a request to reset your password for your ConsultPro account.</p>
+          <p>We received a request to reset your password for your CoreHR account.</p>
           <p>Click the button below to reset your password:</p>
           <p style="text-align: center;">
             <a href="${resetUrl}" class="button">Reset Password</a>
@@ -123,7 +123,7 @@ const sendPasswordResetEmail = async (email, token, userName) => {
 
   return sendEmail({
     to: email,
-    subject: 'Reset your ConsultPro password',
+    subject: 'Reset your CoreHR password',
     html
   });
 };
@@ -157,12 +157,12 @@ const sendInviteEmail = async (email, token, inviterName, organizationName, role
     <body>
       <div class="container">
         <div class="header">
-          <h1>ConsultPro</h1>
+          <h1>CoreHR</h1>
         </div>
         <div class="content">
           <h2>You're Invited!</h2>
           <p>Hi,</p>
-          <p><strong>${inviterName || 'An administrator'}</strong> has invited you to join <strong>${organizationName || 'ConsultPro'}</strong>.</p>
+          <p><strong>${inviterName || 'An administrator'}</strong> has invited you to join <strong>${organizationName || 'CoreHR'}</strong>.</p>
 
           <div class="highlight">
             <p><strong>Your Role:</strong> ${role.charAt(0).toUpperCase() + role.slice(1)}</p>
@@ -189,7 +189,7 @@ const sendInviteEmail = async (email, token, inviterName, organizationName, role
 
   return sendEmail({
     to: email,
-    subject: `You're invited to join ${organizationName || 'ConsultPro'}`,
+    subject: `You're invited to join ${organizationName || 'CoreHR'}`,
     html
   });
 };

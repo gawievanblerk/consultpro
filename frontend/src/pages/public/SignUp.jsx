@@ -175,9 +175,9 @@ export default function SignUp() {
       <header className="bg-white border-b border-primary-100">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/logo-icon.svg" alt="ConsultPro" className="h-8 w-8" />
+            <img src="/logo-icon.svg" alt="CoreHR" className="h-8 w-8" />
             <span className="text-lg font-semibold text-primary-900">
-              Consult<span className="text-accent-600">Pro</span>
+              Core<span className="text-accent-600">HR</span>
             </span>
           </Link>
           <div className="flex items-center gap-4">
@@ -261,7 +261,7 @@ export default function SignUp() {
                     <div>
                       <h3 className="font-semibold text-primary-900">Business / Consulting Firm</h3>
                       <p className="text-sm text-primary-500 mt-1">
-                        I'm setting up ConsultPro for my consulting firm or staffing agency.
+                        I'm setting up CoreHR for my consulting firm or staffing agency.
                       </p>
                     </div>
                   </div>

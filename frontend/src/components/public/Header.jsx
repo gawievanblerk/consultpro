@@ -25,9 +25,9 @@ export default function PublicHeader() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3">
-          <img src="/logo-icon.svg" alt="ConsultPro" className="h-9 w-9" />
+          <img src="/logo-icon.svg" alt="CoreHR" className="h-9 w-9" />
           <span className="text-xl font-semibold text-primary-900 tracking-tight">
-            Consult<span className="text-accent-600">Pro</span>
+            Core<span className="text-accent-600">HR</span>
           </span>
         </Link>
 

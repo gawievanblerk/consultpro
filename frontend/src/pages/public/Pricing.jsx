@@ -239,7 +239,7 @@ export default function Pricing() {
               For organizations with more than 50 team members or specific compliance requirements, we offer custom enterprise solutions tailored to your needs.
             </p>
             <a
-              href="mailto:sales@consultpro.rozitech.com"
+              href="mailto:sales@corehr.rozitech.com"
               className="mt-8 inline-flex items-center rounded-lg bg-white px-6 py-3 text-sm font-semibold text-primary-900 hover:bg-primary-50 transition-colors"
             >
               Contact Sales

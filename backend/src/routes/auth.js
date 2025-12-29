@@ -1,5 +1,5 @@
 /**
- * Standalone Authentication Routes for ConsultPro Docker Demo
+ * Standalone Authentication Routes for CoreHR Docker Demo
  * Uses local users table instead of central auth server
  */
 
@@ -11,7 +11,7 @@ const crypto = require('crypto');
 const pool = require('../utils/db');
 const { sendPasswordResetEmail } = require('../utils/email');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'consultpro_docker_demo_secret_key_2025_standalone';
+const JWT_SECRET = process.env.JWT_SECRET || 'corehr_docker_demo_secret_key_2025_standalone';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 // POST /api/auth/login - Standalone login
@@ -59,9 +59,9 @@ router.post('/login', async (req, res) => {
       email: user.email,
       org: user.tenant_id,
       role: user.role,
-      products: ['consultpro'],
+      products: ['corehr'],
       limits: {
-        consultpro: {
+        corehr: {
           clients: 1000,
           leads: 5000,
           invoices: 10000,
@@ -86,13 +86,13 @@ router.post('/login', async (req, res) => {
           role: user.role,
           organizationId: user.tenant_id,
           organizationName: user.organization_name || 'TeamACE Nigeria',
-          products: ['consultpro'],
+          products: ['corehr'],
           limits: tokenPayload.limits
         },
         organization: {
           id: user.tenant_id,
           name: user.organization_name || 'TeamACE Nigeria',
-          products: ['consultpro']
+          products: ['corehr']
         },
         expiresIn: JWT_EXPIRES_IN
       }
@@ -151,9 +151,9 @@ router.get('/me', async (req, res) => {
         role: user.role,
         organizationId: user.tenant_id,
         organizationName: user.organization_name || 'TeamACE Nigeria',
-        products: ['consultpro'],
+        products: ['corehr'],
         limits: {
-          consultpro: {
+          corehr: {
             clients: 1000,
             leads: 5000,
             invoices: 10000,
@@ -225,7 +225,7 @@ router.post('/register', async (req, res) => {
       email: user.email,
       org: user.tenant_id,
       role: user.role,
-      products: ['consultpro']
+      products: ['corehr']
     }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
     res.status(201).json({
@@ -589,9 +589,9 @@ router.post('/accept-invite', async (req, res) => {
       email: user.email,
       org: user.tenant_id,
       role: user.role,
-      products: ['consultpro'],
+      products: ['corehr'],
       limits: {
-        consultpro: {
+        corehr: {
           clients: 1000,
           leads: 5000,
           invoices: 10000,
@@ -615,12 +615,12 @@ router.post('/accept-invite', async (req, res) => {
           role: user.role,
           organizationId: user.tenant_id,
           organizationName: invite.organization_name,
-          products: ['consultpro']
+          products: ['corehr']
         },
         organization: {
           id: user.tenant_id,
           name: invite.organization_name,
-          products: ['consultpro']
+          products: ['corehr']
         },
         expiresIn: JWT_EXPIRES_IN
       }

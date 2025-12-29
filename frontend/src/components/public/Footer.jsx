@@ -35,9 +35,9 @@ export default function PublicFooter() {
           {/* Brand */}
           <div className="col-span-2 lg:col-span-1">
             <Link to="/" className="flex items-center gap-2">
-              <img src="/logo-icon-white.svg" alt="ConsultPro" className="h-8 w-8" />
+              <img src="/logo-icon-white.svg" alt="CoreHR" className="h-8 w-8" />
               <span className="text-lg font-semibold">
-                Consult<span className="text-accent-400">Pro</span>
+                Core<span className="text-accent-400">HR</span>
               </span>
             </Link>
             <p className="mt-4 text-sm text-primary-400 leading-relaxed">
@@ -121,7 +121,7 @@ export default function PublicFooter() {
         <div className="mt-12 pt-8 border-t border-primary-800">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-sm text-primary-400">
-              &copy; {currentYear} ConsultPro. All rights reserved.
+              &copy; {currentYear} CoreHR. All rights reserved.
             </p>
             <p className="text-sm text-primary-500">
               Powered by <a href="https://rozitech.com" className="text-accent-400 hover:text-accent-300">Rozitech</a>

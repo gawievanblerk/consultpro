@@ -31,7 +31,7 @@ export function CurrencyProvider({ children }) {
 
   useEffect(() => {
     // Check localStorage first
-    const saved = localStorage.getItem('consultpro_currency');
+    const saved = localStorage.getItem('corehr_currency');
     if (saved && CURRENCIES[saved]) {
       setCurrency(saved);
       setLoading(false);
@@ -46,7 +46,7 @@ export function CurrencyProvider({ children }) {
           const detectedCurrency = data.data.currency;
           if (CURRENCIES[detectedCurrency]) {
             setCurrency(detectedCurrency);
-            localStorage.setItem('consultpro_currency', detectedCurrency);
+            localStorage.setItem('corehr_currency', detectedCurrency);
           }
           if (data.data.country) {
             setDetectedCountry(data.data.country);
@@ -65,7 +65,7 @@ export function CurrencyProvider({ children }) {
   const changeCurrency = (newCurrency) => {
     if (CURRENCIES[newCurrency]) {
       setCurrency(newCurrency);
-      localStorage.setItem('consultpro_currency', newCurrency);
+      localStorage.setItem('corehr_currency', newCurrency);
     }
   };
 

@@ -35,7 +35,7 @@ function Login() {
           <div>
             <img
               src="/logo.svg"
-              alt="ConsultPro"
+              alt="CoreHR"
               className="h-14 brightness-0 invert"
             />
           </div>
@@ -66,7 +66,7 @@ function Login() {
           <div className="lg:hidden text-center mb-10">
             <img
               src="/logo.svg"
-              alt="ConsultPro"
+              alt="CoreHR"
               className="h-12 mx-auto"
             />
           </div>
