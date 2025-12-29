@@ -9,6 +9,7 @@ const {
   loginSuperadmin,
   logSuperadminAction
 } = require('../middleware/superadminAuth');
+const { sendConsultantInviteEmail } = require('../utils/email');
 
 // ============================================================================
 // AUTHENTICATION ROUTES
@@ -343,9 +344,17 @@ router.post('/consultants/invite', [
       req
     );
 
-    // TODO: Send email with invitation link
-    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/onboard/consultant?token=${token}`;
+    // Send invitation email
+    const invitationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/consultant?token=${token}`;
     console.log('Consultant invitation link:', invitationLink);
+
+    try {
+      await sendConsultantInviteEmail(email, token, companyName, tier);
+      console.log('Consultant invitation email sent to:', email);
+    } catch (emailError) {
+      console.error('Failed to send invitation email:', emailError);
+      // Continue even if email fails - invitation is still created
+    }
 
     res.status(201).json({
       success: true,
@@ -355,7 +364,7 @@ router.post('/consultants/invite', [
         email,
         companyName,
         expiresAt,
-        invitationLink // Include for testing, remove in production
+        invitationLink // Include for testing/debugging
       }
     });
   } catch (error) {
