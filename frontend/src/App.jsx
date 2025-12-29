@@ -24,6 +24,8 @@ import Leads from './pages/bd/Leads';
 import Pipeline from './pages/bd/Pipeline';
 import Staff from './pages/hr/Staff';
 import Deployments from './pages/hr/Deployments';
+import LeaveRequests from './pages/leave/LeaveRequests';
+import LeaveBalances from './pages/leave/LeaveBalances';
 import Invoices from './pages/finance/Invoices';
 import Payments from './pages/finance/Payments';
 import Tasks from './pages/Tasks';
@@ -34,9 +36,11 @@ import SuperAdminLayout from './components/superadmin/Layout';
 import SuperAdminLogin from './pages/superadmin/Login';
 import SuperAdminDashboard from './pages/superadmin/Dashboard';
 import SuperAdminConsultants from './pages/superadmin/Consultants';
+import SuperAdminInvitations from './pages/superadmin/Invitations';
 
 // Onboarding pages
 import ConsultantOnboard from './pages/onboard/ConsultantOnboard';
+import CompanyOnboard from './pages/onboard/CompanyOnboard';
 import ESSActivate from './pages/onboard/ESSActivate';
 
 // Protected route wrapper
@@ -84,10 +88,12 @@ function App() {
             <Route index element={<Navigate to="/superadmin/dashboard" replace />} />
             <Route path="dashboard" element={<SuperAdminDashboard />} />
             <Route path="consultants" element={<SuperAdminConsultants />} />
+            <Route path="invitations" element={<SuperAdminInvitations />} />
           </Route>
 
           {/* Onboarding routes */}
           <Route path="/onboard/consultant" element={<ConsultantOnboard />} />
+          <Route path="/onboard/company" element={<CompanyOnboard />} />
           <Route path="/onboard/ess" element={<ESSActivate />} />
 
           {/* Dashboard (protected) */}
@@ -111,6 +117,10 @@ function App() {
             {/* HR Outsourcing Module */}
             <Route path="staff" element={<Staff />} />
             <Route path="deployments" element={<Deployments />} />
+
+            {/* Leave Management Module */}
+            <Route path="leave-requests" element={<LeaveRequests />} />
+            <Route path="leave-balances" element={<LeaveBalances />} />
 
             {/* Finance Module */}
             <Route path="invoices" element={<Invoices />} />
