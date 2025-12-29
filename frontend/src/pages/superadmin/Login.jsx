@@ -18,8 +18,8 @@ function SuperAdminLogin() {
       const response = await api.post('/api/superadmin/auth/login', { email, password });
 
       if (response.data.success) {
-        localStorage.setItem('superadmin_token', response.data.data.token);
-        localStorage.setItem('superadmin', JSON.stringify(response.data.data.user));
+        localStorage.setItem('superadmin_token', response.data.token);
+        localStorage.setItem('superadmin', JSON.stringify(response.data.superadmin));
         navigate('/superadmin/dashboard');
       } else {
         setError(response.data.error || 'Login failed');
