@@ -1,9 +1,9 @@
-# Render Blueprint - ConsultPro (TeamACE HR Platform)
+# Render Blueprint - CoreHR (HR & Consulting Platform)
 
 services:
   # Backend API Service
   - type: web
-    name: consultpro-backend
+    name: corehr-backend
     runtime: node
     region: oregon
     plan: free
@@ -19,21 +19,23 @@ services:
       - key: DEMO_MODE
         value: "true"
       - key: CORS_ORIGIN
-        value: https://consultpro-frontend.onrender.com
+        value: https://corehr.africa
       - key: DATABASE_URL
         fromDatabase:
-          name: consultpro-db
+          name: corehr-db
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
-        value: noreply@consultpro.rozitech.com
+        value: noreply@corehr.africa
+      - key: FRONTEND_URL
+        value: https://corehr.africa
 
   # Frontend Static Site
   - type: web
-    name: consultpro-frontend
+    name: corehr-frontend
     runtime: static
     rootDir: frontend
     buildCommand: npm ci && npm run build
@@ -48,13 +50,13 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        value: https://consultpro-backend-950l.onrender.com
+        value: https://api.corehr.africa
 
 # PostgreSQL Database
 databases:
-  - name: consultpro-db
+  - name: corehr-db
     region: oregon
     plan: basic-256mb
-    databaseName: consultpro
-    user: consultpro
+    databaseName: corehr
+    user: corehr
     postgresMajorVersion: 15
