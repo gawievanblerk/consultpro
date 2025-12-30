@@ -108,12 +108,10 @@ function Layout() {
         />
       )}
 
-      {/* Sidebar - Desktop: always visible, Mobile: toggle */}
+      {/* Sidebar - Clean white design */}
       <aside className={`
-        fixed top-0 left-0 z-50 h-full w-72 bg-white border-r border-primary-100 flex flex-col
-        transition-transform duration-300 ease-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:transform-none
+        fixed top-0 left-0 z-50 h-full w-72 bg-white border-r border-primary-100 transform transition-transform duration-300 ease-out flex flex-col
+        lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-primary-100 flex-shrink-0">
