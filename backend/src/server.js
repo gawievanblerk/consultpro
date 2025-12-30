@@ -556,13 +556,14 @@ app.get('/cleanup-users', async (req, res) => {
       results.push({ action: 'updated', email: 'admin@teamace.ng', newUserType: 'consultant' });
     }
 
-    // 2. Remove duplicate/legacy users
-    const removeSales = await pool.query(`
-      DELETE FROM users WHERE email = 'sales@teamace.ng'
+    // 2. Deactivate legacy sales user (can't delete due to FK constraints)
+    const deactivateSales = await pool.query(`
+      UPDATE users SET is_active = false, user_type = 'employee'
+      WHERE email = 'sales@teamace.ng'
       RETURNING email
     `);
-    if (removeSales.rows.length > 0) {
-      results.push({ action: 'removed', email: 'sales@teamace.ng' });
+    if (deactivateSales.rows.length > 0) {
+      results.push({ action: 'deactivated', email: 'sales@teamace.ng' });
     }
 
     const removeDuplicate = await pool.query(`
@@ -636,7 +637,7 @@ app.get('/seed-staff-user', async (req, res) => {
       // Create staff member
       const newStaffId = uuidv4();
       await pool.query(`
-        INSERT INTO staff (id, tenant_id, first_name, last_name, email, phone, employee_number, department, job_title, status, employment_type, hire_date)
+        INSERT INTO staff (id, tenant_id, first_name, last_name, email, phone, employee_id, department, job_title, status, employment_type, hire_date)
         VALUES ($1, $2, 'Oluwaseun', 'Adeyemi', 'oluwaseun.adeyemi@teamace.ng', '+2348012345678', 'STF-001', 'Consulting', 'HR Consultant', 'available', 'full_time', '2022-03-15')
       `, [newStaffId, tenantId]);
       staffId = newStaffId;
