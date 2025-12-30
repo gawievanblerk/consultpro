@@ -254,6 +254,25 @@ function Policies() {
     }
   };
 
+  const handleDownload = async (policy) => {
+    try {
+      const response = await api.get(`/api/policies/${policy.id}/download`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', policy.file_name || 'policy.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download file');
+    }
+  };
+
   const filteredPolicies = policies.filter(p =>
     p.title?.toLowerCase().includes(search.toLowerCase()) ||
     p.description?.toLowerCase().includes(search.toLowerCase())
@@ -369,13 +388,13 @@ function Policies() {
                   <td>
                     <div className="flex items-center gap-1">
                       {policy.file_path && (
-                        <a
-                          href={`/api/policies/${policy.id}/download`}
+                        <button
+                          onClick={() => handleDownload(policy)}
                           className="p-1 text-gray-500 hover:text-primary-600"
                           title="Download"
                         >
                           <ArrowDownTrayIcon className="h-4 w-4" />
-                        </a>
+                        </button>
                       )}
                       <button
                         onClick={() => handleOpenModal(policy)}
