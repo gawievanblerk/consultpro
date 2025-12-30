@@ -1,8 +1,9 @@
-ok # CoreHR Nigeria - Gap Analysis & MoSCoW Prioritization
+# CoreHR Nigeria - Gap Analysis & MoSCoW Prioritization
 
-**Document Version:** 1.0
-**Date:** 2025-12-27
+**Document Version:** 1.1
+**Date:** 2025-12-29
 **Purpose:** Rebrand ConsultPro to CoreHR for Nigerian HR Consulting Market
+**Live URL:** https://corehr.africa
 
 ---
 

@@ -257,6 +257,248 @@ router.post('/consultant/complete', [
 });
 
 // ============================================================================
+// COMPANY ADMIN ONBOARDING (Public Routes)
+// ============================================================================
+
+/**
+ * GET /api/onboard/company/verify/:token
+ * Verify company admin invitation token
+ */
+router.get('/company/verify/:token', [
+  param('token').isLength({ min: 64, max: 64 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: 'Invalid token format' });
+    }
+
+    const { token } = req.params;
+
+    const result = await query(`
+      SELECT
+        ci.*,
+        co.legal_name as company_name, co.trading_name,
+        con.company_name as consultant_name,
+        cl.company_name as client_name
+      FROM company_invitations ci
+      JOIN companies co ON ci.company_id = co.id
+      JOIN consultants con ON ci.consultant_id = con.id
+      LEFT JOIN clients cl ON ci.client_id = cl.id
+      WHERE ci.token = $1
+    `, [token]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invitation not found'
+      });
+    }
+
+    const invitation = result.rows[0];
+
+    if (invitation.accepted_at) {
+      return res.status(400).json({
+        success: false,
+        error: 'This invitation has already been accepted'
+      });
+    }
+
+    if (new Date(invitation.expires_at) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        error: 'This invitation has expired. Please contact your HR consultant for a new invitation.'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        email: invitation.email,
+        firstName: invitation.first_name,
+        lastName: invitation.last_name,
+        role: invitation.role,
+        companyName: invitation.company_name,
+        tradingName: invitation.trading_name,
+        consultantName: invitation.consultant_name
+      }
+    });
+  } catch (error) {
+    console.error('Verify company token error:', error);
+    res.status(500).json({ success: false, error: 'Verification failed' });
+  }
+});
+
+/**
+ * POST /api/onboard/company/complete
+ * Complete company admin registration
+ */
+router.post('/company/complete', [
+  body('token').isLength({ min: 64, max: 64 }),
+  body('password').isLength({ min: 8 }),
+  body('firstName').notEmpty().trim(),
+  body('lastName').notEmpty().trim(),
+  body('phone').optional().trim()
+], async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { token, password, firstName, lastName, phone } = req.body;
+
+    await client.query('BEGIN');
+
+    // Validate invitation with lock
+    const inviteResult = await client.query(`
+      SELECT
+        ci.*,
+        co.legal_name as company_name,
+        con.tenant_id
+      FROM company_invitations ci
+      JOIN companies co ON ci.company_id = co.id
+      JOIN consultants con ON ci.consultant_id = con.id
+      WHERE ci.token = $1 AND ci.accepted_at IS NULL
+      FOR UPDATE
+    `, [token]);
+
+    if (inviteResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid or already used invitation'
+      });
+    }
+
+    const invitation = inviteResult.rows[0];
+
+    if (new Date(invitation.expires_at) < new Date()) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        error: 'This invitation has expired'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await client.query(
+      'SELECT id FROM users WHERE email = $1 AND tenant_id = $2',
+      [invitation.email, invitation.tenant_id]
+    );
+
+    let userId;
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Map invitation role to user role
+    const userRole = invitation.role === 'admin' ? 'admin' : 'manager';
+
+    if (existingUser.rows.length > 0) {
+      // Update existing user
+      userId = existingUser.rows[0].id;
+
+      await client.query(`
+        UPDATE users
+        SET password_hash = $2,
+            first_name = $3,
+            last_name = $4,
+            phone = $5,
+            user_type = 'company_admin',
+            company_id = $6,
+            consultant_id = $7,
+            role = $8,
+            is_active = true,
+            updated_at = NOW()
+        WHERE id = $1
+      `, [userId, passwordHash, firstName, lastName, phone, invitation.company_id, invitation.consultant_id, userRole]);
+    } else {
+      // Create new user
+      const userResult = await client.query(`
+        INSERT INTO users (
+          tenant_id, email, password_hash, first_name, last_name, phone,
+          role, user_type, consultant_id, company_id, is_active
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'company_admin', $8, $9, true)
+        RETURNING id, email, first_name, last_name, role, user_type, tenant_id, consultant_id, company_id
+      `, [
+        invitation.tenant_id,
+        invitation.email,
+        passwordHash,
+        firstName,
+        lastName,
+        phone,
+        userRole,
+        invitation.consultant_id,
+        invitation.company_id
+      ]);
+
+      userId = userResult.rows[0].id;
+    }
+
+    // Mark invitation as accepted
+    await client.query(`
+      UPDATE company_invitations
+      SET accepted_at = NOW()
+      WHERE id = $1
+    `, [invitation.id]);
+
+    // Update client onboarding status if linked
+    if (invitation.client_id) {
+      await client.query(`
+        UPDATE clients
+        SET onboarding_status = 'active',
+            onboarded_at = NOW(),
+            onboarded_by = $2,
+            updated_at = NOW()
+        WHERE id = $1
+      `, [invitation.client_id, userId]);
+    }
+
+    // Log activity
+    await client.query(`
+      INSERT INTO activity_feed (consultant_id, company_id, user_id, activity_type, title, description, actor_type)
+      VALUES ($1, $2, $3, 'company_admin_onboarded', 'Company admin activated', $4, 'system')
+    `, [invitation.consultant_id, invitation.company_id, userId, `${firstName} ${lastName} joined as ${userRole}`]);
+
+    await client.query('COMMIT');
+
+    // Fetch full user for token generation
+    const userResult = await query('SELECT * FROM users WHERE id = $1', [userId]);
+    const user = userResult.rows[0];
+
+    // Generate token
+    const authToken = generateHierarchyToken(user);
+
+    res.status(201).json({
+      success: true,
+      message: 'Account activated successfully',
+      data: {
+        token: authToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          role: user.role,
+          userType: 'company_admin'
+        },
+        company: {
+          id: invitation.company_id,
+          name: invitation.company_name
+        }
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Complete company admin registration error:', error);
+    res.status(500).json({ success: false, error: 'Registration failed' });
+  } finally {
+    client.release();
+  }
+});
+
+// ============================================================================
 // EMPLOYEE ESS ONBOARDING (Public Routes)
 // ============================================================================
 

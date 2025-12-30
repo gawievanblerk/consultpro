@@ -4,7 +4,7 @@ import Modal from '../../components/Modal';
 import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
-import { PlusIcon, MagnifyingGlassIcon, UserIcon, TrashIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, UserIcon, TrashIcon, EnvelopeIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 // Badge helper for system role
 const getRoleBadge = (role) => {
@@ -188,6 +188,93 @@ function Staff() {
     }
   };
 
+  const handleBulkInvite = async () => {
+    const confirmed = await confirm({
+      title: 'Send Invitations',
+      message: `Send user account invitations to ${selectedCount} staff member(s)? Staff without email addresses or with existing accounts will be skipped.`,
+      confirmText: 'Send Invitations',
+      variant: 'primary'
+    });
+    if (!confirmed) return;
+    try {
+      const response = await api.post('/api/staff/bulk-invite', {
+        staff_ids: Array.from(selectedIds),
+        role: 'user'
+      });
+      if (response.data.success) {
+        const { success, skipped, failed } = response.data.data;
+        let message = `${success.length} invitation(s) sent`;
+        if (skipped.length > 0) message += `, ${skipped.length} skipped`;
+        if (failed.length > 0) message += `, ${failed.length} failed`;
+        toast.success(message);
+        clearSelection();
+        fetchStaff();
+      }
+    } catch (error) {
+      console.error('Failed to bulk invite:', error);
+      toast.error(error.response?.data?.error || 'Failed to send invitations');
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      'employee_id',
+      'first_name',
+      'last_name',
+      'email',
+      'phone',
+      'job_title',
+      'department',
+      'employment_type',
+      'hourly_rate',
+      'skills',
+      'status'
+    ];
+
+    const sampleData = [
+      'EMP-001',
+      'John',
+      'Doe',
+      'john.doe@company.com',
+      '08012345678',
+      'Software Engineer',
+      'Engineering',
+      'permanent',
+      '5000',
+      'Excel, Project Management',
+      'active'
+    ];
+
+    const instructions = [
+      '# Staff Import Template',
+      '# ',
+      '# Instructions:',
+      '# - employee_id: Unique identifier (required)',
+      '# - first_name: First name (required)',
+      '# - last_name: Last name (required)',
+      '# - email: Email address for invitations',
+      '# - phone: Nigerian format (080/081/090/091/070/071)',
+      '# - job_title: Position title',
+      '# - department: Department name',
+      '# - employment_type: permanent, contract, temporary, or outsourced',
+      '# - hourly_rate: Rate in NGN',
+      '# - skills: Comma-separated list',
+      '# - status: active, on_leave, or terminated',
+      '#',
+      ''
+    ];
+
+    const csv = instructions.join('\n') + headers.join(',') + '\n' + sampleData.join(',');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'staff_import_template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+    toast.success('Template downloaded');
+  };
+
   const handleInvite = async (person) => {
     if (!person.email) {
       toast.warning('Staff member has no email address');
@@ -232,10 +319,16 @@ function Staff() {
           <h1 className="text-2xl font-bold text-gray-900">Staff Pool</h1>
           <p className="mt-1 text-sm text-gray-500">Outsourced personnel management</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="btn-primary">
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add Staff
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleDownloadTemplate} className="btn-secondary">
+            <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+            CSV Template
+          </button>
+          <button onClick={() => handleOpenModal()} className="btn-primary">
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Add Staff
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -353,6 +446,14 @@ function Staff() {
         selectedCount={selectedCount}
         onClearSelection={clearSelection}
         onBulkDelete={handleBulkDelete}
+        customActions={[
+          {
+            label: 'Invite',
+            icon: EnvelopeIcon,
+            onClick: handleBulkInvite,
+            className: 'bg-accent-600 hover:bg-accent-700'
+          }
+        ]}
       />
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingStaff ? 'Edit Staff' : 'Add Staff'} size="lg">

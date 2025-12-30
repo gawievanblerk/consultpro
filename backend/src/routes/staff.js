@@ -382,4 +382,142 @@ router.post('/:id/invite', async (req, res) => {
   }
 });
 
+// POST /api/staff/bulk-invite - Bulk invite staff members to create user accounts
+router.post('/bulk-invite', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { staff_ids, role = 'user' } = req.body;
+
+    if (!staff_ids || !Array.isArray(staff_ids) || staff_ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'staff_ids array is required'
+      });
+    }
+
+    // Validate role
+    const validRoles = ['admin', 'manager', 'user'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid role. Must be: admin, manager, or user'
+      });
+    }
+
+    // Get tenant info and inviter name
+    const tenantResult = await pool.query(
+      'SELECT name FROM tenants WHERE id = $1',
+      [req.tenant_id]
+    );
+    const organizationName = tenantResult.rows[0]?.name || 'CoreHR';
+
+    const inviterName = req.user.firstName
+      ? `${req.user.firstName} ${req.user.lastName || ''}`.trim()
+      : req.user.email;
+
+    await client.query('BEGIN');
+
+    const results = {
+      success: [],
+      skipped: [],
+      failed: []
+    };
+
+    for (const staffId of staff_ids) {
+      try {
+        // Get staff record
+        const staffResult = await client.query(
+          `SELECT id, first_name, last_name, email, user_id FROM staff
+           WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+          [staffId, req.tenant_id]
+        );
+
+        if (staffResult.rows.length === 0) {
+          results.skipped.push({ id: staffId, reason: 'Staff not found' });
+          continue;
+        }
+
+        const staff = staffResult.rows[0];
+
+        // Skip if no email
+        if (!staff.email) {
+          results.skipped.push({ id: staffId, name: `${staff.first_name} ${staff.last_name}`, reason: 'No email address' });
+          continue;
+        }
+
+        // Skip if already has user account
+        if (staff.user_id) {
+          results.skipped.push({ id: staffId, name: `${staff.first_name} ${staff.last_name}`, reason: 'Already has user account' });
+          continue;
+        }
+
+        const email = staff.email.toLowerCase().trim();
+
+        // Check if user already exists with this email
+        const existingUser = await client.query(
+          'SELECT id FROM users WHERE email = $1 AND tenant_id = $2 AND deleted_at IS NULL',
+          [email, req.tenant_id]
+        );
+
+        if (existingUser.rows.length > 0) {
+          results.skipped.push({ id: staffId, name: `${staff.first_name} ${staff.last_name}`, reason: 'User account exists' });
+          continue;
+        }
+
+        // Check for existing pending invite
+        const existingInvite = await client.query(
+          `SELECT id FROM user_invites
+           WHERE email = $1 AND tenant_id = $2 AND accepted_at IS NULL AND expires_at > NOW()`,
+          [email, req.tenant_id]
+        );
+
+        if (existingInvite.rows.length > 0) {
+          results.skipped.push({ id: staffId, name: `${staff.first_name} ${staff.last_name}`, reason: 'Invitation already sent' });
+          continue;
+        }
+
+        // Generate secure token
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+        // Create invite record
+        await client.query(
+          `INSERT INTO user_invites (tenant_id, email, role, token, invited_by, expires_at)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [req.tenant_id, email, role, token, req.user.id, expiresAt]
+        );
+
+        // Send invitation email
+        try {
+          await sendInviteEmail(email, token, inviterName, organizationName, role);
+          results.success.push({ id: staffId, name: `${staff.first_name} ${staff.last_name}`, email });
+        } catch (emailError) {
+          console.error(`Failed to send email to ${email}:`, emailError);
+          results.failed.push({ id: staffId, name: `${staff.first_name} ${staff.last_name}`, reason: 'Email failed' });
+        }
+
+      } catch (itemError) {
+        console.error(`Error processing staff ${staffId}:`, itemError);
+        results.failed.push({ id: staffId, reason: itemError.message });
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: `Sent ${results.success.length} invitation(s)`,
+      data: results
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Bulk invite staff error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process bulk invitations' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
