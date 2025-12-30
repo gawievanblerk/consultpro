@@ -296,6 +296,26 @@ app.get('/seed-company-admin', async (req, res) => {
 });
 
 // ============================================================================
+// Temporary: List All Users (for debugging)
+// ============================================================================
+app.get('/list-users', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.email, u.first_name, u.last_name, u.role, u.user_type,
+             t.name as tenant_name, c.legal_name as company_name
+      FROM users u
+      LEFT JOIN tenants t ON u.tenant_id = t.id
+      LEFT JOIN companies c ON u.company_id = c.id
+      WHERE u.is_active = true
+      ORDER BY u.user_type, u.role, u.email
+    `);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Temporary: Run Leave Management Migration
 // ============================================================================
 app.get('/run-leave-migration', async (req, res) => {
