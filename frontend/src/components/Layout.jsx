@@ -200,7 +200,14 @@ function Layout() {
               <p className="text-sm font-medium text-primary-900 truncate">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-xs text-primary-400 truncate">{user?.email}</p>
+              <p className="text-xs text-primary-500 truncate">{user?.organizationName}</p>
+              <p className="text-xs text-primary-400 capitalize">
+                {user?.userType === 'consultant' ? 'Full Access' :
+                 user?.userType === 'company_admin' ? 'Company Admin' :
+                 user?.userType === 'tenant_user' ? 'Company Admin' :
+                 user?.userType === 'employee' ? 'Employee' :
+                 user?.role}
+              </p>
             </div>
             <button
               onClick={logout}
