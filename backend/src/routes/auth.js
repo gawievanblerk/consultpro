@@ -92,12 +92,16 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Generate JWT token
+    // Generate JWT token with full user context
     const tokenPayload = {
       sub: user.id,
       email: user.email,
       org: user.tenant_id,
       role: user.role,
+      user_type: user.user_type || 'consultant',
+      company_id: user.company_id || null,
+      employee_id: user.employee_id || null,
+      staff_id: user.staff_id || null,
       products: ['corehr'],
       limits: {
         corehr: {
@@ -110,6 +114,23 @@ router.post('/login', async (req, res) => {
     };
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+    // For staff users, fetch their deployed companies
+    let deployedCompanies = [];
+    if (user.user_type === 'staff' && user.staff_id) {
+      try {
+        const deploymentsResult = await pool.query(`
+          SELECT sca.company_id, sca.access_type, c.legal_name as company_name
+          FROM staff_company_access sca
+          JOIN companies c ON sca.company_id = c.id
+          WHERE sca.staff_id = $1 AND sca.status = 'active'
+          AND (sca.end_date IS NULL OR sca.end_date >= CURRENT_DATE)
+        `, [user.staff_id]);
+        deployedCompanies = deploymentsResult.rows;
+      } catch (err) {
+        // Table might not exist yet
+      }
+    }
 
     // Response format matching what frontend expects
     res.json({
@@ -124,6 +145,10 @@ router.post('/login', async (req, res) => {
           lastName: user.last_name || 'User',
           role: user.role,
           userType: user.user_type || 'consultant',
+          companyId: user.company_id || null,
+          employeeId: user.employee_id || null,
+          staffId: user.staff_id || null,
+          deployedCompanies: deployedCompanies,
           organizationId: user.tenant_id,
           organizationName: user.organization_name || 'TeamACE Nigeria',
           products: ['corehr'],
@@ -181,6 +206,23 @@ router.get('/me', async (req, res) => {
 
     const user = userResult.rows[0];
 
+    // For staff users, fetch their deployed companies
+    let deployedCompanies = [];
+    if (user.user_type === 'staff' && user.staff_id) {
+      try {
+        const deploymentsResult = await pool.query(`
+          SELECT sca.company_id, sca.access_type, c.legal_name as company_name
+          FROM staff_company_access sca
+          JOIN companies c ON sca.company_id = c.id
+          WHERE sca.staff_id = $1 AND sca.status = 'active'
+          AND (sca.end_date IS NULL OR sca.end_date >= CURRENT_DATE)
+        `, [user.staff_id]);
+        deployedCompanies = deploymentsResult.rows;
+      } catch (err) {
+        // Table might not exist yet
+      }
+    }
+
     res.json({
       success: true,
       user: {
@@ -190,6 +232,10 @@ router.get('/me', async (req, res) => {
         lastName: user.last_name,
         role: user.role,
         userType: user.user_type || 'consultant',
+        companyId: user.company_id || null,
+        employeeId: user.employee_id || null,
+        staffId: user.staff_id || null,
+        deployedCompanies: deployedCompanies,
         organizationId: user.tenant_id,
         organizationName: user.organization_name || 'TeamACE Nigeria',
         products: ['corehr'],

@@ -7,14 +7,29 @@ const router = express.Router();
 const pool = require('../utils/db');
 const { v4: uuidv4 } = require('uuid');
 
-// Middleware to check if user is NOT an employee (admin/HR only)
+// Middleware to check if user has admin privileges (NOT an employee)
+// Allowed: consultant, staff (with deployments), company_admin
 const requireAdmin = (req, res, next) => {
-  if (req.user.user_type === 'employee') {
+  const userType = req.user.user_type;
+
+  // Employee users cannot perform admin actions
+  if (userType === 'employee') {
     return res.status(403).json({
       success: false,
       error: 'This action requires HR or admin privileges'
     });
   }
+
+  // Staff must have at least one deployment to access
+  if (userType === 'staff') {
+    if (!req.deployedCompanyIds || req.deployedCompanyIds.length === 0) {
+      return res.status(403).json({
+        success: false,
+        error: 'No company deployments assigned to your account'
+      });
+    }
+  }
+
   next();
 };
 
@@ -134,14 +149,15 @@ router.get('/my', async (req, res) => {
 
 // GET /api/leave-balances/summary - Get summary of all leave balances (Admin only)
 // Company admins see their company's employees; consultants see their staff pool
+// Staff see employees from their deployed companies
 router.get('/summary', requireAdmin, async (req, res) => {
   try {
-    const { year = new Date().getFullYear() } = req.query;
+    const { year = new Date().getFullYear(), company_id } = req.query;
     const userType = req.user.user_type;
-    const companyId = req.user.company_id;
+    const userCompanyId = req.user.company_id;
 
     // Company admin - show employees from their company
-    if (userType === 'company_admin' && companyId) {
+    if (userType === 'company_admin' && userCompanyId) {
       const result = await pool.query(
         `SELECT
           e.id as staff_id,
@@ -165,10 +181,53 @@ router.get('/summary', requireAdmin, async (req, res) => {
          WHERE e.company_id = $1 AND e.deleted_at IS NULL AND e.employment_status = 'active'
          GROUP BY e.id, e.first_name, e.last_name, e.employee_number, e.department
          ORDER BY e.last_name, e.first_name`,
-        [companyId, parseInt(year)]
+        [userCompanyId, parseInt(year)]
       );
 
       return res.json({ success: true, data: result.rows });
+    }
+
+    // Staff user - show employees from their deployed companies
+    if (userType === 'staff' && req.deployedCompanyIds && req.deployedCompanyIds.length > 0) {
+      // Use requested company_id if provided and user has access, otherwise use first deployment
+      let targetCompanyId = company_id;
+      if (targetCompanyId && !req.deployedCompanyIds.includes(targetCompanyId)) {
+        return res.status(403).json({
+          success: false,
+          error: 'You do not have access to this company'
+        });
+      }
+      if (!targetCompanyId) {
+        targetCompanyId = req.deployedCompanyIds[0];
+      }
+
+      const result = await pool.query(
+        `SELECT
+          e.id as staff_id,
+          e.first_name,
+          e.last_name,
+          e.employee_number as employee_id,
+          e.department,
+          json_agg(json_build_object(
+            'leave_type_id', lt.id,
+            'leave_type_name', lt.name,
+            'leave_type_code', lt.code,
+            'color', lt.color,
+            'entitled', COALESCE(lb.entitled_days, 0) + COALESCE(lb.carried_forward, 0) + COALESCE(lb.adjustment_days, 0),
+            'used', COALESCE(lb.used_days, 0),
+            'pending', COALESCE(lb.pending_days, 0),
+            'available', COALESCE(lb.available_days, 0)
+          ) ORDER BY lt.sort_order) as balances
+         FROM employees e
+         LEFT JOIN leave_balances lb ON e.id = lb.employee_id AND lb.year = $2
+         LEFT JOIN leave_types lt ON lb.leave_type_id = lt.id AND lt.deleted_at IS NULL
+         WHERE e.company_id = $1 AND e.deleted_at IS NULL AND e.employment_status = 'active'
+         GROUP BY e.id, e.first_name, e.last_name, e.employee_number, e.department
+         ORDER BY e.last_name, e.first_name`,
+        [targetCompanyId, parseInt(year)]
+      );
+
+      return res.json({ success: true, data: result.rows, companyId: targetCompanyId });
     }
 
     // Consultant - show staff pool
@@ -279,11 +338,12 @@ router.get('/employee/:employeeId', async (req, res) => {
 
 // POST /api/leave-balances/initialize - Initialize leave balances for a year (Admin only)
 // Company admins initialize for their employees; consultants initialize for staff pool
+// Staff initialize for their deployed company's employees
 router.post('/initialize', requireAdmin, async (req, res) => {
   try {
-    const { year = new Date().getFullYear() } = req.body;
+    const { year = new Date().getFullYear(), company_id } = req.body;
     const userType = req.user.user_type;
-    const companyId = req.user.company_id;
+    const userCompanyId = req.user.company_id;
 
     let created = 0;
     let skipped = 0;
@@ -296,11 +356,11 @@ router.post('/initialize', requireAdmin, async (req, res) => {
     );
 
     // Company admin - initialize for their company's employees
-    if (userType === 'company_admin' && companyId) {
+    if (userType === 'company_admin' && userCompanyId) {
       const employeesResult = await pool.query(
         `SELECT id, first_name, last_name, gender FROM employees
          WHERE company_id = $1 AND deleted_at IS NULL AND employment_status = 'active'`,
-        [companyId]
+        [userCompanyId]
       );
 
       for (const emp of employeesResult.rows) {
@@ -339,6 +399,65 @@ router.post('/initialize', requireAdmin, async (req, res) => {
         success: true,
         message: `Leave balances initialized for ${employeesResult.rows.length} employees in ${year}`,
         data: { created, skipped, employees: employeesResult.rows.length }
+      });
+    }
+
+    // Staff user - initialize for employees of their deployed company
+    if (userType === 'staff' && req.deployedCompanyIds && req.deployedCompanyIds.length > 0) {
+      // Determine target company
+      let targetCompanyId = company_id;
+      if (targetCompanyId && !req.deployedCompanyIds.includes(targetCompanyId)) {
+        return res.status(403).json({
+          success: false,
+          error: 'You do not have access to this company'
+        });
+      }
+      if (!targetCompanyId) {
+        targetCompanyId = req.deployedCompanyIds[0];
+      }
+
+      const employeesResult = await pool.query(
+        `SELECT id, first_name, last_name, gender FROM employees
+         WHERE company_id = $1 AND deleted_at IS NULL AND employment_status = 'active'`,
+        [targetCompanyId]
+      );
+
+      for (const emp of employeesResult.rows) {
+        for (const leaveType of leaveTypesResult.rows) {
+          // Check gender restriction
+          if (leaveType.gender_restriction) {
+            const empGender = emp.gender?.toLowerCase();
+            if (leaveType.gender_restriction !== empGender) {
+              continue;
+            }
+          }
+
+          // Check if balance already exists
+          const existing = await pool.query(
+            `SELECT id FROM leave_balances
+             WHERE employee_id = $1 AND leave_type_id = $2 AND year = $3`,
+            [emp.id, leaveType.id, year]
+          );
+
+          if (existing.rows.length > 0) {
+            skipped++;
+            continue;
+          }
+
+          // Create balance record
+          await pool.query(
+            `INSERT INTO leave_balances (tenant_id, employee_id, leave_type_id, year, entitled_days)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [req.tenant_id, emp.id, leaveType.id, year, leaveType.days_allowed]
+          );
+          created++;
+        }
+      }
+
+      return res.json({
+        success: true,
+        message: `Leave balances initialized for ${employeesResult.rows.length} employees in ${year}`,
+        data: { created, skipped, employees: employeesResult.rows.length, companyId: targetCompanyId }
       });
     }
 

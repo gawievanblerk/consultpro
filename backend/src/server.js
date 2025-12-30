@@ -487,6 +487,209 @@ app.get('/run-leave-migration', async (req, res) => {
 });
 
 // ============================================================================
+// Temporary: Run User Role Structure Migration
+// ============================================================================
+app.get('/run-role-migration', async (req, res) => {
+  try {
+    // Check if staff_company_access table already exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables WHERE table_name = 'staff_company_access'
+      ) as exists
+    `);
+
+    if (tableCheck.rows[0].exists) {
+      return res.json({ success: true, message: 'staff_company_access table already exists' });
+    }
+
+    // 1. Add staff_id to users table
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS staff_id UUID REFERENCES staff(id)`);
+
+    // 2. Create staff-to-company deployment access table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS staff_company_access (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        staff_id UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
+        company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        consultant_id UUID NOT NULL REFERENCES consultants(id),
+        access_type VARCHAR(50) DEFAULT 'full_admin',
+        start_date DATE DEFAULT CURRENT_DATE,
+        end_date DATE,
+        status VARCHAR(50) DEFAULT 'active',
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        created_by UUID REFERENCES users(id),
+        UNIQUE(staff_id, company_id, status)
+      )
+    `);
+
+    // 3. Create indexes
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_staff_company_access_staff ON staff_company_access(staff_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_staff_company_access_company ON staff_company_access(company_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_staff_company_access_consultant ON staff_company_access(consultant_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_staff_company_access_active ON staff_company_access(status) WHERE status = 'active'`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_staff_id ON users(staff_id) WHERE staff_id IS NOT NULL`);
+
+    res.json({ success: true, message: 'User role structure migration completed' });
+  } catch (error) {
+    console.error('Error running role migration:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
+// Temporary: Cleanup Production Users
+// ============================================================================
+app.get('/cleanup-users', async (req, res) => {
+  try {
+    const results = [];
+
+    // 1. Fix admin@teamace.ng to be consultant (firm admin)
+    const updateAdmin = await pool.query(`
+      UPDATE users
+      SET user_type = 'consultant', company_id = NULL
+      WHERE email = 'admin@teamace.ng'
+      RETURNING email, user_type
+    `);
+    if (updateAdmin.rows.length > 0) {
+      results.push({ action: 'updated', email: 'admin@teamace.ng', newUserType: 'consultant' });
+    }
+
+    // 2. Remove duplicate/legacy users
+    const removeSales = await pool.query(`
+      DELETE FROM users WHERE email = 'sales@teamace.ng'
+      RETURNING email
+    `);
+    if (removeSales.rows.length > 0) {
+      results.push({ action: 'removed', email: 'sales@teamace.ng' });
+    }
+
+    const removeDuplicate = await pool.query(`
+      DELETE FROM users WHERE email = 'gawievanblerk@me.com' AND user_type = 'tenant_user'
+      RETURNING email
+    `);
+    if (removeDuplicate.rows.length > 0) {
+      results.push({ action: 'removed', email: 'gawievanblerk@me.com (tenant_user)' });
+    }
+
+    // 3. Convert hr@teamace.ng to staff user_type (deployed staff to TeamACE company)
+    const updateHr = await pool.query(`
+      UPDATE users
+      SET user_type = 'staff'
+      WHERE email = 'hr@teamace.ng' AND user_type = 'company_admin'
+      RETURNING email, user_type
+    `);
+    if (updateHr.rows.length > 0) {
+      results.push({ action: 'updated', email: 'hr@teamace.ng', newUserType: 'staff' });
+    }
+
+    res.json({
+      success: true,
+      message: 'User cleanup completed',
+      changes: results
+    });
+  } catch (error) {
+    console.error('Error cleaning up users:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
+// Temporary: Create Staff User with Company Deployment
+// ============================================================================
+app.get('/seed-staff-user', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const { v4: uuidv4 } = require('uuid');
+    const passwordHash = await bcrypt.hash('Demo123!', 10);
+    const tenantId = '11111111-1111-1111-1111-111111111111';
+
+    // Get existing consultant
+    const consultantResult = await pool.query(`
+      SELECT id FROM consultants WHERE tenant_id = $1 LIMIT 1
+    `, [tenantId]);
+
+    if (consultantResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'No consultant found. Run /seed-employee-user first.' });
+    }
+    const consultantId = consultantResult.rows[0].id;
+
+    // Get existing company
+    const companyResult = await pool.query(`
+      SELECT id, legal_name FROM companies WHERE consultant_id = $1 LIMIT 1
+    `, [consultantId]);
+
+    if (companyResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'No company found. Run /seed-employee-user first.' });
+    }
+    const companyId = companyResult.rows[0].id;
+    const companyName = companyResult.rows[0].legal_name;
+
+    // Find or create staff member (Oluwaseun Adeyemi)
+    let staffResult = await pool.query(`
+      SELECT id FROM staff WHERE email = 'oluwaseun.adeyemi@teamace.ng'
+    `);
+
+    let staffId;
+    if (staffResult.rows.length === 0) {
+      // Create staff member
+      const newStaffId = uuidv4();
+      await pool.query(`
+        INSERT INTO staff (id, tenant_id, first_name, last_name, email, phone, employee_number, department, job_title, status, employment_type, hire_date)
+        VALUES ($1, $2, 'Oluwaseun', 'Adeyemi', 'oluwaseun.adeyemi@teamace.ng', '+2348012345678', 'STF-001', 'Consulting', 'HR Consultant', 'available', 'full_time', '2022-03-15')
+      `, [newStaffId, tenantId]);
+      staffId = newStaffId;
+    } else {
+      staffId = staffResult.rows[0].id;
+    }
+
+    // Create staff user account
+    const newUserId = uuidv4();
+    await pool.query(`
+      INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, role, user_type, staff_id, is_active)
+      VALUES ($1, $2, 'oluwaseun.adeyemi@teamace.ng', $3, 'Oluwaseun', 'Adeyemi', 'user', 'staff', $4, true)
+      ON CONFLICT (email, tenant_id) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash,
+        user_type = 'staff',
+        staff_id = EXCLUDED.staff_id
+    `, [newUserId, tenantId, passwordHash, staffId]);
+
+    // Check if staff_company_access table exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables WHERE table_name = 'staff_company_access'
+      ) as exists
+    `);
+
+    if (tableCheck.rows[0].exists) {
+      // Create deployment access to company
+      const accessId = uuidv4();
+      await pool.query(`
+        INSERT INTO staff_company_access (id, staff_id, company_id, consultant_id, access_type, status, start_date)
+        VALUES ($1, $2, $3, $4, 'full_admin', 'active', CURRENT_DATE)
+        ON CONFLICT (staff_id, company_id, status) DO NOTHING
+      `, [accessId, staffId, companyId, consultantId]);
+    }
+
+    res.json({
+      success: true,
+      message: 'Staff user created with company deployment',
+      staffId: staffId,
+      deployedTo: companyName,
+      credentials: {
+        email: 'oluwaseun.adeyemi@teamace.ng',
+        password: 'Demo123!',
+        userType: 'staff'
+      }
+    });
+  } catch (error) {
+    console.error('Error seeding staff user:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Apply auth middleware to all other /api routes
 // ============================================================================
 app.use('/api', authenticate, tenantMiddleware);

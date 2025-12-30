@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const pool = require('../utils/db');
 
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
 const JWT_SECRET = process.env.JWT_SECRET || 'corehr_docker_demo_secret_key_2025_standalone';
@@ -7,6 +8,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'corehr_docker_demo_secret_key_2025
  * Authentication middleware for CoreHR
  * Validates JWT token and attaches user data to request
  * In DEMO_MODE, validates JWT locally without external auth server
+ *
+ * User Types Hierarchy:
+ * 1. superadmin - Platform admin (all tenants)
+ * 2. consultant - HR consulting firm admin (all client companies)
+ * 3. staff - Consultant's deployed worker (deployed companies only)
+ * 4. company_admin - Company's own HR admin (own company only)
+ * 5. employee - Company employee (self-service only)
  */
 async function authenticate(req, res, next) {
   try {
@@ -39,6 +47,10 @@ async function authenticate(req, res, next) {
           email: decoded.email,
           org: decoded.org,
           role: decoded.role,
+          user_type: decoded.user_type || 'consultant',  // Default for backwards compatibility
+          company_id: decoded.company_id || null,
+          employee_id: decoded.employee_id || null,
+          staff_id: decoded.staff_id || null,
           products: decoded.products || ['corehr'],
           limits: decoded.limits || {
             corehr: {
@@ -67,6 +79,47 @@ async function authenticate(req, res, next) {
     // Attach user data to request
     req.user = user;
     req.tenant_id = user.org;
+
+    // For staff users, fetch their deployed company IDs
+    if (user.user_type === 'staff' && user.staff_id) {
+      try {
+        const deployments = await pool.query(`
+          SELECT company_id, access_type FROM staff_company_access
+          WHERE staff_id = $1 AND status = 'active'
+          AND (end_date IS NULL OR end_date >= CURRENT_DATE)
+        `, [user.staff_id]);
+
+        req.deployedCompanyIds = deployments.rows.map(d => d.company_id);
+        req.deployedCompanies = deployments.rows;
+      } catch (err) {
+        // Table might not exist yet, default to empty
+        req.deployedCompanyIds = [];
+        req.deployedCompanies = [];
+      }
+    }
+
+    // Helper: Can this user access this company?
+    req.canAccessCompany = (companyId) => {
+      if (!companyId) return false;
+      if (user.user_type === 'consultant') return true; // All under consultant
+      if (user.user_type === 'staff') return req.deployedCompanyIds?.includes(companyId);
+      if (user.user_type === 'company_admin') return user.company_id === companyId;
+      if (user.user_type === 'employee') return user.company_id === companyId;
+      return false;
+    };
+
+    // Helper: Is this user an admin (consultant, staff with deployment, or company_admin)?
+    req.isAdmin = () => {
+      return ['consultant', 'staff', 'company_admin'].includes(user.user_type);
+    };
+
+    // Helper: Can this user manage employees?
+    req.canManageEmployees = (companyId) => {
+      if (user.user_type === 'consultant') return true;
+      if (user.user_type === 'staff') return req.deployedCompanyIds?.includes(companyId);
+      if (user.user_type === 'company_admin') return user.company_id === companyId;
+      return false;
+    };
 
     next();
   } catch (error) {

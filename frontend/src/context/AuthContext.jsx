@@ -6,6 +6,8 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // For staff users with multiple deployments, track which company is currently active
+  const [activeCompanyId, setActiveCompanyId] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -15,6 +17,18 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   }, []);
+
+  // When user changes, set default active company for staff users
+  useEffect(() => {
+    if (user?.userType === 'staff' && user?.deployedCompanies?.length > 0) {
+      // Use stored preference or default to first deployment
+      const storedCompanyId = localStorage.getItem('activeCompanyId');
+      const validCompany = user.deployedCompanies.find(c => c.company_id === storedCompanyId);
+      setActiveCompanyId(validCompany?.company_id || user.deployedCompanies[0].company_id);
+    } else {
+      setActiveCompanyId(null);
+    }
+  }, [user]);
 
   const verifyToken = async (token) => {
     try {
@@ -71,6 +85,34 @@ export function AuthProvider({ children }) {
     setUser(userData);
   };
 
+  // Switch active company (for staff users with multiple deployments)
+  const switchCompany = (companyId) => {
+    if (user?.userType === 'staff') {
+      const validCompany = user.deployedCompanies?.find(c => c.company_id === companyId);
+      if (validCompany) {
+        localStorage.setItem('activeCompanyId', companyId);
+        setActiveCompanyId(companyId);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Get active company details
+  const getActiveCompany = () => {
+    if (user?.userType === 'staff' && activeCompanyId) {
+      return user.deployedCompanies?.find(c => c.company_id === activeCompanyId);
+    }
+    return null;
+  };
+
+  // User type helpers
+  const isConsultant = user?.userType === 'consultant';
+  const isStaff = user?.userType === 'staff';
+  const isCompanyAdmin = user?.userType === 'company_admin';
+  const isEmployee = user?.userType === 'employee';
+  const isAdmin = isConsultant || isStaff || isCompanyAdmin; // Can perform admin actions
+
   const value = {
     user,
     setUser,
@@ -78,7 +120,17 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!user,
     login,
     logout,
-    setAuth
+    setAuth,
+    // Company switching for staff
+    activeCompanyId,
+    switchCompany,
+    getActiveCompany,
+    // User type helpers
+    isConsultant,
+    isStaff,
+    isCompanyAdmin,
+    isEmployee,
+    isAdmin
   };
 
   return (

@@ -28,9 +28,9 @@ import {
 } from '@heroicons/react/24/outline';
 
 // Navigation config with user_type filtering
-// user_types: consultant (full access), company_admin (HR only), employee (ESS only)
+// user_types: consultant (full access), staff (deployed companies), company_admin (HR only), employee (ESS only)
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, userTypes: ['consultant', 'company_admin', 'employee'] },
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, userTypes: ['consultant', 'staff', 'company_admin', 'employee'] },
   { name: 'CRM', userTypes: ['consultant'], children: [
     { name: 'Clients', href: '/dashboard/clients', icon: BuildingOfficeIcon },
     { name: 'Contacts', href: '/dashboard/contacts', icon: UserGroupIcon },
@@ -44,10 +44,10 @@ const navigation = [
     { name: 'Staff Pool', href: '/dashboard/staff', icon: UsersIcon },
     { name: 'Deployments', href: '/dashboard/deployments', icon: ClipboardDocumentListIcon },
   ]},
-  { name: 'Employees', userTypes: ['company_admin'], children: [
+  { name: 'Employees', userTypes: ['staff', 'company_admin'], children: [
     { name: 'All Employees', href: '/dashboard/employees', icon: UsersIcon },
   ]},
-  { name: 'Leave Management', userTypes: ['consultant', 'company_admin'], children: [
+  { name: 'Leave Management', userTypes: ['consultant', 'staff', 'company_admin'], children: [
     { name: 'Leave Requests', href: '/dashboard/leave-requests', icon: CalendarDaysIcon },
     { name: 'Leave Balances', href: '/dashboard/leave-balances', icon: ClockIcon },
   ]},
@@ -60,7 +60,7 @@ const navigation = [
     { name: 'Payments', href: '/dashboard/payments', icon: BanknotesIcon },
     { name: 'PAYE Calculator', href: '/dashboard/paye-calculator', icon: CalculatorIcon },
   ]},
-  { name: 'Compliance', userTypes: ['consultant', 'company_admin'], children: [
+  { name: 'Compliance', userTypes: ['consultant', 'staff', 'company_admin'], children: [
     { name: 'Dashboard', href: '/dashboard/compliance', icon: ChartBarIcon },
     { name: 'Employee Compliance', href: '/dashboard/employee-compliance', icon: UsersIcon },
     { name: 'Policies', href: '/dashboard/policies', icon: ClipboardDocumentCheckIcon },
@@ -71,7 +71,7 @@ const navigation = [
     { name: 'My Training', href: '/dashboard/my-training', icon: AcademicCapIcon },
     { name: 'My Certificates', href: '/dashboard/my-certificates', icon: TrophyIcon },
   ]},
-  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon, userTypes: ['consultant', 'company_admin'] },
+  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon, userTypes: ['consultant', 'staff', 'company_admin'] },
   { name: 'Settings', roles: ['admin'], userTypes: ['consultant', 'company_admin'], children: [
     { name: 'Users', href: '/dashboard/users', icon: UserCircleIcon },
   ]},
@@ -96,11 +96,13 @@ const getFilteredNavigation = (userRole, userType) => {
 
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, isStaff, activeCompanyId, switchCompany, getActiveCompany } = useAuth();
   const location = useLocation();
 
   const isActive = (href) => location.pathname === href;
   const filteredNav = getFilteredNavigation(user?.role, user?.userType);
+  const activeCompany = getActiveCompany();
+  const hasMultipleDeployments = isStaff && user?.deployedCompanies?.length > 1;
 
   return (
     <div className="min-h-screen bg-primary-50/30">
@@ -133,6 +135,30 @@ function Layout() {
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Company Switcher for Staff Users */}
+        {isStaff && user?.deployedCompanies?.length > 0 && (
+          <div className="px-4 py-3 border-b border-primary-100 flex-shrink-0">
+            <label className="block text-xs font-medium text-primary-500 mb-1">Active Company</label>
+            {hasMultipleDeployments ? (
+              <select
+                value={activeCompanyId || ''}
+                onChange={(e) => switchCompany(e.target.value)}
+                className="w-full text-sm bg-primary-50 border-0 rounded-lg py-2 px-3 text-primary-700 font-medium focus:ring-2 focus:ring-accent-500"
+              >
+                {user.deployedCompanies.map((company) => (
+                  <option key={company.company_id} value={company.company_id}>
+                    {company.company_name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="text-sm font-medium text-primary-700 bg-primary-50 rounded-lg py-2 px-3">
+                {activeCompany?.company_name || 'No company assigned'}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto min-h-0">
@@ -204,6 +230,7 @@ function Layout() {
               <p className="text-xs text-primary-500 truncate">{user?.organizationName}</p>
               <p className="text-xs text-primary-400 capitalize">
                 {user?.userType === 'consultant' ? 'Full Access' :
+                 user?.userType === 'staff' ? 'Staff (Deployed)' :
                  user?.userType === 'company_admin' ? 'Company Admin' :
                  user?.userType === 'tenant_user' ? 'Company Admin' :
                  user?.userType === 'employee' ? 'Employee' :
