@@ -714,6 +714,7 @@ app.get('/reset-system', async (req, res) => {
 
     // Delete in correct order to respect FK constraints
     // Level 1: Leaf tables (no dependencies)
+    await safeDelete('activity_feed');
     await safeDelete('training_progress');
     await safeDelete('certificates');
     await safeDelete('policy_acknowledgments');
@@ -732,6 +733,7 @@ app.get('/reset-system', async (req, res) => {
     await safeDelete('engagements');
     await safeDelete('contacts');
     await safeDelete('leads');
+    await safeDelete('opportunities');
 
     // Level 2: Training & Policies
     await safeDelete('training_modules');
