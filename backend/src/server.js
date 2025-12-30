@@ -236,6 +236,66 @@ app.get('/seed-employee-user', async (req, res) => {
 });
 
 // ============================================================================
+// Temporary: Seed Company HR Admin User (for testing)
+// ============================================================================
+app.get('/seed-company-admin', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const { v4: uuidv4 } = require('uuid');
+    const passwordHash = await bcrypt.hash('Demo123!', 10);
+    const tenantId = '11111111-1111-1111-1111-111111111111';
+
+    // Get existing consultant
+    const consultantResult = await pool.query(`
+      SELECT id FROM consultants WHERE tenant_id = $1 LIMIT 1
+    `, [tenantId]);
+
+    if (consultantResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'No consultant found. Run /seed-employee-user first.' });
+    }
+    const consultantId = consultantResult.rows[0].id;
+
+    // Get existing company
+    let companyResult = await pool.query(`
+      SELECT id, legal_name FROM companies WHERE consultant_id = $1 LIMIT 1
+    `, [consultantId]);
+
+    if (companyResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'No company found. Run /seed-employee-user first.' });
+    }
+    const companyId = companyResult.rows[0].id;
+    const companyName = companyResult.rows[0].legal_name;
+
+    // Create company HR admin user
+    const newUserId = uuidv4();
+    await pool.query(`
+      INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, role, user_type, company_id, is_active)
+      VALUES ($1, $2, 'hr@teamace.ng', $3, 'HR', 'Manager', 'admin', 'company_admin', $4, true)
+      ON CONFLICT (email, tenant_id) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash,
+        user_type = 'company_admin',
+        company_id = EXCLUDED.company_id,
+        role = 'admin'
+    `, [newUserId, tenantId, passwordHash, companyId]);
+
+    res.json({
+      success: true,
+      message: 'Company HR Admin user created',
+      company: companyName,
+      credentials: {
+        email: 'hr@teamace.ng',
+        password: 'Demo123!',
+        userType: 'company_admin',
+        role: 'admin'
+      }
+    });
+  } catch (error) {
+    console.error('Error seeding company admin:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Temporary: Run Leave Management Migration
 // ============================================================================
 app.get('/run-leave-migration', async (req, res) => {
