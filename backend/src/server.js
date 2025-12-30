@@ -131,33 +131,50 @@ app.use('/api/onboard', require('./routes/onboarding'));
 app.get('/seed-employee-user', async (req, res) => {
   try {
     const bcrypt = require('bcryptjs');
+    const { v4: uuidv4 } = require('uuid');
     const passwordHash = await bcrypt.hash('Demo123!', 10);
+    const tenantId = '11111111-1111-1111-1111-111111111111';
 
-    // Get existing consultant for TeamACE tenant
-    const consultantResult = await pool.query(`
-      SELECT id FROM consultants WHERE tenant_id = '11111111-1111-1111-1111-111111111111' LIMIT 1
-    `);
+    // Get or create consultant for TeamACE tenant
+    let consultantResult = await pool.query(`
+      SELECT id FROM consultants WHERE tenant_id = $1 LIMIT 1
+    `, [tenantId]);
 
+    let consultantId;
     if (consultantResult.rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'No consultant found for tenant' });
+      // Create consultant
+      const newConsultantId = uuidv4();
+      await pool.query(`
+        INSERT INTO consultants (id, tenant_id, company_name, trading_name, email, tier, subscription_status)
+        VALUES ($1, $2, 'TeamACE HR Consulting', 'TeamACE HR', 'consulting@teamace.ng', 'professional', 'active')
+      `, [newConsultantId, tenantId]);
+      consultantId = newConsultantId;
+    } else {
+      consultantId = consultantResult.rows[0].id;
     }
-    const consultantId = consultantResult.rows[0].id;
 
-    // Get or create First Bank company
+    // Get or create company
     let companyResult = await pool.query(`
       SELECT id FROM companies WHERE consultant_id = $1 LIMIT 1
     `, [consultantId]);
 
+    let companyId;
     if (companyResult.rows.length === 0) {
-      return res.status(400).json({ success: false, error: 'No company found for consultant' });
+      // Create company
+      const newCompanyId = uuidv4();
+      await pool.query(`
+        INSERT INTO companies (id, consultant_id, legal_name, trading_name, company_type, industry, email, city, state, country)
+        VALUES ($1, $2, 'TeamACE Nigeria Limited', 'TeamACE', 'Private', 'Human Resources', 'hr@teamace.ng', 'Lagos', 'Lagos', 'Nigeria')
+      `, [newCompanyId, consultantId]);
+      companyId = newCompanyId;
+    } else {
+      companyId = companyResult.rows[0].id;
     }
-    const companyId = companyResult.rows[0].id;
 
     // Get company details for response
     const companyDetails = await pool.query('SELECT legal_name FROM companies WHERE id = $1', [companyId]);
 
-    // Create employee with dynamic IDs (proper UUID format)
-    const { v4: uuidv4 } = require('uuid');
+    // Create employee with dynamic IDs
     const newEmployeeId = uuidv4();
     const newUserId = uuidv4();
 
