@@ -62,6 +62,7 @@ const navigation = [
   ]},
   { name: 'Compliance', userTypes: ['consultant', 'company_admin'], children: [
     { name: 'Dashboard', href: '/dashboard/compliance', icon: ChartBarIcon },
+    { name: 'Employee Compliance', href: '/dashboard/employee-compliance', icon: UsersIcon },
     { name: 'Policies', href: '/dashboard/policies', icon: ClipboardDocumentCheckIcon },
     { name: 'Training', href: '/dashboard/training-modules', icon: AcademicCapIcon },
   ]},

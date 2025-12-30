@@ -126,6 +126,99 @@ app.use('/api/superadmin', require('./routes/superadmin'));
 app.use('/api/onboard', require('./routes/onboarding'));
 
 // ============================================================================
+// Temporary: Seed Employee User (for testing)
+// ============================================================================
+app.get('/seed-employee-user', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const passwordHash = await bcrypt.hash('Demo123!', 10);
+
+    // Get existing consultant for TeamACE tenant
+    const consultantResult = await pool.query(`
+      SELECT id FROM consultants WHERE tenant_id = '11111111-1111-1111-1111-111111111111' LIMIT 1
+    `);
+
+    if (consultantResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'No consultant found for tenant' });
+    }
+    const consultantId = consultantResult.rows[0].id;
+
+    // Get or create First Bank company
+    let companyResult = await pool.query(`
+      SELECT id FROM companies WHERE consultant_id = $1 LIMIT 1
+    `, [consultantId]);
+
+    if (companyResult.rows.length === 0) {
+      return res.status(400).json({ success: false, error: 'No company found for consultant' });
+    }
+    const companyId = companyResult.rows[0].id;
+
+    // Get company details for response
+    const companyDetails = await pool.query('SELECT legal_name FROM companies WHERE id = $1', [companyId]);
+
+    // Create employee with dynamic IDs (proper UUID format)
+    const { v4: uuidv4 } = require('uuid');
+    const newEmployeeId = uuidv4();
+    const newUserId = uuidv4();
+
+    // Check if employee already exists
+    let empResult = await pool.query(`SELECT id FROM employees WHERE email = 'adaeze.okonkwo@teamace.ng'`);
+    let finalEmployeeId;
+
+    if (empResult.rows.length === 0) {
+      // Create new employee
+      const insertResult = await pool.query(`
+        INSERT INTO employees (id, company_id, employee_number, first_name, last_name, email, job_title, department, employment_type, employment_status, hire_date, salary, salary_currency, ess_enabled)
+        VALUES ($1, $2, 'EMP-2024-0001', 'Adaeze', 'Okonkwo', 'adaeze.okonkwo@teamace.ng', 'HR Manager', 'Human Resources', 'full_time', 'active', '2021-01-15', 650000, 'NGN', true)
+        RETURNING id
+      `, [newEmployeeId, companyId]);
+      finalEmployeeId = insertResult.rows[0].id;
+    } else {
+      // Update existing employee
+      finalEmployeeId = empResult.rows[0].id;
+      await pool.query(`UPDATE employees SET employment_status = 'active', company_id = $1 WHERE id = $2`, [companyId, finalEmployeeId]);
+    }
+
+    // Create employee user
+    await pool.query(`
+      INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, role, user_type, employee_id, company_id, is_active)
+      VALUES (
+        $1,
+        '11111111-1111-1111-1111-111111111111',
+        'adaeze.okonkwo@teamace.ng',
+        $2,
+        'Adaeze',
+        'Okonkwo',
+        'user',
+        'employee',
+        $3,
+        $4,
+        true
+      )
+      ON CONFLICT (email, tenant_id) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash,
+        user_type = 'employee',
+        employee_id = EXCLUDED.employee_id,
+        company_id = EXCLUDED.company_id
+    `, [newUserId, passwordHash, finalEmployeeId, companyId]);
+
+    res.json({
+      success: true,
+      message: 'Employee user created',
+      company: companyDetails.rows[0]?.legal_name,
+      credentials: {
+        email: 'adaeze.okonkwo@teamace.ng',
+        password: 'Demo123!',
+        userType: 'employee'
+      }
+    });
+  } catch (error) {
+    console.error('Error seeding employee user:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Apply auth middleware to all other /api routes
 // ============================================================================
 app.use('/api', authenticate, tenantMiddleware);

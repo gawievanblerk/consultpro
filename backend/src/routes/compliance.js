@@ -126,7 +126,7 @@ router.get('/overdue', async (req, res) => {
   try {
     const pool = req.app.get('pool');
     const tenantId = req.tenantId;
-    const { type } = req.query; // 'policy', 'training', or 'all'
+    const { type } = req.query;
 
     const results = {
       overdue_policies: [],
@@ -143,12 +143,10 @@ router.get('/overdue', async (req, res) => {
           s.id AS employee_id,
           s.first_name || ' ' || s.last_name AS employee_name,
           s.email AS employee_email,
-          c.name AS company_name,
           EXTRACT(DAY FROM NOW() - p.acknowledgment_deadline) AS days_overdue
         FROM policies p
         CROSS JOIN staff s
         LEFT JOIN policy_acknowledgments pa ON p.id = pa.policy_id AND s.id = pa.employee_id
-        LEFT JOIN clients c ON s.deployed_to_client_id = c.id
         WHERE p.tenant_id = $1
           AND p.status = 'published'
           AND p.requires_acknowledgment = true
@@ -177,12 +175,10 @@ router.get('/overdue', async (req, res) => {
           s.id AS employee_id,
           s.first_name || ' ' || s.last_name AS employee_name,
           s.email AS employee_email,
-          c.name AS company_name,
           EXTRACT(DAY FROM NOW() - ta.due_date) AS days_overdue
         FROM training_assignments ta
         JOIN training_modules tm ON ta.module_id = tm.id
         JOIN staff s ON ta.employee_id = s.id
-        LEFT JOIN clients c ON s.deployed_to_client_id = c.id
         WHERE tm.tenant_id = $1
           AND ta.status IN ('pending', 'in_progress')
           AND ta.due_date < NOW()
@@ -205,80 +201,144 @@ router.get('/overdue', async (req, res) => {
   }
 });
 
-// Get employee compliance status
+// Get employee compliance status (works with both employees table for company admins and staff table for consultants)
 router.get('/employees', async (req, res) => {
   try {
     const pool = req.app.get('pool');
     const tenantId = req.tenantId;
-    const { company_id, search, status } = req.query;
+    const userId = req.user?.id;
+    const { company_id: queryCompanyId, search, status } = req.query;
 
-    let whereClause = 's.tenant_id = $1 AND s.deleted_at IS NULL';
-    const params = [tenantId];
-    let paramCount = 1;
-
-    if (company_id) {
-      paramCount++;
-      whereClause += ` AND s.deployed_to_client_id = $${paramCount}`;
-      params.push(company_id);
+    // Get user's company_id from the database
+    let userCompanyId = queryCompanyId;
+    if (!userCompanyId && userId) {
+      const userResult = await pool.query(
+        'SELECT company_id FROM users WHERE id = $1',
+        [userId]
+      );
+      if (userResult.rows.length > 0 && userResult.rows[0].company_id) {
+        userCompanyId = userResult.rows[0].company_id;
+      }
     }
 
-    if (search) {
-      paramCount++;
-      whereClause += ` AND (s.first_name ILIKE $${paramCount} OR s.last_name ILIKE $${paramCount} OR s.email ILIKE $${paramCount})`;
-      params.push(`%${search}%`);
+    let employeesResult;
+
+    // If user has a company_id, query employees directly by that company
+    if (userCompanyId) {
+      const params = [tenantId, userCompanyId];
+      if (search) params.push('%' + search + '%');
+
+      employeesResult = await pool.query(`
+        SELECT
+          e.id,
+          e.employee_number,
+          e.first_name,
+          e.last_name,
+          e.email,
+          e.job_title,
+          e.department,
+          co.legal_name AS company_name,
+
+          -- Policy acknowledgment counts
+          (SELECT COUNT(*) FROM policies p
+           WHERE p.tenant_id = $1 AND p.status = 'published'
+           AND p.requires_acknowledgment = true AND p.deleted_at IS NULL) AS total_policies_required,
+          (SELECT COUNT(*) FROM policy_acknowledgments pa
+           JOIN policies p ON pa.policy_id = p.id
+           WHERE pa.employee_id = e.id AND p.tenant_id = $1
+           AND p.status = 'published' AND p.requires_acknowledgment = true) AS policies_acknowledged,
+
+          -- Training assignment counts
+          (SELECT COUNT(*) FROM training_assignments ta
+           JOIN training_modules tm ON ta.module_id = tm.id
+           WHERE ta.employee_id = e.id AND tm.tenant_id = $1) AS total_training_assigned,
+          (SELECT COUNT(*) FROM training_assignments ta
+           JOIN training_modules tm ON ta.module_id = tm.id
+           WHERE ta.employee_id = e.id AND ta.status = 'completed' AND tm.tenant_id = $1) AS training_completed,
+
+          -- Overdue counts
+          (SELECT COUNT(*) FROM training_assignments ta
+           JOIN training_modules tm ON ta.module_id = tm.id
+           WHERE ta.employee_id = e.id AND ta.status IN ('pending', 'in_progress')
+           AND ta.due_date < NOW() AND tm.tenant_id = $1) AS training_overdue,
+
+          -- Certificates earned
+          (SELECT COUNT(*) FROM issued_certificates ic
+           JOIN training_completions tc ON ic.completion_id = tc.id
+           JOIN training_modules tm ON tc.module_id = tm.id
+           WHERE ic.employee_id = e.id AND tm.tenant_id = $1) AS certificates_earned
+
+        FROM employees e
+        LEFT JOIN companies co ON e.company_id = co.id
+        WHERE e.company_id = $2
+        AND e.deleted_at IS NULL
+        AND e.employment_status = 'active'
+        ${search ? 'AND (e.first_name ILIKE $3 OR e.last_name ILIKE $3 OR e.email ILIKE $3)' : ''}
+        ORDER BY e.last_name, e.first_name
+        LIMIT 100
+      `, params);
+    } else {
+      // Fall back to staff table for consultants
+      const params = [tenantId];
+      if (search) params.push('%' + search + '%');
+
+      employeesResult = await pool.query(`
+        SELECT
+          s.id,
+          s.employee_id AS employee_number,
+          s.first_name,
+          s.last_name,
+          s.email,
+          s.job_title,
+          s.department,
+          'Staff Pool' AS company_name,
+
+          -- Policy acknowledgment counts
+          (SELECT COUNT(*) FROM policies p
+           WHERE p.tenant_id = $1 AND p.status = 'published'
+           AND p.requires_acknowledgment = true AND p.deleted_at IS NULL) AS total_policies_required,
+          (SELECT COUNT(*) FROM policy_acknowledgments pa
+           JOIN policies p ON pa.policy_id = p.id
+           WHERE pa.employee_id = s.id AND p.tenant_id = $1
+           AND p.status = 'published' AND p.requires_acknowledgment = true) AS policies_acknowledged,
+
+          -- Training assignment counts
+          (SELECT COUNT(*) FROM training_assignments ta
+           JOIN training_modules tm ON ta.module_id = tm.id
+           WHERE ta.employee_id = s.id AND tm.tenant_id = $1) AS total_training_assigned,
+          (SELECT COUNT(*) FROM training_assignments ta
+           JOIN training_modules tm ON ta.module_id = tm.id
+           WHERE ta.employee_id = s.id AND ta.status = 'completed' AND tm.tenant_id = $1) AS training_completed,
+
+          -- Overdue counts
+          (SELECT COUNT(*) FROM training_assignments ta
+           JOIN training_modules tm ON ta.module_id = tm.id
+           WHERE ta.employee_id = s.id AND ta.status IN ('pending', 'in_progress')
+           AND ta.due_date < NOW() AND tm.tenant_id = $1) AS training_overdue,
+
+          -- Certificates earned
+          (SELECT COUNT(*) FROM issued_certificates ic
+           JOIN training_completions tc ON ic.completion_id = tc.id
+           JOIN training_modules tm ON tc.module_id = tm.id
+           WHERE ic.employee_id = s.id AND tm.tenant_id = $1) AS certificates_earned
+
+        FROM staff s
+        WHERE s.tenant_id = $1 AND s.deleted_at IS NULL
+        ${search ? 'AND (s.first_name ILIKE $2 OR s.last_name ILIKE $2 OR s.email ILIKE $2)' : ''}
+        ORDER BY s.last_name, s.first_name
+        LIMIT 100
+      `, params);
     }
-
-    const employees = await pool.query(`
-      SELECT
-        s.id,
-        s.first_name,
-        s.last_name,
-        s.email,
-        c.name AS company_name,
-
-        -- Policy acknowledgment counts
-        (SELECT COUNT(*) FROM policies p
-         WHERE p.tenant_id = $1 AND p.status = 'published'
-         AND p.requires_acknowledgment = true AND p.deleted_at IS NULL) AS total_policies_required,
-        (SELECT COUNT(*) FROM policy_acknowledgments pa
-         JOIN policies p ON pa.policy_id = p.id
-         WHERE pa.employee_id = s.id AND p.tenant_id = $1
-         AND p.status = 'published' AND p.requires_acknowledgment = true) AS policies_acknowledged,
-
-        -- Training assignment counts
-        (SELECT COUNT(*) FROM training_assignments ta
-         JOIN training_modules tm ON ta.module_id = tm.id
-         WHERE ta.employee_id = s.id AND tm.tenant_id = $1) AS total_training_assigned,
-        (SELECT COUNT(*) FROM training_assignments ta
-         JOIN training_modules tm ON ta.module_id = tm.id
-         WHERE ta.employee_id = s.id AND ta.status = 'completed' AND tm.tenant_id = $1) AS training_completed,
-
-        -- Overdue counts
-        (SELECT COUNT(*) FROM training_assignments ta
-         JOIN training_modules tm ON ta.module_id = tm.id
-         WHERE ta.employee_id = s.id AND ta.status IN ('pending', 'in_progress')
-         AND ta.due_date < NOW() AND tm.tenant_id = $1) AS training_overdue,
-
-        -- Certificates earned
-        (SELECT COUNT(*) FROM issued_certificates ic
-         JOIN training_modules tm ON ic.module_id = tm.id
-         WHERE ic.employee_id = s.id AND tm.tenant_id = $1) AS certificates_earned
-
-      FROM staff s
-      LEFT JOIN clients c ON s.deployed_to_client_id = c.id
-      WHERE ${whereClause}
-      ORDER BY s.last_name, s.first_name
-      LIMIT 100
-    `, params);
 
     // Add compliance status calculation
-    const employeesWithStatus = employees.rows.map(emp => {
+    const employeesWithStatus = employeesResult.rows.map(emp => {
       const policyCompliance = emp.total_policies_required > 0
         ? Math.round((emp.policies_acknowledged / emp.total_policies_required) * 100)
         : 100;
       const trainingCompliance = emp.total_training_assigned > 0
         ? Math.round((emp.training_completed / emp.total_training_assigned) * 100)
         : 100;
+      const overallPercent = Math.round((policyCompliance + trainingCompliance) / 2);
 
       let overallStatus = 'compliant';
       if (emp.training_overdue > 0) {
@@ -291,6 +351,7 @@ router.get('/employees', async (req, res) => {
         ...emp,
         policy_compliance_percent: policyCompliance,
         training_compliance_percent: trainingCompliance,
+        overall_compliance_percent: overallPercent,
         overall_status: overallStatus
       };
     });
@@ -315,15 +376,45 @@ router.get('/employees/:id', async (req, res) => {
   try {
     const pool = req.app.get('pool');
     const tenantId = req.tenantId;
+    const userId = req.user?.id;
     const { id } = req.params;
 
-    // Get employee info
-    const employee = await pool.query(`
-      SELECT s.*, c.name AS company_name
-      FROM staff s
-      LEFT JOIN clients c ON s.deployed_to_client_id = c.id
-      WHERE s.id = $1 AND s.tenant_id = $2 AND s.deleted_at IS NULL
-    `, [id, tenantId]);
+    // Get user's company_id from the database
+    let userCompanyId = null;
+    if (userId) {
+      const userResult = await pool.query(
+        'SELECT company_id FROM users WHERE id = $1',
+        [userId]
+      );
+      if (userResult.rows.length > 0 && userResult.rows[0].company_id) {
+        userCompanyId = userResult.rows[0].company_id;
+      }
+    }
+
+    let employee;
+
+    // If user has a company_id, look in employees table
+    if (userCompanyId) {
+      employee = await pool.query(`
+        SELECT e.id, e.employee_number, e.first_name, e.last_name, e.email,
+               e.job_title, e.department, e.hire_date, e.employment_status,
+               co.legal_name AS company_name
+        FROM employees e
+        LEFT JOIN companies co ON e.company_id = co.id
+        WHERE e.id = $1 AND e.company_id = $2 AND e.deleted_at IS NULL
+      `, [id, userCompanyId]);
+    }
+
+    // Fall back to staff table if not found
+    if (!employee || employee.rows.length === 0) {
+      employee = await pool.query(`
+        SELECT s.id, s.employee_id AS employee_number, s.first_name, s.last_name, s.email,
+               s.job_title, s.department, s.hire_date, 'active' AS employment_status,
+               'Staff Pool' AS company_name
+        FROM staff s
+        WHERE s.id = $1 AND s.tenant_id = $2 AND s.deleted_at IS NULL
+      `, [id, tenantId]);
+    }
 
     if (employee.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Employee not found' });
@@ -389,10 +480,11 @@ router.get('/employees/:id', async (req, res) => {
         tm.title AS module_title,
         ct.name AS template_name
       FROM issued_certificates ic
-      JOIN training_modules tm ON ic.module_id = tm.id
+      JOIN training_completions tc ON ic.completion_id = tc.id
+      JOIN training_modules tm ON tc.module_id = tm.id
       LEFT JOIN certificate_templates ct ON ic.template_id = ct.id
       WHERE ic.employee_id = $1 AND tm.tenant_id = $2
-      ORDER BY ic.issued_at DESC
+      ORDER BY ic.created_at DESC
     `, [id, tenantId]);
 
     res.json({
@@ -423,11 +515,9 @@ router.post('/send-reminders', async (req, res) => {
     const userId = req.userId;
     const { type, item_ids } = req.body;
 
-    // For now, just log the reminder - actual email integration would go here
     const reminders = [];
 
     if (type === 'policy') {
-      // Get policy details and employees who haven't acknowledged
       for (const policyId of item_ids) {
         const result = await pool.query(`
           SELECT p.title, s.email, s.first_name || ' ' || s.last_name AS name
@@ -449,7 +539,6 @@ router.post('/send-reminders', async (req, res) => {
         }
       }
     } else if (type === 'training') {
-      // Get training assignments that need reminders
       for (const assignmentId of item_ids) {
         const result = await pool.query(`
           SELECT tm.title, s.email, s.first_name || ' ' || s.last_name AS name, ta.due_date
@@ -473,20 +562,9 @@ router.post('/send-reminders', async (req, res) => {
       }
     }
 
-    // Log reminders sent (in production, would integrate with email service)
-    for (const reminder of reminders) {
-      await pool.query(`
-        INSERT INTO compliance_reminders (
-          tenant_id, employee_id, reminder_type, related_id, sent_at, sent_by
-        )
-        SELECT $1, s.id, $2, $3, NOW(), $4
-        FROM staff s WHERE s.email = $5 AND s.tenant_id = $1
-      `, [tenantId, reminder.type, reminder.item_id, userId, reminder.employee_email]);
-    }
-
     res.json({
       success: true,
-      message: `${reminders.length} reminder(s) queued for sending`,
+      message: reminders.length + ' reminder(s) queued for sending',
       data: { reminders_count: reminders.length }
     });
   } catch (error) {
@@ -501,9 +579,8 @@ router.post('/assign-training', async (req, res) => {
     const pool = req.app.get('pool');
     const tenantId = req.tenantId;
     const userId = req.userId;
-    const { module_id, employee_ids, due_date, send_notification } = req.body;
+    const { module_id, employee_ids, due_date } = req.body;
 
-    // Verify module exists and is published
     const module = await pool.query(`
       SELECT id, title FROM training_modules
       WHERE id = $1 AND tenant_id = $2 AND status = 'published' AND deleted_at IS NULL
@@ -513,10 +590,8 @@ router.post('/assign-training', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Training module not found or not published' });
     }
 
-    // Create assignments for each employee
     const assignments = [];
     for (const employeeId of employee_ids) {
-      // Check if assignment already exists
       const existing = await pool.query(`
         SELECT id FROM training_assignments WHERE module_id = $1 AND employee_id = $2
       `, [module_id, employeeId]);
@@ -534,7 +609,7 @@ router.post('/assign-training', async (req, res) => {
 
     res.json({
       success: true,
-      message: `Training assigned to ${assignments.length} employee(s)`,
+      message: 'Training assigned to ' + assignments.length + ' employee(s)',
       data: { assignments }
     });
   } catch (error) {

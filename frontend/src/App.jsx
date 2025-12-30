@@ -37,6 +37,7 @@ import Users from './pages/settings/Users';
 import Policies from './pages/compliance/Policies';
 import TrainingModules from './pages/training/TrainingModules';
 import ComplianceDashboard from './pages/compliance/ComplianceDashboard';
+import EmployeeCompliance from './pages/compliance/EmployeeCompliance';
 
 // Compliance & Training pages (Employee)
 import PolicyLibrary from './pages/compliance/PolicyLibrary';
@@ -150,6 +151,7 @@ function App() {
             <Route path="policies" element={<Policies />} />
             <Route path="training-modules" element={<TrainingModules />} />
             <Route path="compliance" element={<ComplianceDashboard />} />
+            <Route path="employee-compliance" element={<EmployeeCompliance />} />
 
             {/* Compliance & Training Module (Employee) */}
             <Route path="policy-library" element={<PolicyLibrary />} />
