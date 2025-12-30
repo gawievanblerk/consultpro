@@ -712,59 +712,49 @@ app.get('/reset-system', async (req, res) => {
       }
     };
 
-    // Delete in correct order to respect FK constraints
-    // Level 1: Leaf tables (no dependencies)
-    await safeDelete('activity_feed');
-    await safeDelete('training_progress');
-    await safeDelete('certificates');
-    await safeDelete('policy_acknowledgments');
-    await safeDelete('leave_requests');
-    await safeDelete('leave_balances');
-    await safeDelete('staff_company_access');
-    await safeDelete('deployments');
-    await safeDelete('activities');
-    await safeDelete('notes');
-    await safeDelete('tasks');
-    await safeDelete('payments');
-    await safeDelete('invoice_items');
-    await safeDelete('invoices');
-    await safeDelete('proposals');
-    await safeDelete('documents');
-    await safeDelete('engagements');
-    await safeDelete('contacts');
-    await safeDelete('leads');
-    await safeDelete('opportunities');
-
-    // Level 2: Training & Policies
-    await safeDelete('training_modules');
-    await safeDelete('policies');
-    await safeDelete('policy_categories');
-
-    // Level 3: Leave types
-    await safeDelete('leave_types');
-    await safeDelete('public_holidays');
-
-    // Level 4: Users
-    await safeDelete('user_invites');
-    await safeDelete('password_reset_tokens');
-    await safeDelete('notifications');
-    await safeDelete('audit_logs');
-    await safeDelete('approvals');
-    await safeDelete('users');
-
-    // Level 5: Employees & Staff
-    await safeDelete('employees');
-    await safeDelete('staff');
-
-    // Level 6: Clients & Companies
-    await safeDelete('clients');
-    await safeDelete('companies');
-
-    // Level 7: Consultants
-    await safeDelete('consultants');
-
-    // Level 8: Tenants
-    await safeDelete('tenants');
+    // Delete all data - use TRUNCATE CASCADE to handle FK constraints
+    await pool.query(`
+      TRUNCATE TABLE
+        activity_feed,
+        training_progress,
+        certificates,
+        policy_acknowledgments,
+        leave_requests,
+        leave_balances,
+        staff_company_access,
+        deployments,
+        activities,
+        notes,
+        tasks,
+        payments,
+        invoice_items,
+        invoices,
+        proposals,
+        documents,
+        engagements,
+        contacts,
+        leads,
+        opportunities,
+        training_modules,
+        policies,
+        policy_categories,
+        leave_types,
+        public_holidays,
+        user_invites,
+        password_reset_tokens,
+        notifications,
+        audit_logs,
+        approvals,
+        users,
+        employees,
+        staff,
+        clients,
+        companies,
+        consultants,
+        tenants
+      CASCADE
+    `);
+    results.push('All tables truncated with CASCADE');
 
     res.json({
       success: true,
