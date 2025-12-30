@@ -691,6 +691,140 @@ app.get('/seed-staff-user', async (req, res) => {
 });
 
 // ============================================================================
+// DANGER: Reset System to Virgin State (Superadmin only)
+// ============================================================================
+app.get('/reset-system', async (req, res) => {
+  try {
+    const results = [];
+
+    // Delete in correct order to respect FK constraints
+    // Level 1: Leaf tables (no dependencies)
+    await pool.query('DELETE FROM training_progress');
+    results.push('training_progress');
+
+    await pool.query('DELETE FROM certificates');
+    results.push('certificates');
+
+    await pool.query('DELETE FROM policy_acknowledgments');
+    results.push('policy_acknowledgments');
+
+    await pool.query('DELETE FROM leave_requests');
+    results.push('leave_requests');
+
+    await pool.query('DELETE FROM leave_balances');
+    results.push('leave_balances');
+
+    await pool.query('DELETE FROM staff_company_access');
+    results.push('staff_company_access');
+
+    await pool.query('DELETE FROM deployments');
+    results.push('deployments');
+
+    await pool.query('DELETE FROM activities');
+    results.push('activities');
+
+    await pool.query('DELETE FROM notes');
+    results.push('notes');
+
+    await pool.query('DELETE FROM tasks');
+    results.push('tasks');
+
+    await pool.query('DELETE FROM payments');
+    results.push('payments');
+
+    await pool.query('DELETE FROM invoice_items');
+    results.push('invoice_items');
+
+    await pool.query('DELETE FROM invoices');
+    results.push('invoices');
+
+    await pool.query('DELETE FROM proposals');
+    results.push('proposals');
+
+    await pool.query('DELETE FROM documents');
+    results.push('documents');
+
+    await pool.query('DELETE FROM engagements');
+    results.push('engagements');
+
+    await pool.query('DELETE FROM contacts');
+    results.push('contacts');
+
+    await pool.query('DELETE FROM leads');
+    results.push('leads');
+
+    // Level 2: Training & Policies
+    await pool.query('DELETE FROM training_modules');
+    results.push('training_modules');
+
+    await pool.query('DELETE FROM policies');
+    results.push('policies');
+
+    await pool.query('DELETE FROM policy_categories');
+    results.push('policy_categories');
+
+    // Level 3: Leave types
+    await pool.query('DELETE FROM leave_types');
+    results.push('leave_types');
+
+    await pool.query('DELETE FROM public_holidays');
+    results.push('public_holidays');
+
+    // Level 4: Users (except superadmin)
+    await pool.query('DELETE FROM user_invites');
+    results.push('user_invites');
+
+    await pool.query('DELETE FROM password_reset_tokens');
+    results.push('password_reset_tokens');
+
+    await pool.query('DELETE FROM notifications');
+    results.push('notifications');
+
+    await pool.query('DELETE FROM audit_logs');
+    results.push('audit_logs');
+
+    await pool.query('DELETE FROM approvals');
+    results.push('approvals');
+
+    // Delete regular users (keep superadmin table separate)
+    await pool.query('DELETE FROM users');
+    results.push('users');
+
+    // Level 5: Employees & Staff
+    await pool.query('DELETE FROM employees');
+    results.push('employees');
+
+    await pool.query('DELETE FROM staff');
+    results.push('staff');
+
+    // Level 6: Clients & Companies
+    await pool.query('DELETE FROM clients');
+    results.push('clients');
+
+    await pool.query('DELETE FROM companies');
+    results.push('companies');
+
+    // Level 7: Consultants
+    await pool.query('DELETE FROM consultants');
+    results.push('consultants');
+
+    // Level 8: Tenants
+    await pool.query('DELETE FROM tenants');
+    results.push('tenants');
+
+    res.json({
+      success: true,
+      message: 'System reset to virgin state. Only superadmin remains.',
+      tablesCleared: results,
+      nextStep: 'Login as superadmin at /superadmin/login to create your first consultant/tenant'
+    });
+  } catch (error) {
+    console.error('Error resetting system:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Apply auth middleware to all other /api routes
 // ============================================================================
 app.use('/api', authenticate, tenantMiddleware);
