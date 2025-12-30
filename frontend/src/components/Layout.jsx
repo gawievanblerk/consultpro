@@ -77,9 +77,12 @@ const navigation = [
 ];
 
 const getFilteredNavigation = (userRole, userType) => {
+  // Map tenant_user to company_admin for navigation purposes
+  const effectiveUserType = userType === 'tenant_user' ? 'company_admin' : (userType || 'consultant');
+
   return navigation.filter(item => {
     // Filter by user type first
-    if (item.userTypes && !item.userTypes.includes(userType || 'consultant')) {
+    if (item.userTypes && !item.userTypes.includes(effectiveUserType)) {
       return false;
     }
     // Then filter by role
