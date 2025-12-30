@@ -17,7 +17,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 // POST /api/auth/login - Standalone login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, tenantId } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -26,8 +26,8 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Find user in local users table with tenant name
-    const userResult = await pool.query(
+    // Find all users with this email across all tenants
+    const usersResult = await pool.query(
       `SELECT u.*, t.name as organization_name
        FROM users u
        LEFT JOIN tenants t ON u.tenant_id = t.id
@@ -35,14 +35,53 @@ router.post('/login', async (req, res) => {
       [email.toLowerCase().trim()]
     );
 
-    if (userResult.rows.length === 0) {
+    if (usersResult.rows.length === 0) {
       return res.status(401).json({
         success: false,
         error: 'Invalid email or password'
       });
     }
 
-    const user = userResult.rows[0];
+    // If multiple tenants and no tenant selected, verify password first then return tenant list
+    if (usersResult.rows.length > 1 && !tenantId) {
+      // Verify password against first match to ensure credentials are valid
+      const firstUser = usersResult.rows[0];
+      const isValid = await bcrypt.compare(password, firstUser.password_hash);
+      if (!isValid) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid email or password'
+        });
+      }
+
+      // Return list of tenants for selection
+      const tenants = usersResult.rows.map(u => ({
+        id: u.tenant_id,
+        name: u.organization_name,
+        role: u.role,
+        userType: u.user_type || 'consultant'
+      }));
+
+      return res.json({
+        success: true,
+        requiresTenantSelection: true,
+        tenants
+      });
+    }
+
+    // Select specific user based on tenantId or use first/only match
+    let user;
+    if (tenantId) {
+      user = usersResult.rows.find(u => u.tenant_id === tenantId);
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid tenant selection'
+        });
+      }
+    } else {
+      user = usersResult.rows[0];
+    }
 
     // Verify password
     const isValid = await bcrypt.compare(password, user.password_hash);

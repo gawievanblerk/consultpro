@@ -32,9 +32,19 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, tenantId = null) => {
     try {
-      const response = await api.post('/api/auth/login', { email, password });
+      const response = await api.post('/api/auth/login', { email, password, tenantId });
+
+      // Check if tenant selection is required
+      if (response.data.success && response.data.requiresTenantSelection) {
+        return {
+          success: true,
+          requiresTenantSelection: true,
+          tenants: response.data.tenants
+        };
+      }
+
       if (response.data.success) {
         const { accessToken, user } = response.data.data;
         localStorage.setItem('token', accessToken);
