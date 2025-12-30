@@ -248,7 +248,22 @@ app.get('/run-leave-migration', async (req, res) => {
     `);
 
     if (tableCheck.rows[0].exists) {
-      return res.json({ success: true, message: 'Leave tables already exist' });
+      // Tables exist - check if employee_id columns need to be added
+      const colCheck = await pool.query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'leave_balances' AND column_name = 'employee_id'
+      `);
+
+      if (colCheck.rows.length === 0) {
+        // Add employee_id columns to existing tables
+        await pool.query(`ALTER TABLE leave_balances ADD COLUMN IF NOT EXISTS employee_id UUID REFERENCES employees(id)`);
+        await pool.query(`ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS employee_id UUID REFERENCES employees(id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_balances_employee ON leave_balances(employee_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_requests_employee ON leave_requests(employee_id) WHERE deleted_at IS NULL`);
+        return res.json({ success: true, message: 'Added employee_id columns to leave tables' });
+      }
+
+      return res.json({ success: true, message: 'Leave tables already exist with employee support' });
     }
 
     // Create leave_types table
@@ -282,7 +297,8 @@ app.get('/run-leave-migration', async (req, res) => {
       CREATE TABLE IF NOT EXISTS leave_balances (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         tenant_id UUID NOT NULL REFERENCES tenants(id),
-        staff_id UUID NOT NULL REFERENCES staff(id),
+        staff_id UUID REFERENCES staff(id),
+        employee_id UUID REFERENCES employees(id),
         leave_type_id UUID NOT NULL REFERENCES leave_types(id),
         year INTEGER NOT NULL,
         entitled_days DECIMAL(5,2) NOT NULL DEFAULT 0,
@@ -295,8 +311,7 @@ app.get('/run-leave-migration', async (req, res) => {
           entitled_days + carried_forward + adjustment_days - used_days - pending_days
         ) STORED,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(staff_id, leave_type_id, year)
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
@@ -305,7 +320,8 @@ app.get('/run-leave-migration', async (req, res) => {
       CREATE TABLE IF NOT EXISTS leave_requests (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         tenant_id UUID NOT NULL REFERENCES tenants(id),
-        staff_id UUID NOT NULL REFERENCES staff(id),
+        staff_id UUID REFERENCES staff(id),
+        employee_id UUID REFERENCES employees(id),
         leave_type_id UUID NOT NULL REFERENCES leave_types(id),
         leave_balance_id UUID REFERENCES leave_balances(id),
         start_date DATE NOT NULL,

@@ -41,11 +41,74 @@ async function calculateWorkingDays(startDate, endDate, tenantId) {
 }
 
 // GET /api/leave-requests - List leave requests
+// Employees only see their own; admins see all
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, staff_id, start_date, end_date } = req.query;
+    const { page = 1, limit = 20, status, staff_id, employee_id, start_date, end_date } = req.query;
     const offset = (page - 1) * limit;
+    const userType = req.user.user_type;
+    const userEmployeeId = req.user.employee_id;
 
+    // If employee, force filter to only their own requests
+    if (userType === 'employee') {
+      if (!userEmployeeId) {
+        return res.json({
+          success: true,
+          data: [],
+          pagination: { page: 1, limit: parseInt(limit), total: 0, pages: 0 }
+        });
+      }
+
+      // Employee-specific query
+      let empWhereClause = 'WHERE lr.tenant_id = $1 AND lr.deleted_at IS NULL AND lr.employee_id = $2';
+      let empParams = [req.tenant_id, userEmployeeId];
+      let empParamIndex = 3;
+
+      if (status) {
+        empWhereClause += ` AND lr.status = $${empParamIndex}`;
+        empParams.push(status);
+        empParamIndex++;
+      }
+
+      const empCountResult = await pool.query(
+        `SELECT COUNT(*) FROM leave_requests lr ${empWhereClause}`,
+        empParams
+      );
+
+      const empResult = await pool.query(
+        `SELECT lr.*,
+          e.first_name as employee_first_name,
+          e.last_name as employee_last_name,
+          e.employee_number,
+          e.department,
+          lt.name as leave_type_name,
+          lt.code as leave_type_code,
+          lt.color as leave_type_color,
+          u.first_name as approver_first_name,
+          u.last_name as approver_last_name
+         FROM leave_requests lr
+         LEFT JOIN employees e ON lr.employee_id = e.id
+         JOIN leave_types lt ON lr.leave_type_id = lt.id
+         LEFT JOIN users u ON lr.approver_id = u.id
+         ${empWhereClause}
+         ORDER BY lr.created_at DESC
+         LIMIT $${empParamIndex} OFFSET $${empParamIndex + 1}`,
+        [...empParams, limit, offset]
+      );
+
+      return res.json({
+        success: true,
+        data: empResult.rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: parseInt(empCountResult.rows[0].count),
+          pages: Math.ceil(empCountResult.rows[0].count / limit)
+        }
+      });
+    }
+
+    // Admin/HR query
     let whereClause = 'WHERE lr.tenant_id = $1 AND lr.deleted_at IS NULL';
     let params = [req.tenant_id];
     let paramIndex = 2;
@@ -59,6 +122,12 @@ router.get('/', async (req, res) => {
     if (staff_id) {
       whereClause += ` AND lr.staff_id = $${paramIndex}`;
       params.push(staff_id);
+      paramIndex++;
+    }
+
+    if (employee_id) {
+      whereClause += ` AND lr.employee_id = $${paramIndex}`;
+      params.push(employee_id);
       paramIndex++;
     }
 
@@ -81,17 +150,18 @@ router.get('/', async (req, res) => {
 
     const result = await pool.query(
       `SELECT lr.*,
-        s.first_name as staff_first_name,
-        s.last_name as staff_last_name,
-        s.employee_id as staff_employee_id,
-        s.department as staff_department,
+        COALESCE(s.first_name, e.first_name) as staff_first_name,
+        COALESCE(s.last_name, e.last_name) as staff_last_name,
+        COALESCE(s.employee_id, e.employee_number) as staff_employee_id,
+        COALESCE(s.department, e.department) as staff_department,
         lt.name as leave_type_name,
         lt.code as leave_type_code,
         lt.color as leave_type_color,
         u.first_name as approver_first_name,
         u.last_name as approver_last_name
        FROM leave_requests lr
-       JOIN staff s ON lr.staff_id = s.id
+       LEFT JOIN staff s ON lr.staff_id = s.id
+       LEFT JOIN employees e ON lr.employee_id = e.id
        JOIN leave_types lt ON lr.leave_type_id = lt.id
        LEFT JOIN users u ON lr.approver_id = u.id
        ${whereClause}

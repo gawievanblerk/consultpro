@@ -7,41 +7,88 @@ const router = express.Router();
 const pool = require('../utils/db');
 const { v4: uuidv4 } = require('uuid');
 
+// Middleware to check if user is NOT an employee (admin/HR only)
+const requireAdmin = (req, res, next) => {
+  if (req.user.user_type === 'employee') {
+    return res.status(403).json({
+      success: false,
+      error: 'This action requires HR or admin privileges'
+    });
+  }
+  next();
+};
+
 // GET /api/leave-balances - List all leave balances (with filters)
+// Employees only see their own; admins see all
 router.get('/', async (req, res) => {
   try {
-    const { year = new Date().getFullYear(), staff_id, department } = req.query;
+    const { year = new Date().getFullYear(), staff_id, employee_id, department } = req.query;
+    const userType = req.user.user_type;
+    const userEmployeeId = req.user.employee_id;
 
-    let whereClause = 'WHERE lb.tenant_id = $1 AND lb.year = $2 AND s.deleted_at IS NULL';
+    let whereClause = 'WHERE lb.tenant_id = $1 AND lb.year = $2';
     let params = [req.tenant_id, parseInt(year)];
     let paramIndex = 3;
 
+    // If user is an employee, they can ONLY see their own balances
+    if (userType === 'employee') {
+      if (!userEmployeeId) {
+        return res.json({ success: true, data: [] });
+      }
+      // Query from employees table instead of staff
+      const result = await pool.query(
+        `SELECT lb.*,
+          e.first_name as employee_first_name,
+          e.last_name as employee_last_name,
+          e.employee_number,
+          e.department,
+          lt.name as leave_type_name,
+          lt.code as leave_type_code,
+          lt.color as leave_type_color
+         FROM leave_balances lb
+         JOIN employees e ON lb.employee_id = e.id
+         JOIN leave_types lt ON lb.leave_type_id = lt.id
+         WHERE lb.tenant_id = $1 AND lb.year = $2 AND lb.employee_id = $3
+         ORDER BY lt.sort_order`,
+        [req.tenant_id, parseInt(year), userEmployeeId]
+      );
+      return res.json({ success: true, data: result.rows });
+    }
+
+    // Admin/HR query - can see all and filter
     if (staff_id) {
       whereClause += ` AND lb.staff_id = $${paramIndex}`;
       params.push(staff_id);
       paramIndex++;
     }
 
+    if (employee_id) {
+      whereClause += ` AND lb.employee_id = $${paramIndex}`;
+      params.push(employee_id);
+      paramIndex++;
+    }
+
     if (department) {
-      whereClause += ` AND s.department = $${paramIndex}`;
+      whereClause += ` AND (s.department = $${paramIndex} OR e.department = $${paramIndex})`;
       params.push(department);
       paramIndex++;
     }
 
     const result = await pool.query(
       `SELECT lb.*,
-        s.first_name as staff_first_name,
-        s.last_name as staff_last_name,
-        s.employee_id as staff_employee_id,
-        s.department as staff_department,
+        COALESCE(s.first_name, e.first_name) as staff_first_name,
+        COALESCE(s.last_name, e.last_name) as staff_last_name,
+        COALESCE(s.employee_id, e.employee_number) as staff_employee_id,
+        COALESCE(s.department, e.department) as staff_department,
         lt.name as leave_type_name,
         lt.code as leave_type_code,
         lt.color as leave_type_color
        FROM leave_balances lb
-       JOIN staff s ON lb.staff_id = s.id
+       LEFT JOIN staff s ON lb.staff_id = s.id AND s.deleted_at IS NULL
+       LEFT JOIN employees e ON lb.employee_id = e.id AND e.deleted_at IS NULL
        JOIN leave_types lt ON lb.leave_type_id = lt.id
        ${whereClause}
-       ORDER BY s.last_name, s.first_name, lt.sort_order`,
+       ORDER BY staff_last_name, staff_first_name, lt.sort_order`,
       params
     );
 
@@ -53,8 +100,40 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/leave-balances/summary - Get summary of all staff leave balances
-router.get('/summary', async (req, res) => {
+// GET /api/leave-balances/my - Get current employee's own balances
+router.get('/my', async (req, res) => {
+  try {
+    const { year = new Date().getFullYear() } = req.query;
+    const userEmployeeId = req.user.employee_id;
+
+    if (!userEmployeeId) {
+      return res.json({ success: true, data: [], message: 'No employee profile linked' });
+    }
+
+    const result = await pool.query(
+      `SELECT lb.*,
+        lt.name as leave_type_name,
+        lt.code as leave_type_code,
+        lt.color as leave_type_color,
+        lt.days_allowed as default_entitlement,
+        lt.requires_documentation
+       FROM leave_balances lb
+       JOIN leave_types lt ON lb.leave_type_id = lt.id
+       WHERE lb.employee_id = $1 AND lb.tenant_id = $2 AND lb.year = $3
+       ORDER BY lt.sort_order`,
+      [userEmployeeId, req.tenant_id, parseInt(year)]
+    );
+
+    res.json({ success: true, data: result.rows });
+
+  } catch (error) {
+    console.error('Get my leave balances error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch leave balances' });
+  }
+});
+
+// GET /api/leave-balances/summary - Get summary of all staff leave balances (Admin only)
+router.get('/summary', requireAdmin, async (req, res) => {
   try {
     const { year = new Date().getFullYear() } = req.query;
 
@@ -96,6 +175,15 @@ router.get('/summary', async (req, res) => {
 router.get('/staff/:staffId', async (req, res) => {
   try {
     const { year = new Date().getFullYear() } = req.query;
+    const userType = req.user.user_type;
+
+    // Employees can only view their own staff record if somehow linked
+    if (userType === 'employee' && req.user.employee_id !== req.params.staffId) {
+      return res.status(403).json({
+        success: false,
+        error: 'You can only view your own leave balances'
+      });
+    }
 
     const result = await pool.query(
       `SELECT lb.*,
@@ -118,17 +206,50 @@ router.get('/staff/:staffId', async (req, res) => {
   }
 });
 
-// POST /api/leave-balances/initialize - Initialize leave balances for all staff for a year
-router.post('/initialize', async (req, res) => {
+// GET /api/leave-balances/employee/:employeeId - Get leave balances for a specific employee
+router.get('/employee/:employeeId', async (req, res) => {
   try {
-    const { year = new Date().getFullYear() } = req.body;
+    const { year = new Date().getFullYear() } = req.query;
+    const userType = req.user.user_type;
+    const userEmployeeId = req.user.employee_id;
 
-    // Get all active staff
-    const staffResult = await pool.query(
-      `SELECT id, gender FROM staff
-       WHERE tenant_id = $1 AND deleted_at IS NULL AND status = 'active'`,
-      [req.tenant_id]
+    // Employees can only view their own balances
+    if (userType === 'employee' && userEmployeeId !== req.params.employeeId) {
+      return res.status(403).json({
+        success: false,
+        error: 'You can only view your own leave balances'
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT lb.*,
+        lt.name as leave_type_name,
+        lt.code as leave_type_code,
+        lt.color as leave_type_color,
+        lt.days_allowed as default_entitlement
+       FROM leave_balances lb
+       JOIN leave_types lt ON lb.leave_type_id = lt.id
+       WHERE lb.employee_id = $1 AND lb.tenant_id = $2 AND lb.year = $3
+       ORDER BY lt.sort_order`,
+      [req.params.employeeId, req.tenant_id, parseInt(year)]
     );
+
+    res.json({ success: true, data: result.rows });
+
+  } catch (error) {
+    console.error('Get employee leave balances error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch employee leave balances' });
+  }
+});
+
+// POST /api/leave-balances/initialize - Initialize leave balances for all staff for a year (Admin only)
+router.post('/initialize', requireAdmin, async (req, res) => {
+  try {
+    const { year = new Date().getFullYear(), for_employees = false } = req.body;
+    const companyId = req.user.company_id;
+
+    let created = 0;
+    let skipped = 0;
 
     // Get all active leave types
     const leaveTypesResult = await pool.query(
@@ -137,38 +258,75 @@ router.post('/initialize', async (req, res) => {
       [req.tenant_id]
     );
 
-    let created = 0;
-    let skipped = 0;
+    if (for_employees && companyId) {
+      // Initialize for employees
+      const employeesResult = await pool.query(
+        `SELECT id, first_name, last_name FROM employees
+         WHERE company_id = $1 AND deleted_at IS NULL AND employment_status = 'active'`,
+        [companyId]
+      );
 
-    for (const staff of staffResult.rows) {
-      for (const leaveType of leaveTypesResult.rows) {
-        // Check gender restriction
-        if (leaveType.gender_restriction) {
-          const staffGender = staff.gender?.toLowerCase();
-          if (leaveType.gender_restriction !== staffGender) {
+      for (const emp of employeesResult.rows) {
+        for (const leaveType of leaveTypesResult.rows) {
+          // Check if balance already exists
+          const existing = await pool.query(
+            `SELECT id FROM leave_balances
+             WHERE employee_id = $1 AND leave_type_id = $2 AND year = $3`,
+            [emp.id, leaveType.id, year]
+          );
+
+          if (existing.rows.length > 0) {
+            skipped++;
             continue;
           }
+
+          // Create balance record
+          await pool.query(
+            `INSERT INTO leave_balances (tenant_id, employee_id, leave_type_id, year, entitled_days)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [req.tenant_id, emp.id, leaveType.id, year, leaveType.days_allowed]
+          );
+          created++;
         }
+      }
+    } else {
+      // Initialize for staff (outsourced workers)
+      const staffResult = await pool.query(
+        `SELECT id, gender FROM staff
+         WHERE tenant_id = $1 AND deleted_at IS NULL AND status = 'active'`,
+        [req.tenant_id]
+      );
 
-        // Check if balance already exists
-        const existing = await pool.query(
-          `SELECT id FROM leave_balances
-           WHERE staff_id = $1 AND leave_type_id = $2 AND year = $3`,
-          [staff.id, leaveType.id, year]
-        );
+      for (const staff of staffResult.rows) {
+        for (const leaveType of leaveTypesResult.rows) {
+          // Check gender restriction
+          if (leaveType.gender_restriction) {
+            const staffGender = staff.gender?.toLowerCase();
+            if (leaveType.gender_restriction !== staffGender) {
+              continue;
+            }
+          }
 
-        if (existing.rows.length > 0) {
-          skipped++;
-          continue;
+          // Check if balance already exists
+          const existing = await pool.query(
+            `SELECT id FROM leave_balances
+             WHERE staff_id = $1 AND leave_type_id = $2 AND year = $3`,
+            [staff.id, leaveType.id, year]
+          );
+
+          if (existing.rows.length > 0) {
+            skipped++;
+            continue;
+          }
+
+          // Create balance record
+          await pool.query(
+            `INSERT INTO leave_balances (tenant_id, staff_id, leave_type_id, year, entitled_days)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [req.tenant_id, staff.id, leaveType.id, year, leaveType.days_allowed]
+          );
+          created++;
         }
-
-        // Create balance record
-        await pool.query(
-          `INSERT INTO leave_balances (tenant_id, staff_id, leave_type_id, year, entitled_days)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [req.tenant_id, staff.id, leaveType.id, year, leaveType.days_allowed]
-        );
-        created++;
       }
     }
 
@@ -184,8 +342,8 @@ router.post('/initialize', async (req, res) => {
   }
 });
 
-// POST /api/leave-balances/carry-forward - Carry forward unused leave to next year
-router.post('/carry-forward', async (req, res) => {
+// POST /api/leave-balances/carry-forward - Carry forward unused leave to next year (Admin only)
+router.post('/carry-forward', requireAdmin, async (req, res) => {
   try {
     const { from_year, to_year = from_year + 1 } = req.body;
 
@@ -205,7 +363,7 @@ router.post('/carry-forward', async (req, res) => {
     for (const leaveType of leaveTypes.rows) {
       // Get balances from previous year with available days
       const balances = await pool.query(
-        `SELECT staff_id, available_days FROM leave_balances
+        `SELECT staff_id, employee_id, available_days FROM leave_balances
          WHERE tenant_id = $1 AND leave_type_id = $2 AND year = $3 AND available_days > 0`,
         [req.tenant_id, leaveType.id, from_year]
       );
@@ -221,8 +379,8 @@ router.post('/carry-forward', async (req, res) => {
         // Update or create next year's balance
         const existing = await pool.query(
           `SELECT id FROM leave_balances
-           WHERE staff_id = $1 AND leave_type_id = $2 AND year = $3`,
-          [balance.staff_id, leaveType.id, to_year]
+           WHERE (staff_id = $1 OR employee_id = $4) AND leave_type_id = $2 AND year = $3`,
+          [balance.staff_id, leaveType.id, to_year, balance.employee_id]
         );
 
         if (existing.rows.length > 0) {
@@ -239,9 +397,9 @@ router.post('/carry-forward', async (req, res) => {
           );
 
           await pool.query(
-            `INSERT INTO leave_balances (tenant_id, staff_id, leave_type_id, year, entitled_days, carried_forward)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [req.tenant_id, balance.staff_id, leaveType.id, to_year,
+            `INSERT INTO leave_balances (tenant_id, staff_id, employee_id, leave_type_id, year, entitled_days, carried_forward)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [req.tenant_id, balance.staff_id, balance.employee_id, leaveType.id, to_year,
              defaultEntitlement.rows[0].days_allowed, carryDays]
           );
         }
@@ -262,8 +420,8 @@ router.post('/carry-forward', async (req, res) => {
   }
 });
 
-// PUT /api/leave-balances/:id/adjust - Adjust leave balance manually
-router.put('/:id/adjust', async (req, res) => {
+// PUT /api/leave-balances/:id/adjust - Adjust leave balance manually (Admin only)
+router.put('/:id/adjust', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { adjustment_days, adjustment_reason } = req.body;
