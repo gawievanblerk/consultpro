@@ -24,6 +24,7 @@ import Leads from './pages/bd/Leads';
 import Pipeline from './pages/bd/Pipeline';
 import Staff from './pages/hr/Staff';
 import Deployments from './pages/hr/Deployments';
+import Employees from './pages/employees/Employees';
 import LeaveRequests from './pages/leave/LeaveRequests';
 import LeaveBalances from './pages/leave/LeaveBalances';
 import Invoices from './pages/finance/Invoices';
@@ -126,9 +127,12 @@ function App() {
             <Route path="leads" element={<Leads />} />
             <Route path="pipeline" element={<Pipeline />} />
 
-            {/* HR Outsourcing Module */}
+            {/* HR Outsourcing Module (Consultant) */}
             <Route path="staff" element={<Staff />} />
             <Route path="deployments" element={<Deployments />} />
+
+            {/* Employees Module (Company Admin) */}
+            <Route path="employees" element={<Employees />} />
 
             {/* Leave Management Module */}
             <Route path="leave-requests" element={<LeaveRequests />} />
