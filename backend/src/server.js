@@ -236,6 +236,161 @@ app.get('/seed-employee-user', async (req, res) => {
 });
 
 // ============================================================================
+// Temporary: Run Leave Management Migration
+// ============================================================================
+app.get('/run-leave-migration', async (req, res) => {
+  try {
+    // Check if tables already exist
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables WHERE table_name = 'leave_types'
+      ) as exists
+    `);
+
+    if (tableCheck.rows[0].exists) {
+      return res.json({ success: true, message: 'Leave tables already exist' });
+    }
+
+    // Create leave_types table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leave_types (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id),
+        name VARCHAR(100) NOT NULL,
+        code VARCHAR(20) NOT NULL,
+        description TEXT,
+        days_allowed INTEGER NOT NULL DEFAULT 0,
+        carry_forward BOOLEAN DEFAULT FALSE,
+        max_carry_forward INTEGER DEFAULT 0,
+        requires_approval BOOLEAN DEFAULT TRUE,
+        requires_documentation BOOLEAN DEFAULT FALSE,
+        is_paid BOOLEAN DEFAULT TRUE,
+        is_active BOOLEAN DEFAULT TRUE,
+        min_service_months INTEGER DEFAULT 0,
+        gender_restriction VARCHAR(20),
+        color VARCHAR(7) DEFAULT '#3B82F6',
+        sort_order INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP,
+        UNIQUE(tenant_id, code)
+      )
+    `);
+
+    // Create leave_balances table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leave_balances (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id),
+        staff_id UUID NOT NULL REFERENCES staff(id),
+        leave_type_id UUID NOT NULL REFERENCES leave_types(id),
+        year INTEGER NOT NULL,
+        entitled_days DECIMAL(5,2) NOT NULL DEFAULT 0,
+        carried_forward DECIMAL(5,2) DEFAULT 0,
+        adjustment_days DECIMAL(5,2) DEFAULT 0,
+        adjustment_reason TEXT,
+        used_days DECIMAL(5,2) DEFAULT 0,
+        pending_days DECIMAL(5,2) DEFAULT 0,
+        available_days DECIMAL(5,2) GENERATED ALWAYS AS (
+          entitled_days + carried_forward + adjustment_days - used_days - pending_days
+        ) STORED,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(staff_id, leave_type_id, year)
+      )
+    `);
+
+    // Create leave_requests table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leave_requests (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id),
+        staff_id UUID NOT NULL REFERENCES staff(id),
+        leave_type_id UUID NOT NULL REFERENCES leave_types(id),
+        leave_balance_id UUID REFERENCES leave_balances(id),
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        days_requested DECIMAL(5,2) NOT NULL,
+        is_half_day BOOLEAN DEFAULT FALSE,
+        half_day_period VARCHAR(20),
+        reason TEXT,
+        status VARCHAR(20) DEFAULT 'pending',
+        approver_id UUID REFERENCES users(id),
+        approved_at TIMESTAMP,
+        rejection_reason TEXT,
+        cancelled_at TIMESTAMP,
+        cancelled_by UUID REFERENCES users(id),
+        cancellation_reason TEXT,
+        supporting_document_url TEXT,
+        requested_by UUID REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP
+      )
+    `);
+
+    // Create public_holidays table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public_holidays (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        tenant_id UUID REFERENCES tenants(id),
+        name VARCHAR(200) NOT NULL,
+        date DATE NOT NULL,
+        year INTEGER NOT NULL,
+        is_recurring BOOLEAN DEFAULT FALSE,
+        recurring_month INTEGER,
+        recurring_day INTEGER,
+        country VARCHAR(100) DEFAULT 'Nigeria',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create indexes
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_types_tenant ON leave_types(tenant_id) WHERE deleted_at IS NULL`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_balances_staff ON leave_balances(staff_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_requests_staff ON leave_requests(staff_id) WHERE deleted_at IS NULL`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(tenant_id, status) WHERE deleted_at IS NULL`);
+
+    // Seed default leave types
+    await pool.query(`
+      INSERT INTO leave_types (tenant_id, name, code, description, days_allowed, carry_forward, max_carry_forward, requires_approval, requires_documentation, is_paid, min_service_months, gender_restriction, color, sort_order)
+      SELECT
+        id as tenant_id,
+        lt.name, lt.code, lt.description, lt.days_allowed, lt.carry_forward, lt.max_carry_forward,
+        lt.requires_approval, lt.requires_documentation, lt.is_paid, lt.min_service_months,
+        lt.gender_restriction, lt.color, lt.sort_order
+      FROM tenants, (VALUES
+        ('Annual Leave', 'ANNUAL', 'Standard annual leave entitlement', 21, true, 5, true, false, true, 12, NULL, '#10B981', 1),
+        ('Sick Leave', 'SICK', 'Leave for illness with medical certificate', 12, false, 0, true, true, true, 0, NULL, '#EF4444', 2),
+        ('Maternity Leave', 'MATERNITY', '12 weeks maternity leave', 84, false, 0, true, true, true, 0, 'female', '#EC4899', 3),
+        ('Paternity Leave', 'PATERNITY', 'Leave for new fathers', 10, false, 0, true, true, true, 0, 'male', '#8B5CF6', 4),
+        ('Compassionate Leave', 'COMPASSIONATE', 'Leave for bereavement or emergency', 5, false, 0, true, false, true, 0, NULL, '#6B7280', 5)
+      ) AS lt(name, code, description, days_allowed, carry_forward, max_carry_forward, requires_approval, requires_documentation, is_paid, min_service_months, gender_restriction, color, sort_order)
+      WHERE tenants.deleted_at IS NULL
+      ON CONFLICT (tenant_id, code) DO NOTHING
+    `);
+
+    // Seed Nigerian public holidays
+    await pool.query(`
+      INSERT INTO public_holidays (name, date, year, is_recurring, country)
+      VALUES
+        ('New Year''s Day', '2025-01-01', 2025, true, 'Nigeria'),
+        ('Workers'' Day', '2025-05-01', 2025, true, 'Nigeria'),
+        ('Democracy Day', '2025-06-12', 2025, true, 'Nigeria'),
+        ('Independence Day', '2025-10-01', 2025, true, 'Nigeria'),
+        ('Christmas Day', '2025-12-25', 2025, true, 'Nigeria'),
+        ('Boxing Day', '2025-12-26', 2025, true, 'Nigeria')
+      ON CONFLICT DO NOTHING
+    `);
+
+    res.json({ success: true, message: 'Leave management tables created and seeded' });
+  } catch (error) {
+    console.error('Error running leave migration:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Apply auth middleware to all other /api routes
 // ============================================================================
 app.use('/api', authenticate, tenantMiddleware);
