@@ -38,6 +38,28 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Fix user company link (temporary - remove after use)
+app.post('/fix-user-company', async (req, res) => {
+  const { secret } = req.body;
+  if (secret !== 'corehr-seed-2024') {
+    return res.status(403).json({ success: false, error: 'Invalid secret' });
+  }
+  try {
+    // Update all TeamACE tenant users with company_id
+    const result = await pool.query(`
+      UPDATE users
+      SET company_id = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+      WHERE tenant_id = '11111111-1111-1111-1111-111111111111'
+        AND (user_type = 'tenant_user' OR user_type = 'company_admin' OR email = 'admin@teamace.ng')
+      RETURNING id, email, company_id, user_type
+    `);
+
+    res.json({ success: true, updated: result.rows, count: result.rows.length });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ============================================================================
 // Public Routes (No auth required)
 // ============================================================================
