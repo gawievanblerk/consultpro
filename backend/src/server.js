@@ -712,49 +712,34 @@ app.get('/reset-system', async (req, res) => {
       }
     };
 
-    // Delete all data - use TRUNCATE CASCADE to handle FK constraints
-    await pool.query(`
-      TRUNCATE TABLE
-        activity_feed,
-        training_progress,
-        certificates,
-        policy_acknowledgments,
-        leave_requests,
-        leave_balances,
-        staff_company_access,
-        deployments,
-        activities,
-        notes,
-        tasks,
-        payments,
-        invoice_items,
-        invoices,
-        proposals,
-        documents,
-        engagements,
-        contacts,
-        leads,
-        opportunities,
-        training_modules,
-        policies,
-        policy_categories,
-        leave_types,
-        public_holidays,
-        user_invites,
-        password_reset_tokens,
-        notifications,
-        audit_logs,
-        approvals,
-        users,
-        employees,
-        staff,
-        clients,
-        companies,
-        consultants,
-        tenants
-      CASCADE
-    `);
-    results.push('All tables truncated with CASCADE');
+    // Helper to safely truncate table
+    const safeTruncate = async (table) => {
+      try {
+        await pool.query(`TRUNCATE TABLE ${table} CASCADE`);
+        results.push(table);
+      } catch (err) {
+        if (err.message.includes('does not exist')) {
+          skipped.push(table);
+        } else {
+          throw err;
+        }
+      }
+    };
+
+    // Truncate all tables with CASCADE (order doesn't matter with CASCADE)
+    const tables = [
+      'activity_feed', 'training_progress', 'certificates', 'policy_acknowledgments',
+      'leave_requests', 'leave_balances', 'staff_company_access', 'deployments',
+      'activities', 'notes', 'tasks', 'payments', 'invoice_items', 'invoices',
+      'proposals', 'documents', 'engagements', 'contacts', 'leads', 'opportunities',
+      'training_modules', 'policies', 'policy_categories', 'leave_types', 'public_holidays',
+      'user_invites', 'password_reset_tokens', 'notifications', 'audit_logs', 'approvals',
+      'users', 'employees', 'staff', 'clients', 'companies', 'consultants', 'tenants'
+    ];
+
+    for (const table of tables) {
+      await safeTruncate(table);
+    }
 
     res.json({
       success: true,
