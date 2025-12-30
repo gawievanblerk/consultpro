@@ -39,7 +39,7 @@ app.get('/health', (req, res) => {
 });
 
 // Seed TeamACE employees (temporary endpoint - remove after use)
-app.post('/api/seed-teamace-employees', async (req, res) => {
+app.post('/seed-teamace-employees', async (req, res) => {
   const { secret } = req.body;
   if (secret !== 'corehr-seed-2024') {
     return res.status(403).json({ success: false, error: 'Invalid secret' });
