@@ -132,11 +132,46 @@ router.get('/my', async (req, res) => {
   }
 });
 
-// GET /api/leave-balances/summary - Get summary of all staff leave balances (Admin only)
+// GET /api/leave-balances/summary - Get summary of all leave balances (Admin only)
+// Company admins see their company's employees; consultants see their staff pool
 router.get('/summary', requireAdmin, async (req, res) => {
   try {
     const { year = new Date().getFullYear() } = req.query;
+    const userType = req.user.user_type;
+    const companyId = req.user.company_id;
 
+    // Company admin - show employees from their company
+    if (userType === 'company_admin' && companyId) {
+      const result = await pool.query(
+        `SELECT
+          e.id as staff_id,
+          e.first_name,
+          e.last_name,
+          e.employee_number as employee_id,
+          e.department,
+          json_agg(json_build_object(
+            'leave_type_id', lt.id,
+            'leave_type_name', lt.name,
+            'leave_type_code', lt.code,
+            'color', lt.color,
+            'entitled', COALESCE(lb.entitled_days, 0) + COALESCE(lb.carried_forward, 0) + COALESCE(lb.adjustment_days, 0),
+            'used', COALESCE(lb.used_days, 0),
+            'pending', COALESCE(lb.pending_days, 0),
+            'available', COALESCE(lb.available_days, 0)
+          ) ORDER BY lt.sort_order) as balances
+         FROM employees e
+         LEFT JOIN leave_balances lb ON e.id = lb.employee_id AND lb.year = $2
+         LEFT JOIN leave_types lt ON lb.leave_type_id = lt.id AND lt.deleted_at IS NULL
+         WHERE e.company_id = $1 AND e.deleted_at IS NULL AND e.employment_status = 'active'
+         GROUP BY e.id, e.first_name, e.last_name, e.employee_number, e.department
+         ORDER BY e.last_name, e.first_name`,
+        [companyId, parseInt(year)]
+      );
+
+      return res.json({ success: true, data: result.rows });
+    }
+
+    // Consultant - show staff pool
     const result = await pool.query(
       `SELECT
         s.id as staff_id,
@@ -242,10 +277,12 @@ router.get('/employee/:employeeId', async (req, res) => {
   }
 });
 
-// POST /api/leave-balances/initialize - Initialize leave balances for all staff for a year (Admin only)
+// POST /api/leave-balances/initialize - Initialize leave balances for a year (Admin only)
+// Company admins initialize for their employees; consultants initialize for staff pool
 router.post('/initialize', requireAdmin, async (req, res) => {
   try {
-    const { year = new Date().getFullYear(), for_employees = false } = req.body;
+    const { year = new Date().getFullYear() } = req.body;
+    const userType = req.user.user_type;
     const companyId = req.user.company_id;
 
     let created = 0;
@@ -258,16 +295,24 @@ router.post('/initialize', requireAdmin, async (req, res) => {
       [req.tenant_id]
     );
 
-    if (for_employees && companyId) {
-      // Initialize for employees
+    // Company admin - initialize for their company's employees
+    if (userType === 'company_admin' && companyId) {
       const employeesResult = await pool.query(
-        `SELECT id, first_name, last_name FROM employees
+        `SELECT id, first_name, last_name, gender FROM employees
          WHERE company_id = $1 AND deleted_at IS NULL AND employment_status = 'active'`,
         [companyId]
       );
 
       for (const emp of employeesResult.rows) {
         for (const leaveType of leaveTypesResult.rows) {
+          // Check gender restriction
+          if (leaveType.gender_restriction) {
+            const empGender = emp.gender?.toLowerCase();
+            if (leaveType.gender_restriction !== empGender) {
+              continue;
+            }
+          }
+
           // Check if balance already exists
           const existing = await pool.query(
             `SELECT id FROM leave_balances
@@ -289,44 +334,50 @@ router.post('/initialize', requireAdmin, async (req, res) => {
           created++;
         }
       }
-    } else {
-      // Initialize for staff (outsourced workers)
-      const staffResult = await pool.query(
-        `SELECT id, gender FROM staff
-         WHERE tenant_id = $1 AND deleted_at IS NULL AND status = 'active'`,
-        [req.tenant_id]
-      );
 
-      for (const staff of staffResult.rows) {
-        for (const leaveType of leaveTypesResult.rows) {
-          // Check gender restriction
-          if (leaveType.gender_restriction) {
-            const staffGender = staff.gender?.toLowerCase();
-            if (leaveType.gender_restriction !== staffGender) {
-              continue;
-            }
-          }
+      return res.json({
+        success: true,
+        message: `Leave balances initialized for ${employeesResult.rows.length} employees in ${year}`,
+        data: { created, skipped, employees: employeesResult.rows.length }
+      });
+    }
 
-          // Check if balance already exists
-          const existing = await pool.query(
-            `SELECT id FROM leave_balances
-             WHERE staff_id = $1 AND leave_type_id = $2 AND year = $3`,
-            [staff.id, leaveType.id, year]
-          );
+    // Consultant - initialize for staff pool
+    const staffResult = await pool.query(
+      `SELECT id, gender FROM staff
+       WHERE tenant_id = $1 AND deleted_at IS NULL AND status = 'active'`,
+      [req.tenant_id]
+    );
 
-          if (existing.rows.length > 0) {
-            skipped++;
+    for (const staff of staffResult.rows) {
+      for (const leaveType of leaveTypesResult.rows) {
+        // Check gender restriction
+        if (leaveType.gender_restriction) {
+          const staffGender = staff.gender?.toLowerCase();
+          if (leaveType.gender_restriction !== staffGender) {
             continue;
           }
-
-          // Create balance record
-          await pool.query(
-            `INSERT INTO leave_balances (tenant_id, staff_id, leave_type_id, year, entitled_days)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [req.tenant_id, staff.id, leaveType.id, year, leaveType.days_allowed]
-          );
-          created++;
         }
+
+        // Check if balance already exists
+        const existing = await pool.query(
+          `SELECT id FROM leave_balances
+           WHERE staff_id = $1 AND leave_type_id = $2 AND year = $3`,
+          [staff.id, leaveType.id, year]
+        );
+
+        if (existing.rows.length > 0) {
+          skipped++;
+          continue;
+        }
+
+        // Create balance record
+        await pool.query(
+          `INSERT INTO leave_balances (tenant_id, staff_id, leave_type_id, year, entitled_days)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [req.tenant_id, staff.id, leaveType.id, year, leaveType.days_allowed]
+        );
+        created++;
       }
     }
 
