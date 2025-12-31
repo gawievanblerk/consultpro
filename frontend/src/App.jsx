@@ -65,6 +65,7 @@ import ProbationManagement from './pages/ems/ProbationManagement';
 import PerformanceReviews from './pages/ems/PerformanceReviews';
 import ExitManagement from './pages/ems/ExitManagement';
 import Disciplinary from './pages/ems/Disciplinary';
+import OnboardingManagement from './pages/ems/OnboardingManagement';
 import MyOnboarding from './pages/ess/MyOnboarding';
 
 // Protected route wrapper
@@ -175,6 +176,7 @@ function App() {
             <Route path="my-certificates" element={<MyCertificates />} />
 
             {/* Employee Management System (EMS) */}
+            <Route path="onboarding-admin" element={<OnboardingManagement />} />
             <Route path="probation" element={<ProbationManagement />} />
             <Route path="performance" element={<PerformanceReviews />} />
             <Route path="exit-management" element={<ExitManagement />} />

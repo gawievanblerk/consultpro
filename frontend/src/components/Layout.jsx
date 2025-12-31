@@ -81,6 +81,7 @@ const navigation = [
     { name: 'My Certificates', href: '/dashboard/my-certificates', icon: TrophyIcon },
   ]},
   { name: 'Employee Management', userTypes: ['consultant', 'staff', 'company_admin'], children: [
+    { name: 'Onboarding', href: '/dashboard/onboarding-admin', icon: RocketLaunchIcon },
     { name: 'Probation', href: '/dashboard/probation', icon: ClockIcon },
     { name: 'Performance', href: '/dashboard/performance', icon: StarIcon },
     { name: 'Disciplinary', href: '/dashboard/disciplinary', icon: ShieldExclamationIcon },
