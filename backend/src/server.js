@@ -849,20 +849,24 @@ app.get('/seed-demo-tenant', async (req, res) => {
 // ============================================================================
 app.get('/cleanup-duplicates', async (req, res) => {
   try {
-    // Delete duplicate companies, keeping only the first one per consultant
+    // Delete duplicate companies, keeping only the oldest one per consultant
     const result = await pool.query(`
       DELETE FROM companies
       WHERE id NOT IN (
-        SELECT MIN(id) FROM companies GROUP BY consultant_id, trading_name
+        SELECT DISTINCT ON (consultant_id, trading_name) id
+        FROM companies
+        ORDER BY consultant_id, trading_name, created_at ASC
       )
       RETURNING id, trading_name
     `);
 
-    // Delete duplicate employees, keeping only the first one per email
+    // Delete duplicate employees, keeping only the oldest one per email
     const empResult = await pool.query(`
       DELETE FROM employees
       WHERE id NOT IN (
-        SELECT MIN(id) FROM employees GROUP BY company_id, email
+        SELECT DISTINCT ON (company_id, email) id
+        FROM employees
+        ORDER BY company_id, email, created_at ASC
       )
       RETURNING id, email
     `);
