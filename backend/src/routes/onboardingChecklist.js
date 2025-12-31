@@ -268,13 +268,13 @@ router.get('/policy-acknowledgements', async (req, res) => {
         pa.*,
         e.first_name || ' ' || e.last_name as employee_name,
         e.employee_number,
-        p.name as policy_name,
-        p.policy_type,
+        p.title as policy_name,
+        p.document_type as policy_type,
         c.trading_name as company_name
       FROM policy_acknowledgements pa
-      JOIN employees e ON pa.employee_id = e.id
-      JOIN policies p ON pa.policy_id = p.id
-      JOIN companies c ON pa.company_id = c.id
+      LEFT JOIN employees e ON pa.employee_id = e.id
+      LEFT JOIN policies p ON pa.policy_id = p.id
+      LEFT JOIN companies c ON pa.company_id = c.id
       WHERE pa.tenant_id = $1
     `;
     const params = [tenantId];
@@ -445,12 +445,12 @@ router.get('/my-policies', async (req, res) => {
     const result = await pool.query(`
       SELECT
         pa.*,
-        p.name as policy_name,
-        p.policy_type,
+        p.title as policy_name,
+        p.document_type as policy_type,
         p.description as policy_description,
         p.effective_date
       FROM policy_acknowledgements pa
-      JOIN policies p ON pa.policy_id = p.id
+      LEFT JOIN policies p ON pa.policy_id = p.id
       WHERE pa.employee_id = $1 AND pa.tenant_id = $2
       ORDER BY pa.status ASC, pa.created_at DESC
     `, [employeeId, tenantId]);
