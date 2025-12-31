@@ -9,7 +9,11 @@ import {
   EyeIcon,
   DocumentArrowDownIcon,
   FunnelIcon,
-  MagnifyingGlassIcon
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  CalendarIcon,
+  TagIcon,
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleSolidIcon } from '@heroicons/react/24/solid';
 
@@ -21,6 +25,7 @@ function PolicyLibrary() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPolicy, setSelectedPolicy] = useState(null);
   const [showAcknowledgeModal, setShowAcknowledgeModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [acknowledging, setAcknowledging] = useState(false);
   const [signature, setSignature] = useState('');
   const { showSuccess, showError } = useToast();
@@ -214,17 +219,16 @@ function PolicyLibrary() {
               )}
 
               <div className="flex items-center gap-2 pt-3 border-t border-primary-100">
-                {policy.file_url && (
-                  <a
-                    href={policy.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
-                  >
-                    <EyeIcon className="w-4 h-4" />
-                    View
-                  </a>
-                )}
+                <button
+                  onClick={() => {
+                    setSelectedPolicy(policy);
+                    setShowDetailModal(true);
+                  }}
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                >
+                  <EyeIcon className="w-4 h-4" />
+                  View Details
+                </button>
                 {policy.requires_acknowledgment && !policy.acknowledged_at && (
                   <button
                     onClick={() => {
@@ -237,14 +241,160 @@ function PolicyLibrary() {
                     Acknowledge
                   </button>
                 )}
-                {policy.acknowledged_at && (
-                  <span className="flex-1 text-center text-sm text-green-600">
-                    Acknowledged on {new Date(policy.acknowledged_at).toLocaleDateString()}
+              </div>
+              {policy.acknowledged_at && (
+                <div className="mt-2 text-center text-xs text-green-600 bg-green-50 rounded-lg py-1">
+                  Acknowledged on {new Date(policy.acknowledged_at).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Policy Detail Modal */}
+      {showDetailModal && selectedPolicy && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-primary-100 px-6 py-4 flex items-start justify-between">
+              <div>
+                <span className="text-xs font-medium text-primary-400 uppercase tracking-wide">
+                  {selectedPolicy.category_name || 'General'}
+                </span>
+                <h2 className="text-xl font-bold text-primary-900 mt-1">
+                  {selectedPolicy.title}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDetailModal(false);
+                  setSelectedPolicy(null);
+                }}
+                className="p-2 text-primary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Status Badge */}
+              <div className="flex items-center gap-3">
+                {selectedPolicy.acknowledged_at ? (
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full bg-green-100 text-green-700">
+                    <CheckCircleSolidIcon className="w-4 h-4" />
+                    Acknowledged on {new Date(selectedPolicy.acknowledged_at).toLocaleDateString()}
+                  </span>
+                ) : selectedPolicy.requires_acknowledgment ? (
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full bg-yellow-100 text-yellow-700">
+                    <ClockIcon className="w-4 h-4" />
+                    Pending Acknowledgment
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-full bg-blue-100 text-blue-700">
+                    <InformationCircleIcon className="w-4 h-4" />
+                    For Information Only
                   </span>
                 )}
               </div>
+
+              {/* Description */}
+              {selectedPolicy.description && (
+                <div>
+                  <h3 className="text-sm font-semibold text-primary-700 mb-2">Description</h3>
+                  <p className="text-primary-600">{selectedPolicy.description}</p>
+                </div>
+              )}
+
+              {/* Policy Details Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                {selectedPolicy.version && (
+                  <div className="bg-primary-50 rounded-lg p-3">
+                    <span className="text-xs font-medium text-primary-400 uppercase">Version</span>
+                    <p className="text-sm font-semibold text-primary-900 mt-1">v{selectedPolicy.version}</p>
+                  </div>
+                )}
+                {selectedPolicy.effective_date && (
+                  <div className="bg-primary-50 rounded-lg p-3">
+                    <span className="text-xs font-medium text-primary-400 uppercase">Effective Date</span>
+                    <p className="text-sm font-semibold text-primary-900 mt-1">
+                      {new Date(selectedPolicy.effective_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+                {selectedPolicy.published_at && (
+                  <div className="bg-primary-50 rounded-lg p-3">
+                    <span className="text-xs font-medium text-primary-400 uppercase">Published</span>
+                    <p className="text-sm font-semibold text-primary-900 mt-1">
+                      {new Date(selectedPolicy.published_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+                {selectedPolicy.new_hire_due_days && (
+                  <div className="bg-primary-50 rounded-lg p-3">
+                    <span className="text-xs font-medium text-primary-400 uppercase">New Hire Due</span>
+                    <p className="text-sm font-semibold text-primary-900 mt-1">
+                      Within {selectedPolicy.new_hire_due_days} days
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Document Download */}
+              {selectedPolicy.file_url && (
+                <div className="bg-accent-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-primary-700 mb-2">Policy Document</h3>
+                  <a
+                    href={selectedPolicy.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-600 rounded-lg hover:bg-accent-700 transition-colors"
+                  >
+                    <DocumentArrowDownIcon className="w-4 h-4" />
+                    View / Download PDF
+                  </a>
+                </div>
+              )}
+
+              {/* Acknowledgment Section */}
+              {selectedPolicy.acknowledged_at && selectedPolicy.signature_data && (
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-green-700 mb-2">Your Acknowledgment</h3>
+                  <p className="text-sm text-green-600">
+                    Signed as: <span className="font-medium">{selectedPolicy.signature_data}</span>
+                  </p>
+                  <p className="text-xs text-green-500 mt-1">
+                    on {new Date(selectedPolicy.acknowledged_at).toLocaleString()}
+                  </p>
+                </div>
+              )}
             </div>
-          ))}
+
+            {/* Footer Actions */}
+            <div className="sticky bottom-0 bg-white border-t border-primary-100 px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowDetailModal(false);
+                  setSelectedPolicy(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-primary-700 bg-primary-100 rounded-lg hover:bg-primary-200 transition-colors"
+              >
+                Close
+              </button>
+              {selectedPolicy.requires_acknowledgment && !selectedPolicy.acknowledged_at && (
+                <button
+                  onClick={() => {
+                    setShowDetailModal(false);
+                    setShowAcknowledgeModal(true);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-accent-600 rounded-lg hover:bg-accent-700 transition-colors"
+                >
+                  Acknowledge This Policy
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
