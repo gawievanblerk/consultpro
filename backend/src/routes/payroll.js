@@ -810,13 +810,13 @@ router.get('/employee/my-payslips', async (req, res) => {
 // PAYSLIP PDF GENERATION
 // ============================================================================
 
-// Currency formatter for Nigerian Naira
+// Currency formatter for Nigerian Naira (PDF-safe, no special symbols)
 const formatNGN = (amount) => {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    minimumFractionDigits: 2
-  }).format(amount || 0);
+  const num = Number(amount) || 0;
+  return 'NGN ' + num.toLocaleString('en-NG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 };
 
 // Month names
