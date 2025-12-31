@@ -215,7 +215,7 @@ export default function PayrollRuns() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => navigate(`/payroll/${run.id}`)}
+                        onClick={() => navigate(`/dashboard/payroll/${run.id}`)}
                         className="text-primary hover:text-primary/80"
                       >
                         View
