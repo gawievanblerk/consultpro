@@ -1079,6 +1079,24 @@ app.get('/run-client-id-migration', async (req, res) => {
   }
 });
 
+// Run client onboarding migration (007)
+app.get('/run-onboarding-migration', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const migrationPath = path.join(__dirname, '../migrations/007_client_onboarding.sql');
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+    await pool.query(sql);
+    res.json({ success: true, message: 'Onboarding migration completed successfully' });
+  } catch (error) {
+    if (error.message.includes('already exists')) {
+      return res.json({ success: true, message: 'Onboarding tables already exist' });
+    }
+    console.error('Error running onboarding migration:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ============================================================================
 app.get('/run-ems-migration', async (req, res) => {
   try {
