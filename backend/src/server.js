@@ -814,28 +814,58 @@ app.get('/seed-demo-tenant', async (req, res) => {
       { fn: 'Ngozi', ln: 'Okafor', email: 'ngozi.okafor@teamace.ng', title: 'Accountant', dept: 'Finance', salary: 550000 }
     ];
 
+    const createdEmployees = [];
     for (const emp of employees) {
-      const empId = uuidv4();
+      // Check if employee already exists
+      const existingEmp = await pool.query(`SELECT id FROM employees WHERE email = $1`, [emp.email]);
+      let empId;
+
+      if (existingEmp.rows.length > 0) {
+        empId = existingEmp.rows[0].id;
+      } else {
+        empId = uuidv4();
+        await pool.query(`
+          INSERT INTO employees (id, company_id, employee_number, first_name, last_name, email, job_title, department, employment_type, employment_status, hire_date, salary, salary_currency, ess_enabled)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'full_time', 'active', '2023-01-15', $9, 'NGN', true)
+        `, [empId, finalCompanyId, 'EMP-' + emp.fn.substring(0,3).toUpperCase(), emp.fn, emp.ln, emp.email, emp.title, emp.dept, emp.salary]);
+      }
+
+      // Create user account for employee (for ESS login)
+      const empUserId = uuidv4();
       await pool.query(`
-        INSERT INTO employees (id, company_id, employee_number, first_name, last_name, email, job_title, department, employment_type, employment_status, hire_date, salary, salary_currency, ess_enabled)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'full_time', 'active', '2023-01-15', $9, 'NGN', true)
-        ON CONFLICT DO NOTHING
-      `, [empId, finalCompanyId, 'EMP-' + emp.fn.substring(0,3).toUpperCase(), emp.fn, emp.ln, emp.email, emp.title, emp.dept, emp.salary]);
+        INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, role, user_type, employee_id, company_id, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, 'user', 'employee', $7, $8, true)
+        ON CONFLICT (email, tenant_id) DO UPDATE SET
+          password_hash = EXCLUDED.password_hash,
+          user_type = 'employee',
+          employee_id = EXCLUDED.employee_id,
+          company_id = EXCLUDED.company_id,
+          is_active = true
+      `, [empUserId, tenantId, emp.email, passwordHash, emp.fn, emp.ln, empId, finalCompanyId]);
+
+      createdEmployees.push({ email: emp.email, employeeId: empId });
     }
 
     res.json({
       success: true,
       message: 'Demo tenant, consultant, company, and employees created',
       credentials: {
-        email: 'admin@teamace.ng',
-        password: 'Demo123!',
-        userType: 'consultant (full access)'
+        consultant: {
+          email: 'admin@teamace.ng',
+          password: 'Demo123!',
+          userType: 'consultant (full access)'
+        },
+        employees: employees.map(e => ({
+          email: e.email,
+          password: 'Demo123!',
+          userType: 'employee (ESS)'
+        }))
       },
       data: {
         tenantId,
         consultantId: finalConsultantId,
         companyId: finalCompanyId,
-        employeesCreated: employees.length
+        employeesCreated: createdEmployees
       }
     });
   } catch (error) {
