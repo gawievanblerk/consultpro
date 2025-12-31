@@ -656,6 +656,61 @@ router.get('/:id/acknowledgments', async (req, res) => {
 });
 
 /**
+ * GET /api/policies/employee/all
+ * Get all policies for current employee (pending and acknowledged)
+ */
+router.get('/employee/all', async (req, res) => {
+  try {
+    // Get employee linked to user
+    const employee = await pool.query(
+      `SELECT id, company_id FROM employees WHERE user_id = $1 AND deleted_at IS NULL`,
+      [req.user.id]
+    );
+
+    if (employee.rows.length === 0) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const { id: employeeId, company_id } = employee.rows[0];
+
+    // Get all published policies for employee's company (including acknowledged ones)
+    const result = await pool.query(
+      `SELECT
+        p.*,
+        pc.name as category_name,
+        pa.acknowledged_at,
+        pa.signature_data,
+        CASE
+          WHEN pa.acknowledged_at IS NOT NULL THEN 'acknowledged'
+          WHEN p.requires_acknowledgment AND pa.acknowledged_at IS NULL THEN 'pending'
+          ELSE 'info_only'
+        END as acknowledgment_status
+      FROM policies p
+      JOIN policy_categories pc ON p.category_id = pc.id
+      LEFT JOIN policy_acknowledgments pa ON pa.policy_id = p.id
+        AND pa.employee_id = $3
+        AND pa.policy_version = p.version
+      WHERE p.tenant_id = $1
+        AND p.status = 'published'
+        AND p.deleted_at IS NULL
+        AND (p.company_id = $2 OR p.company_id IS NULL)
+      ORDER BY
+        CASE WHEN pa.acknowledged_at IS NULL AND p.requires_acknowledgment THEN 0 ELSE 1 END,
+        p.published_at DESC`,
+      [req.tenant_id, company_id, employeeId]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Error fetching employee policies:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch policies' });
+  }
+});
+
+/**
  * GET /api/policies/employee/pending
  * Get pending policies for current employee
  */

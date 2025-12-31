@@ -33,7 +33,8 @@ function PolicyLibrary() {
   const fetchPolicies = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/policies/employee/pending');
+      // Fetch all policies (pending and acknowledged) so employee can view them all
+      const response = await api.get('/policies/employee/all');
       setPolicies(response.data.data || []);
     } catch (error) {
       console.error('Error fetching policies:', error);
