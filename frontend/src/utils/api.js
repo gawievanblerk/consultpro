@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// Production API URL - hardcoded for reliability
+const API_URL = 'https://api.corehr.africa';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://api.corehr.africa',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
   }
