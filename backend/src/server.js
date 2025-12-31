@@ -755,6 +755,96 @@ app.get('/reset-system', async (req, res) => {
 });
 
 // ============================================================================
+// Temporary: Seed Demo Tenant with Consultant User
+// ============================================================================
+app.get('/seed-demo-tenant', async (req, res) => {
+  try {
+    const bcrypt = require('bcryptjs');
+    const { v4: uuidv4 } = require('uuid');
+    const passwordHash = await bcrypt.hash('Demo123!', 10);
+    const tenantId = '11111111-1111-1111-1111-111111111111';
+
+    // 1. Create tenant if not exists
+    await pool.query(`
+      INSERT INTO tenants (id, name, slug, settings)
+      VALUES ($1, 'TeamACE Nigeria', 'teamace', '{"timezone": "Africa/Lagos", "currency": "NGN"}')
+      ON CONFLICT (id) DO NOTHING
+    `, [tenantId]);
+
+    // 2. Create consultant
+    const consultantId = uuidv4();
+    await pool.query(`
+      INSERT INTO consultants (id, tenant_id, company_name, trading_name, email, tier, subscription_status)
+      VALUES ($1, $2, 'TeamACE HR Consulting', 'TeamACE HR', 'consulting@teamace.ng', 'professional', 'active')
+      ON CONFLICT DO NOTHING
+    `, [consultantId, tenantId]);
+
+    // Get the consultant ID (might be existing)
+    const consultResult = await pool.query(`SELECT id FROM consultants WHERE tenant_id = $1 LIMIT 1`, [tenantId]);
+    const finalConsultantId = consultResult.rows[0]?.id || consultantId;
+
+    // 3. Create company
+    const companyId = uuidv4();
+    await pool.query(`
+      INSERT INTO companies (id, consultant_id, legal_name, trading_name, company_type, industry, email, city, state, country)
+      VALUES ($1, $2, 'TeamACE Nigeria Limited', 'TeamACE', 'Private', 'Human Resources', 'hr@teamace.ng', 'Lagos', 'Lagos', 'Nigeria')
+      ON CONFLICT DO NOTHING
+    `, [companyId, finalConsultantId]);
+
+    // Get the company ID (might be existing)
+    const companyResult = await pool.query(`SELECT id FROM companies WHERE consultant_id = $1 LIMIT 1`, [finalConsultantId]);
+    const finalCompanyId = companyResult.rows[0]?.id || companyId;
+
+    // 4. Create consultant user
+    const userId = uuidv4();
+    await pool.query(`
+      INSERT INTO users (id, tenant_id, email, password_hash, first_name, last_name, role, user_type, consultant_id, is_active)
+      VALUES ($1, $2, 'admin@teamace.ng', $3, 'Admin', 'User', 'admin', 'consultant', $4, true)
+      ON CONFLICT (email, tenant_id) DO UPDATE SET
+        password_hash = EXCLUDED.password_hash,
+        user_type = 'consultant',
+        consultant_id = EXCLUDED.consultant_id,
+        is_active = true
+    `, [userId, tenantId, passwordHash, finalConsultantId]);
+
+    // 5. Create sample employees with salaries for payroll testing
+    const employees = [
+      { fn: 'Adaeze', ln: 'Okonkwo', email: 'adaeze.okonkwo@teamace.ng', title: 'HR Manager', dept: 'Human Resources', salary: 650000 },
+      { fn: 'Chinedu', ln: 'Eze', email: 'chinedu.eze@teamace.ng', title: 'Software Engineer', dept: 'Engineering', salary: 850000 },
+      { fn: 'Ngozi', ln: 'Okafor', email: 'ngozi.okafor@teamace.ng', title: 'Accountant', dept: 'Finance', salary: 550000 }
+    ];
+
+    for (const emp of employees) {
+      const empId = uuidv4();
+      await pool.query(`
+        INSERT INTO employees (id, company_id, employee_number, first_name, last_name, email, job_title, department, employment_type, employment_status, hire_date, salary, salary_currency, ess_enabled)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'full_time', 'active', '2023-01-15', $9, 'NGN', true)
+        ON CONFLICT DO NOTHING
+      `, [empId, finalCompanyId, 'EMP-' + emp.fn.substring(0,3).toUpperCase(), emp.fn, emp.ln, emp.email, emp.title, emp.dept, emp.salary]);
+    }
+
+    res.json({
+      success: true,
+      message: 'Demo tenant, consultant, company, and employees created',
+      credentials: {
+        email: 'admin@teamace.ng',
+        password: 'Demo123!',
+        userType: 'consultant (full access)'
+      },
+      data: {
+        tenantId,
+        consultantId: finalConsultantId,
+        companyId: finalCompanyId,
+        employeesCreated: employees.length
+      }
+    });
+  } catch (error) {
+    console.error('Error seeding demo tenant:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Temporary: Run Payroll System Migration
 // ============================================================================
 app.get('/run-payroll-migration', async (req, res) => {
