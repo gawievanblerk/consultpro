@@ -834,8 +834,8 @@ router.get('/payslips/:id/pdf', async (req, res) => {
     // Get payslip with company details
     const result = await pool.query(`
       SELECT ps.*, pr.pay_period_month, pr.pay_period_year, pr.payment_date,
-        c.trading_name as company_name, c.registered_name, c.address as company_address,
-        c.phone as company_phone, c.email as company_email
+        c.trading_name as company_name, c.legal_name as registered_name,
+        c.address_line1 as company_address, c.phone as company_phone, c.email as company_email
       FROM payslips ps
       JOIN payroll_runs pr ON ps.payroll_run_id = pr.id
       JOIN companies c ON pr.company_id = c.id
