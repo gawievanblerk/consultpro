@@ -879,12 +879,22 @@ app.get('/seed-demo-tenant', async (req, res) => {
 // ============================================================================
 app.get('/check-user/:email', async (req, res) => {
   try {
+    const bcrypt = require('bcryptjs');
     const email = req.params.email.toLowerCase();
     const result = await pool.query(`
-      SELECT id, email, user_type, employee_id, company_id, is_active, tenant_id
+      SELECT id, email, user_type, employee_id, company_id, is_active, tenant_id, password_hash
       FROM users WHERE LOWER(email) = $1
     `, [email]);
-    res.json({ found: result.rows.length > 0, users: result.rows });
+
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      const testPassword = 'Demo123!';
+      const passwordMatch = await bcrypt.compare(testPassword, user.password_hash);
+      delete user.password_hash; // Don't expose hash
+      res.json({ found: true, user, passwordMatchesDemo123: passwordMatch });
+    } else {
+      res.json({ found: false });
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
