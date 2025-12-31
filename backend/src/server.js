@@ -1068,6 +1068,18 @@ app.get('/run-payroll-migration', async (req, res) => {
 // ============================================================================
 // Temporary: Run EMS Migration
 // ============================================================================
+// Quick fix: Add client_id column to companies table
+app.get('/run-client-id-migration', async (req, res) => {
+  try {
+    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id)`);
+    res.json({ success: true, message: 'client_id column added to companies table' });
+  } catch (error) {
+    console.error('Error adding client_id column:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 app.get('/run-ems-migration', async (req, res) => {
   try {
     const fs = require('fs');
