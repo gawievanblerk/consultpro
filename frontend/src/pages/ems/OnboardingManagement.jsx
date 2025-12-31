@@ -201,7 +201,7 @@ export default function OnboardingManagement() {
         <div className="flex gap-2">
           <button
             onClick={() => openModal('checklist')}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark"
+            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
           >
             + New Checklist
           </button>
@@ -359,7 +359,7 @@ export default function OnboardingManagement() {
               <p className="text-gray-500">No onboarding checklists created yet</p>
               <button
                 onClick={() => openModal('checklist')}
-                className="mt-4 px-4 py-2 bg-primary text-white rounded-lg"
+                className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
               >
                 Create First Checklist
               </button>
@@ -594,7 +594,7 @@ export default function OnboardingManagement() {
                 <button
                   type="submit"
                   disabled={processing}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
                 >
                   {processing ? 'Saving...' : modalType === 'checklist' ? 'Create Checklist' : 'Assign Policy'}
                 </button>
