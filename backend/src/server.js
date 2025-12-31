@@ -875,6 +875,22 @@ app.get('/seed-demo-tenant', async (req, res) => {
 });
 
 // ============================================================================
+// Temporary: Check user exists (debug)
+// ============================================================================
+app.get('/check-user/:email', async (req, res) => {
+  try {
+    const email = req.params.email.toLowerCase();
+    const result = await pool.query(`
+      SELECT id, email, user_type, employee_id, company_id, is_active, tenant_id
+      FROM users WHERE LOWER(email) = $1
+    `, [email]);
+    res.json({ found: result.rows.length > 0, users: result.rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
 // Temporary: Cleanup duplicate companies
 // ============================================================================
 app.get('/cleanup-duplicates', async (req, res) => {
