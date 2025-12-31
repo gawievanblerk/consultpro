@@ -904,18 +904,23 @@ router.get('/payslips/:id/pdf', async (req, res) => {
       doc.font('Helvetica').text(' ' + item[1]);
     });
 
-    // Earnings Section
-    y += 100;
-    doc.fillColor(navyBlue).fontSize(12).text('Earnings', 50, y);
-    doc.strokeColor(tealAccent).lineWidth(2).moveTo(50, y + 15).lineTo(150, y + 15).stroke();
+    // Earnings & Deductions Section - side by side
+    const sectionStartY = y + 100;
+    const colWidth = 250;
+    const amountColWidth = 100;
 
-    y += 25;
-    doc.rect(50, y, 230, 20).fill(tealAccent);
-    doc.fillColor('white').fontSize(10)
-       .text('Description', 60, y + 5)
-       .text('Amount', 200, y + 5, { width: 70, align: 'right' });
+    // Earnings Section (Left)
+    let earnY = sectionStartY;
+    doc.fillColor(navyBlue).fontSize(12).font('Helvetica-Bold').text('Earnings', 50, earnY);
+    doc.strokeColor(tealAccent).lineWidth(2).moveTo(50, earnY + 15).lineTo(150, earnY + 15).stroke();
 
-    y += 20;
+    earnY += 25;
+    doc.rect(50, earnY, colWidth, 20).fill(tealAccent);
+    doc.fillColor('white').fontSize(10).font('Helvetica-Bold')
+       .text('Description', 60, earnY + 5)
+       .text('Amount', 50 + colWidth - amountColWidth, earnY + 5, { width: amountColWidth - 10, align: 'right' });
+
+    earnY += 20;
     const earnings = [
       ['Basic Salary', payslip.basic_salary],
       ['Housing Allowance', payslip.housing_allowance],
@@ -927,29 +932,31 @@ router.get('/payslips/:id/pdf', async (req, res) => {
 
     earnings.forEach((item, i) => {
       const bgColor = i % 2 === 0 ? lightGray : 'white';
-      doc.rect(50, y, 230, 18).fill(bgColor);
-      doc.fillColor('#333').fontSize(9)
-         .text(item[0], 60, y + 4)
-         .text(formatNGN(item[1]), 200, y + 4, { width: 70, align: 'right' });
-      y += 18;
+      doc.rect(50, earnY, colWidth, 18).fill(bgColor);
+      doc.fillColor('#333').fontSize(9).font('Helvetica')
+         .text(item[0], 60, earnY + 4)
+         .text(formatNGN(item[1]), 50 + colWidth - amountColWidth, earnY + 4, { width: amountColWidth - 10, align: 'right' });
+      earnY += 18;
     });
 
     // Gross total
-    doc.rect(50, y, 230, 22).fill(navyBlue);
+    doc.rect(50, earnY, colWidth, 24).fill(navyBlue);
     doc.fillColor('white').fontSize(10).font('Helvetica-Bold')
-       .text('GROSS SALARY', 60, y + 6)
-       .text(formatNGN(payslip.gross_salary), 200, y + 6, { width: 70, align: 'right' });
+       .text('GROSS SALARY', 60, earnY + 7)
+       .text(formatNGN(payslip.gross_salary), 50 + colWidth - amountColWidth, earnY + 7, { width: amountColWidth - 10, align: 'right' });
+    earnY += 24;
 
-    // Deductions Section
-    let deductY = 220;
-    doc.fillColor(navyBlue).fontSize(12).font('Helvetica').text('Deductions', 320, deductY);
-    doc.strokeColor(tealAccent).lineWidth(2).moveTo(320, deductY + 15).lineTo(420, deductY + 15).stroke();
+    // Deductions Section (Right)
+    let deductY = sectionStartY;
+    const rightColX = 310;
+    doc.fillColor(navyBlue).fontSize(12).font('Helvetica-Bold').text('Deductions', rightColX, deductY);
+    doc.strokeColor(tealAccent).lineWidth(2).moveTo(rightColX, deductY + 15).lineTo(rightColX + 100, deductY + 15).stroke();
 
     deductY += 25;
-    doc.rect(320, deductY, 230, 20).fill('#d32f2f');
-    doc.fillColor('white').fontSize(10)
-       .text('Description', 330, deductY + 5)
-       .text('Amount', 470, deductY + 5, { width: 70, align: 'right' });
+    doc.rect(rightColX, deductY, colWidth, 20).fill('#d32f2f');
+    doc.fillColor('white').fontSize(10).font('Helvetica-Bold')
+       .text('Description', rightColX + 10, deductY + 5)
+       .text('Amount', rightColX + colWidth - amountColWidth, deductY + 5, { width: amountColWidth - 10, align: 'right' });
 
     deductY += 20;
     const deductions = [
@@ -962,18 +969,22 @@ router.get('/payslips/:id/pdf', async (req, res) => {
 
     deductions.forEach((item, i) => {
       const bgColor = i % 2 === 0 ? '#ffebee' : 'white';
-      doc.rect(320, deductY, 230, 18).fill(bgColor);
-      doc.fillColor('#c62828').fontSize(9)
-         .text(item[0], 330, deductY + 4)
-         .text('-' + formatNGN(item[1]), 470, deductY + 4, { width: 70, align: 'right' });
+      doc.rect(rightColX, deductY, colWidth, 18).fill(bgColor);
+      doc.fillColor('#c62828').fontSize(9).font('Helvetica')
+         .text(item[0], rightColX + 10, deductY + 4)
+         .text('-' + formatNGN(item[1]), rightColX + colWidth - amountColWidth, deductY + 4, { width: amountColWidth - 10, align: 'right' });
       deductY += 18;
     });
 
     // Total deductions
-    doc.rect(320, deductY, 230, 22).fill('#c62828');
+    doc.rect(rightColX, deductY, colWidth, 24).fill('#c62828');
     doc.fillColor('white').fontSize(10).font('Helvetica-Bold')
-       .text('TOTAL DEDUCTIONS', 330, deductY + 6)
-       .text('-' + formatNGN(payslip.total_deductions), 470, deductY + 6, { width: 70, align: 'right' });
+       .text('TOTAL DEDUCTIONS', rightColX + 10, deductY + 7)
+       .text('-' + formatNGN(payslip.total_deductions), rightColX + colWidth - amountColWidth, deductY + 7, { width: amountColWidth - 10, align: 'right' });
+    deductY += 24;
+
+    // Update y to the max of both columns
+    y = earnY;
 
     // Net Pay Section
     const netY = Math.max(y, deductY) + 40;
