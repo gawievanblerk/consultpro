@@ -53,14 +53,26 @@ export default function OnboardingManagement() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [checklistsRes, employeesRes, policiesRes, acksRes] = await Promise.all([
+      const [checklistsRes, employeesRes, staffRes, policiesRes, acksRes] = await Promise.all([
         api.get('/api/onboarding-checklist/checklists'),
         api.get('/api/employees'),
+        api.get('/api/staff'),
         api.get('/api/policies'),
         api.get('/api/onboarding-checklist/policy-acknowledgements')
       ]);
       setChecklists(checklistsRes.data.data || []);
-      setEmployees(employeesRes.data.data || []);
+      // Combine employees and staff for the dropdown
+      const allEmployees = [
+        ...(employeesRes.data.data || []),
+        ...(staffRes.data.data || []).map(s => ({
+          ...s,
+          first_name: s.first_name,
+          last_name: s.last_name,
+          job_title: s.job_title,
+          company_id: s.client_id // Staff use client_id as company
+        }))
+      ];
+      setEmployees(allEmployees);
       setPolicies(policiesRes.data.data || []);
       setPolicyAcks(acksRes.data.data || []);
     } catch (err) {
@@ -77,10 +89,15 @@ export default function OnboardingManagement() {
       setError('Please select an employee');
       return;
     }
+    // Find the selected employee to get their company_id
+    const selectedEmployee = employees.find(emp => emp.id === newChecklist.employee_id);
+    const companyId = selectedEmployee?.company_id || selectedEmployee?.client_id;
+
     setProcessing(true);
     try {
       await api.post('/api/onboarding-checklist/checklists', {
         employee_id: newChecklist.employee_id,
+        company_id: companyId,
         items: newChecklist.items
       });
       setShowModal(false);
