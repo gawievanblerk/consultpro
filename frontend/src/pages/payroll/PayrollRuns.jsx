@@ -149,7 +149,7 @@ export default function PayrollRuns() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+          className="px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700"
         >
           + New Payroll Run
         </button>
@@ -361,7 +361,7 @@ export default function PayrollRuns() {
                 <button
                   type="submit"
                   disabled={processing}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                  className="px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 disabled:opacity-50"
                 >
                   {processing ? 'Creating...' : 'Create'}
                 </button>
