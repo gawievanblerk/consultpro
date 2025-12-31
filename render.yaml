@@ -50,6 +50,9 @@ services:
       - path: /*
         name: X-Frame-Options
         value: SAMEORIGIN
+      - path: /assets/*
+        name: Cache-Control
+        value: no-cache, must-revalidate
     routes:
       - type: rewrite
         source: /*
