@@ -1066,6 +1066,30 @@ app.get('/run-payroll-migration', async (req, res) => {
 });
 
 // ============================================================================
+// Temporary: Run EMS Migration
+// ============================================================================
+app.get('/run-ems-migration', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const migrationPath = path.join(__dirname, '../migrations/013_employee_management_system.sql');
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+
+    // Execute the migration
+    await pool.query(sql);
+
+    res.json({ success: true, message: 'EMS migration completed successfully' });
+  } catch (error) {
+    // Check if it's a "table already exists" error
+    if (error.message.includes('already exists')) {
+      return res.json({ success: true, message: 'EMS tables already exist' });
+    }
+    console.error('Error running EMS migration:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Apply auth middleware to all other /api routes
 // ============================================================================
 app.use('/api', authenticate, tenantMiddleware);
@@ -1146,6 +1170,15 @@ app.use('/api/training-modules', require('./routes/trainingModules'));
 app.use('/api/training-progress', require('./routes/trainingProgress'));
 app.use('/api/compliance', require('./routes/compliance'));
 app.use('/api/certificates', require('./routes/certificates'));
+
+// ============================================================================
+// Employee Management System (EMS) Routes
+// ============================================================================
+app.use('/api/probation', require('./routes/probation'));
+app.use('/api/performance', require('./routes/performance'));
+app.use('/api/exit', require('./routes/exit'));
+app.use('/api/disciplinary', require('./routes/disciplinary'));
+app.use('/api/onboarding-checklist', require('./routes/onboardingChecklist'));
 
 // ============================================================================
 // Error Handlers

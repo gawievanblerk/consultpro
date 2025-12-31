@@ -24,7 +24,11 @@ import {
   AcademicCapIcon,
   ClipboardDocumentCheckIcon,
   TrophyIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  ShieldExclamationIcon,
+  StarIcon,
+  UserMinusIcon,
+  RocketLaunchIcon
 } from '@heroicons/react/24/outline';
 
 // Navigation config with user_type filtering
@@ -76,6 +80,13 @@ const navigation = [
     { name: 'My Training', href: '/dashboard/my-training', icon: AcademicCapIcon },
     { name: 'My Certificates', href: '/dashboard/my-certificates', icon: TrophyIcon },
   ]},
+  { name: 'Employee Management', userTypes: ['consultant', 'staff', 'company_admin'], children: [
+    { name: 'Probation', href: '/dashboard/probation', icon: ClockIcon },
+    { name: 'Performance', href: '/dashboard/performance', icon: StarIcon },
+    { name: 'Disciplinary', href: '/dashboard/disciplinary', icon: ShieldExclamationIcon },
+    { name: 'Exit Management', href: '/dashboard/exit-management', icon: UserMinusIcon },
+  ]},
+  { name: 'My Onboarding', href: '/dashboard/my-onboarding', icon: RocketLaunchIcon, userTypes: ['employee'] },
   { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon, userTypes: ['consultant', 'staff', 'company_admin'] },
   { name: 'Settings', roles: ['admin'], userTypes: ['consultant', 'company_admin'], children: [
     { name: 'Users', href: '/dashboard/users', icon: UserCircleIcon },

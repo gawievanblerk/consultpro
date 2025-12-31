@@ -60,6 +60,13 @@ import ConsultantOnboard from './pages/onboard/ConsultantOnboard';
 import CompanyOnboard from './pages/onboard/CompanyOnboard';
 import ESSActivate from './pages/onboard/ESSActivate';
 
+// EMS pages (Employee Management System)
+import ProbationManagement from './pages/ems/ProbationManagement';
+import PerformanceReviews from './pages/ems/PerformanceReviews';
+import ExitManagement from './pages/ems/ExitManagement';
+import Disciplinary from './pages/ems/Disciplinary';
+import MyOnboarding from './pages/ess/MyOnboarding';
+
 // Protected route wrapper
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -166,6 +173,13 @@ function App() {
             <Route path="my-training" element={<MyTraining />} />
             <Route path="take-training/:assignmentId" element={<TakeTraining />} />
             <Route path="my-certificates" element={<MyCertificates />} />
+
+            {/* Employee Management System (EMS) */}
+            <Route path="probation" element={<ProbationManagement />} />
+            <Route path="performance" element={<PerformanceReviews />} />
+            <Route path="exit-management" element={<ExitManagement />} />
+            <Route path="disciplinary" element={<Disciplinary />} />
+            <Route path="my-onboarding" element={<MyOnboarding />} />
 
             {/* Settings/Admin */}
             <Route path="users" element={<Users />} />
