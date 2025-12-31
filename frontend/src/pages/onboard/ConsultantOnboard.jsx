@@ -8,10 +8,12 @@ import {
   ArrowLeftIcon
 } from '@heroicons/react/24/outline';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 function ConsultantOnboard() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { setAuth } = useAuth();
   const token = searchParams.get('token');
 
   const [step, setStep] = useState(1);
@@ -84,8 +86,8 @@ function ConsultantOnboard() {
 
       if (response.data.success) {
         setSuccess(true);
-        localStorage.setItem('token', response.data.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.data.user));
+        // Use AuthContext to properly set authentication state
+        setAuth(response.data.data.token, response.data.data.user);
 
         setTimeout(() => {
           navigate('/dashboard');
