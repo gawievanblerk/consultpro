@@ -34,7 +34,7 @@ function PolicyLibrary() {
     try {
       setLoading(true);
       // Fetch all policies (pending and acknowledged) so employee can view them all
-      const response = await api.get('/policies/employee/all');
+      const response = await api.get('/api/policies/employee/all');
       setPolicies(response.data.data || []);
     } catch (error) {
       console.error('Error fetching policies:', error);
@@ -46,7 +46,7 @@ function PolicyLibrary() {
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get('/policy-categories');
+      const response = await api.get('/api/policy-categories');
       setCategories(response.data.data || []);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -58,7 +58,7 @@ function PolicyLibrary() {
 
     try {
       setAcknowledging(true);
-      await api.post(`/policies/${selectedPolicy.id}/acknowledge`, {
+      await api.post(`/api/policies/${selectedPolicy.id}/acknowledge`, {
         signature_data: signature || null
       });
       showSuccess('Policy acknowledged successfully');
