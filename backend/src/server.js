@@ -845,6 +845,40 @@ app.get('/seed-demo-tenant', async (req, res) => {
 });
 
 // ============================================================================
+// Temporary: Cleanup duplicate companies
+// ============================================================================
+app.get('/cleanup-duplicates', async (req, res) => {
+  try {
+    // Delete duplicate companies, keeping only the first one per consultant
+    const result = await pool.query(`
+      DELETE FROM companies
+      WHERE id NOT IN (
+        SELECT MIN(id) FROM companies GROUP BY consultant_id, trading_name
+      )
+      RETURNING id, trading_name
+    `);
+
+    // Delete duplicate employees, keeping only the first one per email
+    const empResult = await pool.query(`
+      DELETE FROM employees
+      WHERE id NOT IN (
+        SELECT MIN(id) FROM employees GROUP BY company_id, email
+      )
+      RETURNING id, email
+    `);
+
+    res.json({
+      success: true,
+      companiesDeleted: result.rows,
+      employeesDeleted: empResult.rows
+    });
+  } catch (error) {
+    console.error('Error cleaning duplicates:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Temporary: Run Payroll System Migration
 // ============================================================================
 app.get('/run-payroll-migration', async (req, res) => {
