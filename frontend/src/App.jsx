@@ -30,6 +30,9 @@ import LeaveBalances from './pages/leave/LeaveBalances';
 import Invoices from './pages/finance/Invoices';
 import Payments from './pages/finance/Payments';
 import PAYECalculator from './pages/finance/PAYECalculator';
+import PayrollRuns from './pages/payroll/PayrollRuns';
+import PayrollRunDetail from './pages/payroll/PayrollRunDetail';
+import MyPayslips from './pages/ess/MyPayslips';
 import Tasks from './pages/Tasks';
 import Users from './pages/settings/Users';
 
@@ -143,6 +146,11 @@ function App() {
             <Route path="invoices" element={<Invoices />} />
             <Route path="payments" element={<Payments />} />
             <Route path="paye-calculator" element={<PAYECalculator />} />
+
+            {/* Payroll Module */}
+            <Route path="payroll" element={<PayrollRuns />} />
+            <Route path="payroll/:id" element={<PayrollRunDetail />} />
+            <Route path="my-payslips" element={<MyPayslips />} />
 
             {/* Collaboration Module */}
             <Route path="tasks" element={<Tasks />} />

@@ -60,6 +60,11 @@ const navigation = [
     { name: 'Payments', href: '/dashboard/payments', icon: BanknotesIcon },
     { name: 'PAYE Calculator', href: '/dashboard/paye-calculator', icon: CalculatorIcon },
   ]},
+  { name: 'Payroll', userTypes: ['consultant', 'staff', 'company_admin'], children: [
+    { name: 'Payroll Runs', href: '/dashboard/payroll', icon: BanknotesIcon },
+    { name: 'PAYE Calculator', href: '/dashboard/paye-calculator', icon: CalculatorIcon },
+  ]},
+  { name: 'My Payslips', href: '/dashboard/my-payslips', icon: BanknotesIcon, userTypes: ['employee'] },
   { name: 'Compliance', userTypes: ['consultant', 'staff', 'company_admin'], children: [
     { name: 'Dashboard', href: '/dashboard/compliance', icon: ChartBarIcon },
     { name: 'Employee Compliance', href: '/dashboard/employee-compliance', icon: UsersIcon },

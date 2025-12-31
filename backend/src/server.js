@@ -755,6 +755,133 @@ app.get('/reset-system', async (req, res) => {
 });
 
 // ============================================================================
+// Temporary: Run Payroll System Migration
+// ============================================================================
+app.get('/run-payroll-migration', async (req, res) => {
+  try {
+    // Check if tables already exist
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables WHERE table_name = 'payroll_runs'
+      ) as exists
+    `);
+
+    if (tableCheck.rows[0].exists) {
+      return res.json({ success: true, message: 'Payroll tables already exist' });
+    }
+
+    // Create salary_components table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS salary_components (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        component_type VARCHAR(50) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+        is_taxable BOOLEAN DEFAULT TRUE,
+        is_pension_applicable BOOLEAN DEFAULT TRUE,
+        effective_date DATE DEFAULT CURRENT_DATE,
+        end_date DATE,
+        notes TEXT,
+        created_by UUID REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Create payroll_runs table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payroll_runs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+        pay_period_month INTEGER NOT NULL CHECK (pay_period_month BETWEEN 1 AND 12),
+        pay_period_year INTEGER NOT NULL CHECK (pay_period_year >= 2020),
+        pay_period_start DATE NOT NULL,
+        pay_period_end DATE NOT NULL,
+        payment_date DATE NOT NULL,
+        status VARCHAR(50) DEFAULT 'draft',
+        total_gross DECIMAL(15,2) DEFAULT 0,
+        total_net DECIMAL(15,2) DEFAULT 0,
+        total_paye DECIMAL(15,2) DEFAULT 0,
+        total_pension_employee DECIMAL(15,2) DEFAULT 0,
+        total_pension_employer DECIMAL(15,2) DEFAULT 0,
+        total_nhf DECIMAL(15,2) DEFAULT 0,
+        total_nsitf DECIMAL(15,2) DEFAULT 0,
+        total_itf DECIMAL(15,2) DEFAULT 0,
+        employee_count INTEGER DEFAULT 0,
+        processed_by UUID REFERENCES users(id),
+        processed_at TIMESTAMP,
+        approved_by UUID REFERENCES users(id),
+        approved_at TIMESTAMP,
+        paid_by UUID REFERENCES users(id),
+        paid_at TIMESTAMP,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Create payslips table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payslips (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        payroll_run_id UUID NOT NULL REFERENCES payroll_runs(id) ON DELETE CASCADE,
+        employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+        employee_name VARCHAR(255) NOT NULL,
+        employee_id_number VARCHAR(50),
+        department VARCHAR(100),
+        job_title VARCHAR(100),
+        bank_name VARCHAR(100),
+        bank_account_number VARCHAR(50),
+        bank_account_name VARCHAR(255),
+        basic_salary DECIMAL(15,2) DEFAULT 0,
+        housing_allowance DECIMAL(15,2) DEFAULT 0,
+        transport_allowance DECIMAL(15,2) DEFAULT 0,
+        meal_allowance DECIMAL(15,2) DEFAULT 0,
+        utility_allowance DECIMAL(15,2) DEFAULT 0,
+        leave_allowance DECIMAL(15,2) DEFAULT 0,
+        thirteenth_month DECIMAL(15,2) DEFAULT 0,
+        other_allowances DECIMAL(15,2) DEFAULT 0,
+        gross_salary DECIMAL(15,2) NOT NULL DEFAULT 0,
+        annual_gross DECIMAL(15,2) DEFAULT 0,
+        annual_taxable DECIMAL(15,2) DEFAULT 0,
+        paye_tax DECIMAL(15,2) DEFAULT 0,
+        pension_employee DECIMAL(15,2) DEFAULT 0,
+        pension_employer DECIMAL(15,2) DEFAULT 0,
+        nhf DECIMAL(15,2) DEFAULT 0,
+        consolidated_relief DECIMAL(15,2) DEFAULT 0,
+        loan_deduction DECIMAL(15,2) DEFAULT 0,
+        salary_advance DECIMAL(15,2) DEFAULT 0,
+        other_deductions DECIMAL(15,2) DEFAULT 0,
+        total_deductions DECIMAL(15,2) DEFAULT 0,
+        net_salary DECIMAL(15,2) NOT NULL DEFAULT 0,
+        employer_pension DECIMAL(15,2) DEFAULT 0,
+        employer_nsitf DECIMAL(15,2) DEFAULT 0,
+        employer_itf DECIMAL(15,2) DEFAULT 0,
+        calculation_details JSONB,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Create indexes
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_salary_components_employee ON salary_components(employee_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_payroll_runs_company ON payroll_runs(company_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_payslips_employee ON payslips(employee_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_payslips_payroll_run ON payslips(payroll_run_id)`);
+
+    res.json({ success: true, message: 'Payroll tables created successfully' });
+  } catch (error) {
+    console.error('Error running payroll migration:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Apply auth middleware to all other /api routes
 // ============================================================================
 app.use('/api', authenticate, tenantMiddleware);
@@ -804,6 +931,7 @@ app.use('/api/payments', require('./routes/payments'));
 // Payroll Module Routes (Nigeria PAYE Calculator)
 // ============================================================================
 app.use('/api/payroll', require('./routes/payroll'));
+app.use('/api/salary-components', require('./routes/salaryComponents'));
 
 // ============================================================================
 // Collaboration Module Routes (Module 1.5)
