@@ -274,8 +274,14 @@ router.post('/generate-from-payroll/:payrollRunId', async (req, res) => {
 
     const remittances = [];
 
+    // Parse numeric values (DB may return strings)
+    const totalPaye = parseFloat(run.total_paye) || 0;
+    const totalPensionEmployee = parseFloat(run.total_pension_employee) || 0;
+    const totalPensionEmployer = parseFloat(run.total_pension_employer) || 0;
+    const totalNhf = parseFloat(run.total_nhf) || 0;
+
     // PAYE Tax
-    if (run.total_paye > 0) {
+    if (totalPaye > 0) {
       const payeResult = await pool.query(`
         INSERT INTO statutory_remittances (
           tenant_id, company_id, remittance_type, pay_period_month, pay_period_year,
@@ -285,12 +291,12 @@ router.post('/generate-from-payroll/:payrollRunId', async (req, res) => {
         DO UPDATE SET amount = $5, employee_contribution = $5, updated_at = NOW()
         RETURNING *
       `, [req.tenant_id, run.company_id, run.pay_period_month, run.pay_period_year,
-          run.total_paye, dueDate, payrollRunId, req.user?.id]);
+          totalPaye, dueDate, payrollRunId, req.user?.id]);
       remittances.push(payeResult.rows[0]);
     }
 
     // Pension (employee + employer)
-    if (run.total_pension_employee > 0 || run.total_pension_employer > 0) {
+    if (totalPensionEmployee > 0 || totalPensionEmployer > 0) {
       const pensionResult = await pool.query(`
         INSERT INTO statutory_remittances (
           tenant_id, company_id, remittance_type, pay_period_month, pay_period_year,
@@ -301,14 +307,14 @@ router.post('/generate-from-payroll/:payrollRunId', async (req, res) => {
         DO UPDATE SET amount = $5, employee_contribution = $6, employer_contribution = $7, updated_at = NOW()
         RETURNING *
       `, [req.tenant_id, run.company_id, run.pay_period_month, run.pay_period_year,
-          (run.total_pension_employee || 0) + (run.total_pension_employer || 0),
-          run.total_pension_employee || 0, run.total_pension_employer || 0,
+          totalPensionEmployee + totalPensionEmployer,
+          totalPensionEmployee, totalPensionEmployer,
           dueDate, payrollRunId, req.user?.id]);
       remittances.push(pensionResult.rows[0]);
     }
 
     // NHF
-    if (run.total_nhf > 0) {
+    if (totalNhf > 0) {
       const nhfResult = await pool.query(`
         INSERT INTO statutory_remittances (
           tenant_id, company_id, remittance_type, pay_period_month, pay_period_year,
@@ -318,7 +324,7 @@ router.post('/generate-from-payroll/:payrollRunId', async (req, res) => {
         DO UPDATE SET amount = $5, employee_contribution = $5, updated_at = NOW()
         RETURNING *
       `, [req.tenant_id, run.company_id, run.pay_period_month, run.pay_period_year,
-          run.total_nhf, dueDate, payrollRunId, req.user?.id]);
+          totalNhf, dueDate, payrollRunId, req.user?.id]);
       remittances.push(nhfResult.rows[0]);
     }
 
