@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useCompany } from '../../context/CompanyContext';
 import {
   MagnifyingGlassIcon,
   ArrowPathIcon,
@@ -11,6 +12,7 @@ import {
 function LeaveBalances() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { selectedCompany, isCompanyMode } = useCompany();
   const isEmployee = user?.userType === 'employee';
 
   const [balances, setBalances] = useState([]);
@@ -26,7 +28,7 @@ function LeaveBalances() {
     } else {
       fetchBalances();
     }
-  }, [year, isEmployee]);
+  }, [year, isEmployee, selectedCompany]);
 
   // Fetch current employee's own balances
   const fetchMyBalances = async () => {
@@ -46,7 +48,12 @@ function LeaveBalances() {
   // Admin view - fetch all staff balances
   const fetchBalances = async () => {
     try {
-      const response = await api.get('/api/leave-balances/summary', { params: { year } });
+      const params = { year };
+      // Filter by selected company when in Company Mode
+      if (isCompanyMode && selectedCompany?.id) {
+        params.company_id = selectedCompany.id;
+      }
+      const response = await api.get('/api/leave-balances/summary', { params });
       if (response.data.success) {
         setBalances(response.data.data);
       }

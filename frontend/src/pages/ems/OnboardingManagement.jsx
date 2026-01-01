@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import api from '../../utils/api';
+import { useCompany } from '../../context/CompanyContext';
 
 export default function OnboardingManagement() {
+  const { selectedCompany, isCompanyMode } = useCompany();
   const [activeTab, setActiveTab] = useState('progress');
   const [checklists, setChecklists] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -48,17 +50,19 @@ export default function OnboardingManagement() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedCompany]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
+      // Build params for company filter
+      const params = isCompanyMode && selectedCompany?.id ? { company_id: selectedCompany.id } : {};
       const [checklistsRes, employeesRes, staffRes, policiesRes, acksRes] = await Promise.all([
-        api.get('/api/onboarding-checklist/checklists'),
-        api.get('/api/employees'),
-        api.get('/api/staff'),
-        api.get('/api/policies'),
-        api.get('/api/onboarding-checklist/policy-acknowledgements')
+        api.get('/api/onboarding-checklist/checklists', { params }),
+        api.get('/api/employees', { params }),
+        api.get('/api/staff', { params }),
+        api.get('/api/policies', { params }),
+        api.get('/api/onboarding-checklist/policy-acknowledgements', { params })
       ]);
       setChecklists(checklistsRes.data.data || []);
       // Combine employees and staff for the dropdown

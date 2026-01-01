@@ -5,6 +5,7 @@ import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
+import { useCompany } from '../../context/CompanyContext';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -33,7 +34,8 @@ const statusLabels = {
 function Employees() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
-  const { user } = useAuth();
+  const { user, isConsultant } = useAuth();
+  const { selectedCompany, isCompanyMode } = useCompany();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -82,13 +84,17 @@ function Employees() {
 
   useEffect(() => {
     fetchEmployees();
-  }, [statusFilter]);
+  }, [statusFilter, selectedCompany]);
 
   const fetchEmployees = async () => {
     try {
       const params = {};
       if (statusFilter !== 'all') {
         params.status = statusFilter;
+      }
+      // Filter by selected company when in Company Mode
+      if (isCompanyMode && selectedCompany?.id) {
+        params.company_id = selectedCompany.id;
       }
       const response = await api.get('/api/employees', { params });
       if (response.data.success) {

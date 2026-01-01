@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
+import { useCompany } from '../../context/CompanyContext';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -18,6 +19,7 @@ const STATUS_COLORS = {
 
 export default function PayrollRuns() {
   const navigate = useNavigate();
+  const { selectedCompany, isCompanyMode } = useCompany();
   const [runs, setRuns] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,11 +42,12 @@ export default function PayrollRuns() {
   useEffect(() => {
     fetchRuns();
     fetchCompanies();
-  }, []);
+  }, [selectedCompany]);
 
   const fetchRuns = async () => {
     try {
-      const response = await api.get('/api/payroll/runs');
+      const params = isCompanyMode && selectedCompany?.id ? { company_id: selectedCompany.id } : {};
+      const response = await api.get('/api/payroll/runs', { params });
       setRuns(response.data.data || []);
     } catch (err) {
       setError('Failed to fetch payroll runs');
