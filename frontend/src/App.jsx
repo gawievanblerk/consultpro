@@ -33,6 +33,7 @@ import Payments from './pages/finance/Payments';
 import PAYECalculator from './pages/finance/PAYECalculator';
 import PayrollRuns from './pages/payroll/PayrollRuns';
 import PayrollRunDetail from './pages/payroll/PayrollRunDetail';
+import StatutoryRemittances from './pages/payroll/StatutoryRemittances';
 import MyPayslips from './pages/ess/MyPayslips';
 import Tasks from './pages/Tasks';
 import Users from './pages/settings/Users';
@@ -161,6 +162,7 @@ function App() {
             {/* Payroll Module */}
             <Route path="payroll" element={<PayrollRuns />} />
             <Route path="payroll/:id" element={<PayrollRunDetail />} />
+            <Route path="remittances" element={<StatutoryRemittances />} />
             <Route path="my-payslips" element={<MyPayslips />} />
 
             {/* Collaboration Module */}

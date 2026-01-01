@@ -194,7 +194,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
           jobTitle: 'Software Developer',
           department: 'Engineering',
           employmentType: 'full_time',
-          employmentStatus: 'probation',
+          employmentStatus: 'active',
           hireDate: new Date().toISOString().split('T')[0],
           salary: 600000,
           salaryCurrency: 'NGN',
@@ -235,7 +235,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     const employee = employeesResult.data.find(e => e.email === employeeEmail);
     expect(employee).toBeTruthy();
     expect(employee.first_name).toBe('Chukwuemeka');
-    expect(employee.employment_status).toBe('probation');
+    expect(employee.employment_status).toBe('active');
 
     console.log('Employee verified in employees list');
   });
@@ -340,7 +340,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     probationEndDate.setMonth(probationEndDate.getMonth() + 3);
 
     const probationResult = await page.evaluate(async ({ apiUrl, token, employeeId, companyId, endDate }) => {
-      const res = await fetch(`${apiUrl}/api/probation`, {
+      const res = await fetch(`${apiUrl}/api/probation/reviews`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -393,7 +393,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Get probation records via API
     const probationResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/probation`, {
+      const res = await fetch(`${apiUrl}/api/probation/reviews`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
@@ -418,7 +418,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Create disciplinary record via API
     const disciplinaryResult = await page.evaluate(async ({ apiUrl, token, employeeId, companyId }) => {
-      const res = await fetch(`${apiUrl}/api/disciplinary`, {
+      const res = await fetch(`${apiUrl}/api/disciplinary/actions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -456,10 +456,10 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     await page.goto('/dashboard/disciplinary');
     await page.waitForLoadState('networkidle');
 
-    // Verify page loads
-    await expect(page.getByRole('heading', { name: /disciplinary/i })).toBeVisible({ timeout: 10000 });
+    // Verify page loads - heading is "Employee Relations"
+    await expect(page.getByRole('heading', { name: /employee relations/i })).toBeVisible({ timeout: 10000 });
 
-    console.log('Disciplinary management page accessible');
+    console.log('Disciplinary (Employee Relations) page accessible');
   });
 
   test('7.4.3 Stage 4: Get disciplinary records', async ({ page }) => {
@@ -473,7 +473,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Get disciplinary records via API
     const disciplinaryResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/disciplinary`, {
+      const res = await fetch(`${apiUrl}/api/disciplinary/actions`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
@@ -498,7 +498,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Create performance review via API
     const reviewResult = await page.evaluate(async ({ apiUrl, token, employeeId, companyId }) => {
-      const res = await fetch(`${apiUrl}/api/performance-reviews`, {
+      const res = await fetch(`${apiUrl}/api/performance/reviews`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -538,10 +538,10 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     await page.goto('/dashboard/performance');
     await page.waitForLoadState('networkidle');
 
-    // Verify page loads
-    await expect(page.getByRole('heading', { name: /performance/i })).toBeVisible({ timeout: 10000 });
+    // Verify page loads - heading is "Performance Management"
+    await expect(page.getByRole('heading', { name: /performance management/i })).toBeVisible({ timeout: 10000 });
 
-    console.log('Performance reviews page accessible');
+    console.log('Performance Management page accessible');
   });
 
   test('7.5.3 Stage 5: Get performance reviews', async ({ page }) => {
@@ -555,7 +555,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Get performance reviews via API
     const reviewsResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/performance-reviews`, {
+      const res = await fetch(`${apiUrl}/api/performance/reviews`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
@@ -583,7 +583,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     exitDate.setMonth(exitDate.getMonth() + 1);
 
     const exitResult = await page.evaluate(async ({ apiUrl, token, employeeId, companyId, exitDate }) => {
-      const res = await fetch(`${apiUrl}/api/exits`, {
+      const res = await fetch(`${apiUrl}/api/exit/requests`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -638,7 +638,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Get exit records via API
     const exitsResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/exits`, {
+      const res = await fetch(`${apiUrl}/api/exit/requests`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();

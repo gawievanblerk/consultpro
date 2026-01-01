@@ -59,7 +59,8 @@ const MIGRATIONS = {
   '011_test_employee_user': 'Test employee user data',
   '012_payroll_system': 'Payroll processing system',
   '013_employee_management_system': 'Employee lifecycle management (EMS)',
-  '014_company_preferences': 'Company selector preferences'
+  '014_company_preferences': 'Company selector preferences',
+  '015_statutory_remittances': 'Statutory remittance tracking (PAYE, Pension, NHF)'
 };
 
 // GET /run-migrations - List available migrations
@@ -956,6 +957,7 @@ app.use('/api/payments', require('./routes/payments'));
 // ============================================================================
 app.use('/api/payroll', require('./routes/payroll'));
 app.use('/api/salary-components', require('./routes/salaryComponents'));
+app.use('/api/remittances', require('./routes/remittances'));
 
 // ============================================================================
 // Collaboration Module Routes (Module 1.5)

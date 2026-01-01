@@ -69,6 +69,7 @@ const navigation = [
   ]},
   { name: 'Payroll', userTypes: ['consultant', 'staff', 'company_admin'], children: [
     { name: 'Payroll Runs', href: '/dashboard/payroll', icon: BanknotesIcon },
+    { name: 'Remittances', href: '/dashboard/remittances', icon: DocumentTextIcon },
     { name: 'PAYE Calculator', href: '/dashboard/paye-calculator', icon: CalculatorIcon },
   ]},
   { name: 'My Payslips', href: '/dashboard/my-payslips', icon: BanknotesIcon, userTypes: ['employee'] },
