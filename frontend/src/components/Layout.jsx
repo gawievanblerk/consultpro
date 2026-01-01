@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
 import CompanySwitcher from './CompanySwitcher';
+import CompanySidebar from './CompanySidebar';
 import {
   HomeIcon,
   BuildingOfficeIcon,
@@ -117,7 +118,7 @@ const getFilteredNavigation = (userRole, userType) => {
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logout, isStaff, isConsultant, activeCompanyId, switchCompany, getActiveCompany } = useAuth();
-  const { companies, selectedCompany, isCompanyMode, loading: companyLoading } = useCompany();
+  const { companies, selectedCompany, isCompanyMode, preferences, loading: companyLoading } = useCompany();
   const location = useLocation();
 
   const isActive = (href) => location.pathname === href;
@@ -125,6 +126,8 @@ function Layout() {
   const activeCompany = getActiveCompany();
   const hasMultipleDeployments = isStaff && user?.deployedCompanies?.length > 1;
   const showCompanySwitcher = isConsultant && companies.length > 0;
+  const useSidebarMode = showCompanySwitcher && preferences?.viewMode === 'sidebar';
+  const useHeaderMode = showCompanySwitcher && preferences?.viewMode !== 'sidebar';
 
   return (
     <div className="min-h-screen bg-primary-50/30">
@@ -271,7 +274,15 @@ function Layout() {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-72">
+      <div className={`lg:pl-72 flex ${useSidebarMode ? 'h-screen' : ''}`}>
+        {/* Company Sidebar (Sidebar Mode) */}
+        {useSidebarMode && (
+          <div className="hidden lg:block flex-shrink-0 h-screen sticky top-0">
+            <CompanySidebar />
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col min-h-screen">
         {/* Top bar - Minimal */}
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-primary-100">
           <div className="flex items-center h-16 px-4 sm:px-8">
@@ -282,8 +293,8 @@ function Layout() {
               <Bars3Icon className="h-5 w-5" />
             </button>
 
-            {/* Company Switcher for Consultants */}
-            {showCompanySwitcher && (
+            {/* Company Switcher for Consultants (Header Mode) */}
+            {useHeaderMode && (
               <div className="ml-4">
                 <CompanySwitcher />
               </div>
@@ -293,7 +304,7 @@ function Layout() {
             {showCompanySwitcher && isCompanyMode && (
               <div className="ml-3 hidden sm:flex items-center">
                 <span className="px-2 py-1 text-xs font-medium bg-accent-100 text-accent-700 rounded-full">
-                  Company Mode
+                  {selectedCompany?.trading_name || selectedCompany?.legal_name || 'Company Mode'}
                 </span>
               </div>
             )}
@@ -315,9 +326,10 @@ function Layout() {
         </header>
 
         {/* Page content - More whitespace */}
-        <main className="p-6 sm:p-8 lg:p-10">
+        <main className="flex-1 p-6 sm:p-8 lg:p-10">
           <Outlet />
         </main>
+        </div>
       </div>
     </div>
   );
