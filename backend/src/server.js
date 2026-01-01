@@ -1130,6 +1130,24 @@ app.get('/run-users-phone-migration', async (req, res) => {
   }
 });
 
+// Add company preferences tables
+app.get('/run-company-preferences-migration', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const migrationPath = path.join(__dirname, '../migrations/014_company_preferences.sql');
+    const sql = fs.readFileSync(migrationPath, 'utf8');
+    await pool.query(sql);
+    res.json({ success: true, message: 'Company preferences migration completed successfully' });
+  } catch (error) {
+    if (error.message.includes('already exists')) {
+      return res.json({ success: true, message: 'Company preferences tables already exist' });
+    }
+    console.error('Error running company preferences migration:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ============================================================================
 // Apply auth middleware to all other /api routes
 // ============================================================================

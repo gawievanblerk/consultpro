@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCompany } from '../context/CompanyContext';
+import CompanySwitcher from './CompanySwitcher';
 import {
   HomeIcon,
   BuildingOfficeIcon,
@@ -113,13 +115,15 @@ const getFilteredNavigation = (userRole, userType) => {
 
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout, isStaff, activeCompanyId, switchCompany, getActiveCompany } = useAuth();
+  const { user, logout, isStaff, isConsultant, activeCompanyId, switchCompany, getActiveCompany } = useAuth();
+  const { companies, selectedCompany, isCompanyMode, loading: companyLoading } = useCompany();
   const location = useLocation();
 
   const isActive = (href) => location.pathname === href;
   const filteredNav = getFilteredNavigation(user?.role, user?.userType);
   const activeCompany = getActiveCompany();
   const hasMultipleDeployments = isStaff && user?.deployedCompanies?.length > 1;
+  const showCompanySwitcher = isConsultant && companies.length > 0;
 
   return (
     <div className="min-h-screen bg-primary-50/30">
@@ -276,6 +280,23 @@ function Layout() {
             >
               <Bars3Icon className="h-5 w-5" />
             </button>
+
+            {/* Company Switcher for Consultants */}
+            {showCompanySwitcher && (
+              <div className="ml-4">
+                <CompanySwitcher />
+              </div>
+            )}
+
+            {/* Mode indicator badge */}
+            {showCompanySwitcher && isCompanyMode && (
+              <div className="ml-3 hidden sm:flex items-center">
+                <span className="px-2 py-1 text-xs font-medium bg-accent-100 text-accent-700 rounded-full">
+                  Company Mode
+                </span>
+              </div>
+            )}
+
             <div className="flex-1" />
             <a
               href="/docs/manual.html"
