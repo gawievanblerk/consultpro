@@ -93,6 +93,7 @@ const navigation = [
   { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon, userTypes: ['consultant', 'staff', 'company_admin'] },
   { name: 'Settings', roles: ['admin'], userTypes: ['consultant', 'company_admin'], children: [
     { name: 'Users', href: '/dashboard/users', icon: UserCircleIcon },
+    { name: 'Preferences', href: '/dashboard/preferences', icon: Cog6ToothIcon },
   ]},
 ];
 

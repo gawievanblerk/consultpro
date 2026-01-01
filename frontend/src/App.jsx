@@ -36,6 +36,7 @@ import PayrollRunDetail from './pages/payroll/PayrollRunDetail';
 import MyPayslips from './pages/ess/MyPayslips';
 import Tasks from './pages/Tasks';
 import Users from './pages/settings/Users';
+import Preferences from './pages/settings/Preferences';
 
 // Compliance & Training pages (Admin)
 import Policies from './pages/compliance/Policies';
@@ -187,6 +188,7 @@ function App() {
 
             {/* Settings/Admin */}
             <Route path="users" element={<Users />} />
+            <Route path="preferences" element={<Preferences />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
