@@ -340,7 +340,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     probationEndDate.setMonth(probationEndDate.getMonth() + 3);
 
     const probationResult = await page.evaluate(async ({ apiUrl, token, employeeId, companyId, endDate }) => {
-      const res = await fetch(`${apiUrl}/api/probation`, {
+      const res = await fetch(`${apiUrl}/api/probation/reviews`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -393,7 +393,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Get probation records via API
     const probationResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/probation`, {
+      const res = await fetch(`${apiUrl}/api/probation/reviews`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
@@ -418,7 +418,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Create disciplinary record via API
     const disciplinaryResult = await page.evaluate(async ({ apiUrl, token, employeeId, companyId }) => {
-      const res = await fetch(`${apiUrl}/api/disciplinary`, {
+      const res = await fetch(`${apiUrl}/api/disciplinary/actions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -473,7 +473,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Get disciplinary records via API
     const disciplinaryResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/disciplinary`, {
+      const res = await fetch(`${apiUrl}/api/disciplinary/actions`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
@@ -498,7 +498,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Create performance review via API
     const reviewResult = await page.evaluate(async ({ apiUrl, token, employeeId, companyId }) => {
-      const res = await fetch(`${apiUrl}/api/performance-reviews`, {
+      const res = await fetch(`${apiUrl}/api/performance/reviews`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -555,7 +555,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Get performance reviews via API
     const reviewsResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/performance-reviews`, {
+      const res = await fetch(`${apiUrl}/api/performance/reviews`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
@@ -583,7 +583,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     exitDate.setMonth(exitDate.getMonth() + 1);
 
     const exitResult = await page.evaluate(async ({ apiUrl, token, employeeId, companyId, exitDate }) => {
-      const res = await fetch(`${apiUrl}/api/exits`, {
+      const res = await fetch(`${apiUrl}/api/exit/requests`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -638,7 +638,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
 
     // Get exit records via API
     const exitsResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/exits`, {
+      const res = await fetch(`${apiUrl}/api/exit/requests`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
