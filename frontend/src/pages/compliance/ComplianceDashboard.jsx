@@ -29,8 +29,8 @@ function ComplianceDashboard() {
     try {
       setLoading(true);
       const [dashboardRes, overdueRes] = await Promise.all([
-        api.get('/compliance/dashboard'),
-        api.get('/compliance/overdue?type=all')
+        api.get('/api/compliance/dashboard'),
+        api.get('/api/compliance/overdue?type=all')
       ]);
       setStats(dashboardRes.data.data);
       setOverdue({
@@ -48,7 +48,7 @@ function ComplianceDashboard() {
   const handleSendReminders = async (type, ids) => {
     try {
       setSendingReminders(true);
-      await api.post('/compliance/send-reminders', {
+      await api.post('/api/compliance/send-reminders', {
         type,
         item_ids: ids
       });

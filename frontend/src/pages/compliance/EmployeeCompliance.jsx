@@ -30,7 +30,7 @@ function EmployeeCompliance() {
       if (search) params.append('search', search);
       if (statusFilter) params.append('status', statusFilter);
 
-      const response = await api.get(`/compliance/employees?${params.toString()}`);
+      const response = await api.get(`/api/compliance/employees?${params.toString()}`);
       if (response.data.success) {
         setEmployees(response.data.data);
       }
@@ -60,7 +60,7 @@ function EmployeeCompliance() {
     try {
       setDetailsLoading(true);
       setExpandedEmployee(employeeId);
-      const response = await api.get(`/compliance/employees/${employeeId}`);
+      const response = await api.get(`/api/compliance/employees/${employeeId}`);
       if (response.data.success) {
         setEmployeeDetails(response.data.data);
       }
