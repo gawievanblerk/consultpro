@@ -2,40 +2,39 @@
 const { test, expect } = require('@playwright/test');
 
 /**
- * User Story 8: Payroll Processing
+ * User Story 9: Statutory Remittances
  *
  * As a consultant managing client companies,
- * I want to process monthly payroll for employees
- * So that I can calculate salaries, taxes, and deductions accurately
+ * I want to track statutory remittances (PAYE, Pension, NHF, NSITF, ITF)
+ * So that I can ensure timely payments to government agencies
  *
  * Covers:
- * - Creating payroll runs
- * - Processing payroll (PAYE, pension, NHF calculations)
- * - Approving payroll
- * - Marking payroll as paid
- * - Viewing payslips
- * - ESS payslip access
+ * - Creating remittance records
+ * - Auto-generating from payroll runs
+ * - Marking remittances as paid
+ * - Confirming with receipts
+ * - Viewing overdue and upcoming remittances
  */
 
-test.describe('User Story 8: Payroll Processing', () => {
+test.describe('User Story 9: Statutory Remittances', () => {
   // Test configuration
   const apiUrl = 'https://api.corehr.africa';
   const timestamp = Date.now();
 
   // Shared state across tests
-  let consultantEmail = `payroll.consultant.${timestamp}@example.com`;
+  let consultantEmail = `remit.consultant.${timestamp}@example.com`;
   let consultantPassword = 'Test123!@#';
   let authToken = null;
   let companyId = null;
   let employeeId = null;
   let payrollRunId = null;
-  let payslipId = null;
+  let remittanceId = null;
 
   // ============================================================================
-  // SETUP: Create consultant, company, and employee
+  // SETUP: Create consultant, company, employee, and payroll run
   // ============================================================================
 
-  test('8.0.1 Setup: Create consultant for payroll testing', async ({ page }) => {
+  test('9.0.1 Setup: Create consultant for remittance testing', async ({ page }) => {
     // Create consultant via superadmin invitation flow (like test 07)
     await page.goto('/superadmin/login');
     await page.fill('input[type="email"]', 'admin@rozitech.com');
@@ -47,7 +46,7 @@ test.describe('User Story 8: Payroll Processing', () => {
     await page.getByRole('link', { name: /consultants/i }).click();
     await expect(page.getByRole('heading', { name: /HR Consultants/i })).toBeVisible();
 
-    const companyName = `Payroll Test Consulting ${timestamp}`;
+    const companyName = `Remittance Test Consulting ${timestamp}`;
 
     await page.getByRole('button', { name: /invite consultant/i }).click();
     await expect(page.getByRole('heading', { name: /invite consultant/i })).toBeVisible();
@@ -76,7 +75,7 @@ test.describe('User Story 8: Payroll Processing', () => {
     await expect(page.getByRole('heading', { name: /create your account/i })).toBeVisible({ timeout: 10000 });
 
     // Step 1: Account
-    await page.locator('input').first().fill('Payroll');
+    await page.locator('input').first().fill('Remittance');
     await page.waitForTimeout(200);
     await page.locator('input[type="text"]').nth(1).fill('Consultant');
     await page.waitForTimeout(200);
@@ -107,10 +106,10 @@ test.describe('User Story 8: Payroll Processing', () => {
     await expect(page.getByText(/welcome to corehr/i)).toBeVisible({ timeout: 15000 });
     await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
 
-    console.log(`Payroll Consultant ${consultantEmail} created`);
+    console.log(`Remittance Consultant ${consultantEmail} created`);
   });
 
-  test('8.0.2 Setup: Create company with employees for payroll', async ({ page }) => {
+  test('9.0.2 Setup: Create company for remittance tracking', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel(/email/i).fill(consultantEmail);
     await page.getByLabel(/password/i).fill(consultantPassword);
@@ -128,17 +127,15 @@ test.describe('User Story 8: Payroll Processing', () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          legalName: `Payroll Test Company ${timestamp} Ltd`,
-          tradingName: `Payroll Test Co ${timestamp}`,
+          legalName: `Remittance Test Co ${timestamp} Ltd`,
+          tradingName: `Remittance Co ${timestamp}`,
           rcNumber: `RC${timestamp}`,
           tin: `TIN${timestamp}`,
-          industry: 'Technology',
+          industry: 'Finance',
           employeeCountRange: '11-50',
-          addressLine1: '123 Payroll Street',
+          addressLine1: '456 Tax Street',
           city: 'Lagos',
-          state: 'Lagos',
-          phone: '+234 800 123 4567',
-          email: `payroll${timestamp}@example.com`
+          state: 'Lagos'
         })
       });
       return res.json();
@@ -149,7 +146,7 @@ test.describe('User Story 8: Payroll Processing', () => {
     console.log(`Created company: ${companyResult.data.trading_name} (ID: ${companyId})`);
   });
 
-  test('8.0.3 Setup: Create employee with salary details', async ({ page }) => {
+  test('9.0.3 Setup: Create employee with salary', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel(/email/i).fill(consultantEmail);
     await page.getByLabel(/password/i).fill(consultantPassword);
@@ -168,21 +165,18 @@ test.describe('User Story 8: Payroll Processing', () => {
         },
         body: JSON.stringify({
           companyId: companyId,
-          firstName: 'Adebayo',
-          lastName: 'Ogundimu',
-          email: `adebayo.ogundimu.${timestamp}@example.com`,
-          phone: '+234 801 234 5678',
-          jobTitle: 'Senior Developer',
-          department: 'Engineering',
+          firstName: 'Chioma',
+          lastName: 'Nwosu',
+          email: `chioma.nwosu.${timestamp}@example.com`,
+          phone: '+234 802 345 6789',
+          jobTitle: 'Accountant',
+          department: 'Finance',
           employmentType: 'full_time',
           employmentStatus: 'active',
           hireDate: new Date().toISOString().split('T')[0],
-          salary: 800000, // NGN 800,000 monthly
+          salary: 500000,
           salaryCurrency: 'NGN',
-          payFrequency: 'monthly',
-          bankName: 'First Bank of Nigeria',
-          bankAccountNumber: '1234567890',
-          bankAccountName: 'Adebayo Ogundimu'
+          payFrequency: 'monthly'
         })
       });
       return res.json();
@@ -190,14 +184,10 @@ test.describe('User Story 8: Payroll Processing', () => {
 
     expect(employeeResult.success).toBe(true);
     employeeId = employeeResult.data.id;
-    console.log(`Created employee: Adebayo Ogundimu (ID: ${employeeId})`);
+    console.log(`Created employee: Chioma Nwosu (ID: ${employeeId})`);
   });
 
-  // ============================================================================
-  // STAGE 1: Payroll Run Creation
-  // ============================================================================
-
-  test('8.1.1 Create payroll run for current month', async ({ page }) => {
+  test('9.0.4 Setup: Create and process payroll run', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel(/email/i).fill(consultantEmail);
     await page.getByLabel(/password/i).fill(consultantPassword);
@@ -209,7 +199,7 @@ test.describe('User Story 8: Payroll Processing', () => {
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
 
-    // Create payroll run via API
+    // Create payroll run
     const runResult = await page.evaluate(async ({ apiUrl, token, companyId, month, year }) => {
       const res = await fetch(`${apiUrl}/api/payroll/runs`, {
         method: 'POST',
@@ -221,8 +211,7 @@ test.describe('User Story 8: Payroll Processing', () => {
           company_id: companyId,
           pay_period_month: month,
           pay_period_year: year,
-          payment_date: new Date(year, month, 0).toISOString().split('T')[0], // Last day of month
-          notes: 'E2E Test Payroll Run'
+          notes: 'Remittance test payroll'
         })
       });
       return res.json();
@@ -230,65 +219,8 @@ test.describe('User Story 8: Payroll Processing', () => {
 
     expect(runResult.success).toBe(true);
     payrollRunId = runResult.data.id;
-    expect(runResult.data.status).toBe('draft');
-    console.log(`Created payroll run (ID: ${payrollRunId}) for ${currentMonth}/${currentYear}`);
-  });
 
-  test('8.1.2 View payroll runs page', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/email/i).fill(consultantEmail);
-    await page.getByLabel(/password/i).fill(consultantPassword);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
-
-    // Navigate to payroll runs
-    await page.goto('/dashboard/payroll');
-    await page.waitForLoadState('networkidle');
-
-    // Verify page loads
-    await expect(page.getByRole('heading', { name: /payroll runs/i })).toBeVisible({ timeout: 10000 });
-
-    // Check for the created payroll run in the table
-    await expect(page.getByText(/draft/i).first()).toBeVisible();
-
-    console.log('Payroll runs page accessible');
-  });
-
-  test('8.1.3 List payroll runs via API', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/email/i).fill(consultantEmail);
-    await page.getByLabel(/password/i).fill(consultantPassword);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
-
-    authToken = await page.evaluate(() => localStorage.getItem('token'));
-
-    const runsResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/runs`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      return res.json();
-    }, { apiUrl, token: authToken });
-
-    expect(runsResult.success).toBe(true);
-    expect(runsResult.data.length).toBeGreaterThan(0);
-    console.log(`Found ${runsResult.data.length} payroll runs`);
-  });
-
-  // ============================================================================
-  // STAGE 2: Payroll Processing
-  // ============================================================================
-
-  test('8.2.1 Process payroll run (calculate deductions)', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/email/i).fill(consultantEmail);
-    await page.getByLabel(/password/i).fill(consultantPassword);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
-
-    authToken = await page.evaluate(() => localStorage.getItem('token'));
-
-    // Process the payroll run
+    // Process payroll
     const processResult = await page.evaluate(async ({ apiUrl, token, runId }) => {
       const res = await fetch(`${apiUrl}/api/payroll/runs/${runId}/process`, {
         method: 'POST',
@@ -298,13 +230,14 @@ test.describe('User Story 8: Payroll Processing', () => {
     }, { apiUrl, token: authToken, runId: payrollRunId });
 
     expect(processResult.success).toBe(true);
-    expect(processResult.data.status).toBe('calculated');
-    expect(processResult.data.employee_count).toBeGreaterThan(0);
-
-    console.log(`Processed payroll: ${processResult.data.employee_count} employees, Gross: ${processResult.data.total_gross}, Net: ${processResult.data.total_net}`);
+    console.log(`Created and processed payroll run (ID: ${payrollRunId})`);
   });
 
-  test('8.2.2 Verify payslips were generated', async ({ page }) => {
+  // ============================================================================
+  // STAGE 1: Auto-Generate Remittances from Payroll
+  // ============================================================================
+
+  test('9.1.1 Generate remittances from processed payroll', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel(/email/i).fill(consultantEmail);
     await page.getByLabel(/password/i).fill(consultantPassword);
@@ -313,39 +246,50 @@ test.describe('User Story 8: Payroll Processing', () => {
 
     authToken = await page.evaluate(() => localStorage.getItem('token'));
 
-    // Get payslips for the run
-    const payslipsResult = await page.evaluate(async ({ apiUrl, token, runId }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/payslips?payroll_run_id=${runId}`, {
+    // Generate remittances from payroll
+    const genResult = await page.evaluate(async ({ apiUrl, token, runId }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/generate-from-payroll/${runId}`, {
+        method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
     }, { apiUrl, token: authToken, runId: payrollRunId });
 
-    expect(payslipsResult.success).toBe(true);
-    expect(payslipsResult.data.length).toBeGreaterThan(0);
+    expect(genResult.success).toBe(true);
+    expect(genResult.data.length).toBeGreaterThan(0);
 
-    // Save first payslip ID for later tests
-    payslipId = payslipsResult.data[0].id;
+    // Save first remittance ID for later tests
+    remittanceId = genResult.data[0].id;
 
-    // Verify PAYE calculation (API returns numeric strings)
-    const payslip = payslipsResult.data[0];
-    const grossSalary = parseFloat(payslip.gross_salary);
-    const payeTax = parseFloat(payslip.paye_tax);
-    const pensionEmployee = parseFloat(payslip.pension_employee);
-    const netSalary = parseFloat(payslip.net_salary);
-
-    expect(grossSalary).toBeGreaterThan(0);
-    expect(payeTax).toBeGreaterThan(0);
-    expect(pensionEmployee).toBeGreaterThan(0);
-    expect(netSalary).toBeGreaterThan(0);
-    expect(netSalary).toBeLessThan(grossSalary);
-
-    console.log(`Verified payslip: Gross=${payslip.gross_salary}, PAYE=${payslip.paye_tax}, Pension=${payslip.pension_employee}, Net=${payslip.net_salary}`);
+    console.log(`Generated ${genResult.data.length} remittances from payroll`);
+    genResult.data.forEach(r => {
+      console.log(`  - ${r.remittance_type}: ${r.amount}`);
+    });
   });
 
-  test('8.2.3 Verify PAYE tax calculation accuracy', async ({ page }) => {
+  // ============================================================================
+  // STAGE 2: List and View Remittances
+  // ============================================================================
+
+  test('9.2.1 View remittances page', async ({ page }) => {
     await page.goto('/login');
+    await page.getByLabel(/email/i).fill(consultantEmail);
+    await page.getByLabel(/password/i).fill(consultantPassword);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
+
+    // Navigate to remittances page
+    await page.goto('/dashboard/remittances');
     await page.waitForLoadState('networkidle');
+
+    // Verify page loads
+    await expect(page.getByRole('heading', { name: /statutory remittances/i })).toBeVisible({ timeout: 10000 });
+
+    console.log('Remittances page accessible');
+  });
+
+  test('9.2.2 List remittances via API', async ({ page }) => {
+    await page.goto('/login');
     await page.getByLabel(/email/i).fill(consultantEmail);
     await page.getByLabel(/password/i).fill(consultantPassword);
     await page.getByRole('button', { name: /sign in/i }).click();
@@ -353,133 +297,149 @@ test.describe('User Story 8: Payroll Processing', () => {
 
     authToken = await page.evaluate(() => localStorage.getItem('token'));
 
-    // Use the quick-paye calculator to verify
-    const calcResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/quick-paye`, {
+    const remitResult = await page.evaluate(async ({ apiUrl, token }) => {
+      const res = await fetch(`${apiUrl}/api/remittances`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return res.json();
+    }, { apiUrl, token: authToken });
+
+    expect(remitResult.success).toBe(true);
+    expect(remitResult.data.length).toBeGreaterThan(0);
+
+    console.log(`Found ${remitResult.data.length} remittances`);
+  });
+
+  test('9.2.3 Get remittance summary', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel(/email/i).fill(consultantEmail);
+    await page.getByLabel(/password/i).fill(consultantPassword);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
+
+    authToken = await page.evaluate(() => localStorage.getItem('token'));
+
+    const summaryResult = await page.evaluate(async ({ apiUrl, token }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/summary`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return res.json();
+    }, { apiUrl, token: authToken });
+
+    expect(summaryResult.success).toBe(true);
+    console.log(`Summary has ${summaryResult.data.length} entries`);
+  });
+
+  test('9.2.4 Get single remittance details', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel(/email/i).fill(consultantEmail);
+    await page.getByLabel(/password/i).fill(consultantPassword);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
+
+    authToken = await page.evaluate(() => localStorage.getItem('token'));
+
+    const remitResult = await page.evaluate(async ({ apiUrl, token, remitId }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/${remitId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return res.json();
+    }, { apiUrl, token: authToken, remitId: remittanceId });
+
+    expect(remitResult.success).toBe(true);
+    expect(remitResult.data.id).toBe(remittanceId);
+    expect(remitResult.data.status).toBe('pending');
+
+    console.log(`Remittance: ${remitResult.data.remittance_type}, Amount: ${remitResult.data.amount}, Status: ${remitResult.data.status}`);
+  });
+
+  // ============================================================================
+  // STAGE 3: Remittance Types and PFAs
+  // ============================================================================
+
+  test('9.3.1 Get remittance types', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel(/email/i).fill(consultantEmail);
+    await page.getByLabel(/password/i).fill(consultantPassword);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
+
+    authToken = await page.evaluate(() => localStorage.getItem('token'));
+
+    const typesResult = await page.evaluate(async ({ apiUrl, token }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/types/list`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return res.json();
+    }, { apiUrl, token: authToken });
+
+    expect(typesResult.success).toBe(true);
+    expect(typesResult.data.length).toBe(5); // paye, pension, nhf, nsitf, itf
+
+    console.log('Remittance types:', typesResult.data.map(t => t.code).join(', '));
+  });
+
+  test('9.3.2 Get PFA list', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel(/email/i).fill(consultantEmail);
+    await page.getByLabel(/password/i).fill(consultantPassword);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
+
+    authToken = await page.evaluate(() => localStorage.getItem('token'));
+
+    const pfaResult = await page.evaluate(async ({ apiUrl, token }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/pfas/list`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return res.json();
+    }, { apiUrl, token: authToken });
+
+    expect(pfaResult.success).toBe(true);
+    expect(pfaResult.data.length).toBeGreaterThan(0);
+
+    console.log(`Found ${pfaResult.data.length} Pension Fund Administrators`);
+  });
+
+  // ============================================================================
+  // STAGE 4: Mark Remittance as Paid
+  // ============================================================================
+
+  test('9.4.1 Mark remittance as paid', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel(/email/i).fill(consultantEmail);
+    await page.getByLabel(/password/i).fill(consultantPassword);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
+
+    authToken = await page.evaluate(() => localStorage.getItem('token'));
+
+    const paidResult = await page.evaluate(async ({ apiUrl, token, remitId }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/${remitId}/mark-paid`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          grossSalary: 800000, // Same as employee salary
-          period: 'monthly'
+          payment_date: new Date().toISOString().split('T')[0],
+          payment_reference: 'PAY-REF-12345',
+          payment_method: 'bank_transfer',
+          payment_bank: 'First Bank',
+          notes: 'E2E test payment'
         })
       });
       return res.json();
-    }, { apiUrl, token: authToken });
-
-    expect(calcResult.success).toBe(true);
-    expect(calcResult.data.monthly.paye).toBeGreaterThan(0);
-    expect(calcResult.data.monthly.pension).toBeGreaterThan(0);
-    expect(calcResult.data.effectiveTaxRate).toBeDefined();
-
-    console.log(`PAYE calculator verified: Monthly PAYE=${calcResult.data.monthly.paye}, Effective rate=${calcResult.data.effectiveTaxRate}`);
-  });
-
-  // ============================================================================
-  // STAGE 3: Payroll Approval
-  // ============================================================================
-
-  test('8.3.1 Approve payroll run', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/email/i).fill(consultantEmail);
-    await page.getByLabel(/password/i).fill(consultantPassword);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
-
-    authToken = await page.evaluate(() => localStorage.getItem('token'));
-
-    // Approve the payroll run
-    const approveResult = await page.evaluate(async ({ apiUrl, token, runId }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/runs/${runId}/approve`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      return res.json();
-    }, { apiUrl, token: authToken, runId: payrollRunId });
-
-    expect(approveResult.success).toBe(true);
-    expect(approveResult.data.status).toBe('approved');
-
-    console.log('Payroll run approved successfully');
-  });
-
-  test('8.3.2 Verify payslips are now approved', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/email/i).fill(consultantEmail);
-    await page.getByLabel(/password/i).fill(consultantPassword);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
-
-    authToken = await page.evaluate(() => localStorage.getItem('token'));
-
-    // Get payslip status
-    console.log(`Fetching payslip ID: ${payslipId}`);
-    const payslipResult = await page.evaluate(async ({ apiUrl, token, payslipId }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/payslips/${payslipId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      return res.json();
-    }, { apiUrl, token: authToken, payslipId });
-
-    console.log(`Payslip API response:`, JSON.stringify(payslipResult));
-    expect(payslipResult.success).toBe(true);
-    expect(payslipResult.data.status).toBe('approved');
-
-    console.log('Payslips status updated to approved');
-  });
-
-  // ============================================================================
-  // STAGE 4: Mark Payroll as Paid
-  // ============================================================================
-
-  test('8.4.1 Mark payroll run as paid', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/email/i).fill(consultantEmail);
-    await page.getByLabel(/password/i).fill(consultantPassword);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
-
-    authToken = await page.evaluate(() => localStorage.getItem('token'));
-
-    // Mark as paid
-    const paidResult = await page.evaluate(async ({ apiUrl, token, runId }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/runs/${runId}/mark-paid`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      return res.json();
-    }, { apiUrl, token: authToken, runId: payrollRunId });
+    }, { apiUrl, token: authToken, remitId: remittanceId });
 
     expect(paidResult.success).toBe(true);
     expect(paidResult.data.status).toBe('paid');
+    expect(paidResult.data.payment_reference).toBe('PAY-REF-12345');
 
-    console.log('Payroll run marked as paid');
+    console.log('Remittance marked as paid');
   });
 
-  // ============================================================================
-  // STAGE 5: View Payroll Run Details
-  // ============================================================================
-
-  test('8.5.1 View payroll run detail page', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/email/i).fill(consultantEmail);
-    await page.getByLabel(/password/i).fill(consultantPassword);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
-
-    // Navigate to payroll run detail
-    await page.goto(`/dashboard/payroll/${payrollRunId}`);
-    await page.waitForLoadState('networkidle');
-
-    // Verify page content
-    await expect(page.getByText(/payroll/i).first()).toBeVisible({ timeout: 10000 });
-
-    console.log('Payroll run detail page accessible');
-  });
-
-  test('8.5.2 Get payroll run with payslips via API', async ({ page }) => {
+  test('9.4.2 Verify payment recorded in audit log', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel(/email/i).fill(consultantEmail);
     await page.getByLabel(/password/i).fill(consultantPassword);
@@ -488,27 +448,25 @@ test.describe('User Story 8: Payroll Processing', () => {
 
     authToken = await page.evaluate(() => localStorage.getItem('token'));
 
-    // Get run details with payslips
-    const runResult = await page.evaluate(async ({ apiUrl, token, runId }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/runs/${runId}`, {
+    const remitResult = await page.evaluate(async ({ apiUrl, token, remitId }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/${remitId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
-    }, { apiUrl, token: authToken, runId: payrollRunId });
+    }, { apiUrl, token: authToken, remitId: remittanceId });
 
-    expect(runResult.success).toBe(true);
-    expect(runResult.data.payslips).toBeDefined();
-    expect(runResult.data.payslips.length).toBeGreaterThan(0);
-    expect(runResult.data.status).toBe('paid');
+    expect(remitResult.success).toBe(true);
+    expect(remitResult.data.audit_log).toBeDefined();
+    expect(remitResult.data.audit_log.length).toBeGreaterThan(0);
 
-    console.log(`Payroll run has ${runResult.data.payslips.length} payslips`);
+    console.log(`Audit log has ${remitResult.data.audit_log.length} entries`);
   });
 
   // ============================================================================
-  // STAGE 6: Tax Tables and Calculator
+  // STAGE 5: Confirm Remittance with Receipt
   // ============================================================================
 
-  test('8.6.1 Get Nigerian tax tables', async ({ page }) => {
+  test('9.5.1 Confirm remittance with receipt', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel(/email/i).fill(consultantEmail);
     await page.getByLabel(/password/i).fill(consultantPassword);
@@ -517,71 +475,34 @@ test.describe('User Story 8: Payroll Processing', () => {
 
     authToken = await page.evaluate(() => localStorage.getItem('token'));
 
-    // Get tax tables
-    const taxResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/tax-tables`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      return res.json();
-    }, { apiUrl, token: authToken });
-
-    expect(taxResult.success).toBe(true);
-    expect(taxResult.data.taxBands).toBeDefined();
-    expect(taxResult.data.taxBands.length).toBe(6); // Nigerian has 6 tax bands
-    expect(taxResult.data.statutoryRates).toBeDefined();
-    expect(taxResult.data.statutoryRates.pension.employee).toBe('8%');
-    expect(taxResult.data.statutoryRates.pension.employer).toBe('10%');
-
-    console.log(`Tax tables loaded: ${taxResult.data.taxBands.length} bands, Source: ${taxResult.data.source}`);
-  });
-
-  test('8.6.2 Full payroll calculation via API', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel(/email/i).fill(consultantEmail);
-    await page.getByLabel(/password/i).fill(consultantPassword);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
-
-    authToken = await page.evaluate(() => localStorage.getItem('token'));
-
-    // Full calculation with breakdown
-    const calcResult = await page.evaluate(async ({ apiUrl, token }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/calculate`, {
+    const confirmResult = await page.evaluate(async ({ apiUrl, token, remitId }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/${remitId}/confirm`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          basicSalary: 400000,      // Basic 50%
-          housingAllowance: 160000, // Housing 20%
-          transportAllowance: 120000, // Transport 15%
-          utilityAllowance: 40000,  // Utility 5%
-          mealAllowance: 40000,     // Meal 5%
-          otherAllowances: 40000,   // Other 5%
-          pensionEnabled: true,
-          nhfEnabled: true,
-          period: 'monthly'
+          receipt_number: 'FIRS-RCT-2024-001234',
+          confirmation_date: new Date().toISOString().split('T')[0],
+          notes: 'Receipt received from FIRS'
         })
       });
       return res.json();
-    }, { apiUrl, token: authToken });
+    }, { apiUrl, token: authToken, remitId: remittanceId });
 
-    expect(calcResult.success).toBe(true);
-    expect(calcResult.data.income.annual.gross).toBe(9600000); // 800k * 12
-    expect(calcResult.data.reliefs.cra).toBeGreaterThan(0);
-    expect(calcResult.data.tax.annualPAYE).toBeGreaterThan(0);
-    expect(calcResult.data.tax.breakdown.length).toBeGreaterThan(0);
-    expect(calcResult.data.deductions.employer.pensionContribution).toBeGreaterThan(0);
+    expect(confirmResult.success).toBe(true);
+    expect(confirmResult.data.status).toBe('confirmed');
+    expect(confirmResult.data.receipt_number).toBe('FIRS-RCT-2024-001234');
 
-    console.log(`Full calculation: Gross=${calcResult.data.summary.grossAnnual}, Tax=${calcResult.data.summary.totalTaxAnnual}, Net=${calcResult.data.summary.netAnnual}`);
+    console.log('Remittance confirmed with receipt');
   });
 
   // ============================================================================
-  // STAGE 7: Payslip PDF Generation
+  // STAGE 6: Overdue and Upcoming Remittances
   // ============================================================================
 
-  test('8.7.1 Generate payslip PDF', async ({ page }) => {
+  test('9.6.1 Get upcoming remittances', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel(/email/i).fill(consultantEmail);
     await page.getByLabel(/password/i).fill(consultantPassword);
@@ -590,29 +511,87 @@ test.describe('User Story 8: Payroll Processing', () => {
 
     authToken = await page.evaluate(() => localStorage.getItem('token'));
 
-    // Request PDF (check it returns correct content-type)
-    const pdfResponse = await page.evaluate(async ({ apiUrl, token, payslipId }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/payslips/${payslipId}/pdf`, {
+    const upcomingResult = await page.evaluate(async ({ apiUrl, token }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/upcoming?days=30`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      return {
-        ok: res.ok,
-        status: res.status,
-        contentType: res.headers.get('content-type')
-      };
-    }, { apiUrl, token: authToken, payslipId });
+      return res.json();
+    }, { apiUrl, token: authToken });
 
-    expect(pdfResponse.ok).toBe(true);
-    expect(pdfResponse.contentType).toContain('application/pdf');
+    expect(upcomingResult.success).toBe(true);
+    console.log(`Found ${upcomingResult.data.length} upcoming remittances (next 30 days)`);
+  });
 
-    console.log('Payslip PDF generated successfully');
+  test('9.6.2 Get overdue remittances', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel(/email/i).fill(consultantEmail);
+    await page.getByLabel(/password/i).fill(consultantPassword);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
+
+    authToken = await page.evaluate(() => localStorage.getItem('token'));
+
+    const overdueResult = await page.evaluate(async ({ apiUrl, token }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/overdue`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return res.json();
+    }, { apiUrl, token: authToken });
+
+    expect(overdueResult.success).toBe(true);
+    console.log(`Found ${overdueResult.data.length} overdue remittances`);
+  });
+
+  // ============================================================================
+  // STAGE 7: Create Manual Remittance
+  // ============================================================================
+
+  test('9.7.1 Create manual remittance record', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel(/email/i).fill(consultantEmail);
+    await page.getByLabel(/password/i).fill(consultantPassword);
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await expect(page).toHaveURL(/dashboard/i, { timeout: 15000 });
+
+    authToken = await page.evaluate(() => localStorage.getItem('token'));
+
+    const currentMonth = new Date().getMonth(); // Previous month
+    const currentYear = new Date().getFullYear();
+
+    const createResult = await page.evaluate(async ({ apiUrl, token, companyId, month, year }) => {
+      const res = await fetch(`${apiUrl}/api/remittances`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          company_id: companyId,
+          remittance_type: 'itf',
+          pay_period_month: month || 12,
+          pay_period_year: month ? year : year - 1,
+          amount: 15000,
+          employee_contribution: 0,
+          employer_contribution: 15000,
+          agency_name: 'Industrial Training Fund',
+          due_date: new Date(year, month, 10).toISOString().split('T')[0],
+          notes: 'ITF contribution - manual entry'
+        })
+      });
+      return res.json();
+    }, { apiUrl, token: authToken, companyId, month: currentMonth, year: currentYear });
+
+    expect(createResult.success).toBe(true);
+    expect(createResult.data.remittance_type).toBe('itf');
+
+    console.log(`Created manual ITF remittance: ${createResult.data.amount}`);
   });
 
   // ============================================================================
   // VERIFICATION
   // ============================================================================
 
-  test('8.8.1 Verify complete payroll workflow', async ({ page }) => {
+  test('9.8.1 Verify complete remittance workflow', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel(/email/i).fill(consultantEmail);
     await page.getByLabel(/password/i).fill(consultantPassword);
@@ -621,30 +600,27 @@ test.describe('User Story 8: Payroll Processing', () => {
 
     authToken = await page.evaluate(() => localStorage.getItem('token'));
 
-    // Get final run state
-    const runResult = await page.evaluate(async ({ apiUrl, token, runId }) => {
-      const res = await fetch(`${apiUrl}/api/payroll/runs/${runId}`, {
+    // Get final state
+    const remitResult = await page.evaluate(async ({ apiUrl, token, remitId }) => {
+      const res = await fetch(`${apiUrl}/api/remittances/${remitId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return res.json();
-    }, { apiUrl, token: authToken, runId: payrollRunId });
+    }, { apiUrl, token: authToken, remitId: remittanceId });
 
-    expect(runResult.success).toBe(true);
-    expect(runResult.data.status).toBe('paid');
-    expect(runResult.data.total_gross).toBeGreaterThan(0);
-    expect(runResult.data.total_net).toBeGreaterThan(0);
-    expect(runResult.data.total_paye).toBeGreaterThan(0);
-    expect(runResult.data.total_pension_employee).toBeGreaterThan(0);
-    expect(runResult.data.employee_count).toBeGreaterThan(0);
-    expect(runResult.data.payslips.length).toBe(runResult.data.employee_count);
+    expect(remitResult.success).toBe(true);
+    expect(remitResult.data.status).toBe('confirmed');
+    expect(remitResult.data.payment_reference).toBeDefined();
+    expect(remitResult.data.receipt_number).toBeDefined();
+    expect(remitResult.data.audit_log.length).toBeGreaterThanOrEqual(2);
 
-    console.log('=== PAYROLL WORKFLOW COMPLETE ===');
-    console.log(`Company ID: ${companyId}`);
-    console.log(`Payroll Run ID: ${payrollRunId}`);
-    console.log(`Status: ${runResult.data.status}`);
-    console.log(`Employees: ${runResult.data.employee_count}`);
-    console.log(`Total Gross: ${runResult.data.total_gross}`);
-    console.log(`Total PAYE: ${runResult.data.total_paye}`);
-    console.log(`Total Net: ${runResult.data.total_net}`);
+    console.log('=== REMITTANCE WORKFLOW COMPLETE ===');
+    console.log(`Remittance ID: ${remitResult.data.id}`);
+    console.log(`Type: ${remitResult.data.remittance_type}`);
+    console.log(`Amount: ${remitResult.data.amount}`);
+    console.log(`Status: ${remitResult.data.status}`);
+    console.log(`Payment Ref: ${remitResult.data.payment_reference}`);
+    console.log(`Receipt: ${remitResult.data.receipt_number}`);
+    console.log(`Audit Log Entries: ${remitResult.data.audit_log.length}`);
   });
 });

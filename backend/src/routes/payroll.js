@@ -763,7 +763,7 @@ router.get('/payslips/:id', async (req, res) => {
 
     const result = await pool.query(`
       SELECT ps.*, pr.pay_period_month, pr.pay_period_year, pr.payment_date,
-        c.trading_name as company_name, c.address as company_address
+        c.trading_name as company_name, c.address_line1 as company_address
       FROM payslips ps
       JOIN payroll_runs pr ON ps.payroll_run_id = pr.id
       JOIN companies c ON pr.company_id = c.id
