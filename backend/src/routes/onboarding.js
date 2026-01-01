@@ -492,7 +492,7 @@ router.post('/company/complete', [
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Complete company admin registration error:', error);
-    res.status(500).json({ success: false, error: 'Registration failed' });
+    res.status(500).json({ success: false, error: error.message || 'Registration failed' });
   } finally {
     client.release();
   }
