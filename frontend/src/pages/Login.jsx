@@ -193,7 +193,7 @@ function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-4 py-3 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all duration-200 focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                    placeholder="admin@teamace.ng"
+                    placeholder="admin@corehr.africa"
                   />
                 </div>
 
@@ -251,7 +251,7 @@ function Login() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-primary-700 mb-1">Demo Credentials</p>
-                    <p className="text-sm text-primary-500">Email: admin@teamace.ng</p>
+                    <p className="text-sm text-primary-500">Email: admin@corehr.africa</p>
                     <p className="text-sm text-primary-500">Password: Demo123!</p>
                   </div>
                 </div>

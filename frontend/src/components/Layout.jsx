@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
@@ -31,7 +31,8 @@ import {
   ShieldExclamationIcon,
   StarIcon,
   UserMinusIcon,
-  RocketLaunchIcon
+  RocketLaunchIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
 // Navigation config with user_type filtering
@@ -118,12 +119,36 @@ const getFilteredNavigation = (userRole, userType) => {
 
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [expandedSection, setExpandedSection] = useState(null);
   const { user, logout, isStaff, isConsultant, activeCompanyId, switchCompany, getActiveCompany } = useAuth();
   const { companies, selectedCompany, isCompanyMode, preferences, loading: companyLoading } = useCompany();
   const location = useLocation();
 
   const isActive = (href) => location.pathname === href;
   const filteredNav = getFilteredNavigation(user?.role, user?.userType);
+
+  // Toggle accordion section
+  const toggleSection = (sectionName) => {
+    setExpandedSection(expandedSection === sectionName ? null : sectionName);
+  };
+
+  // Close mobile sidebar when clicking a nav item
+  const handleNavClick = () => {
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  };
+
+  // Auto-expand section containing active page
+  useEffect(() => {
+    const activeSection = filteredNav.find(item =>
+      item.children?.some(child => location.pathname === child.href)
+    );
+    if (activeSection) {
+      setExpandedSection(activeSection.name);
+    }
+  }, [location.pathname, filteredNav]);
+
   const activeCompany = getActiveCompany();
   const hasMultipleDeployments = isStaff && user?.deployedCompanies?.length > 1;
   const showCompanySwitcher = isConsultant && companies.length > 0;
@@ -190,15 +215,26 @@ function Layout() {
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto min-h-0">
           {filteredNav.map((item) => (
             item.children ? (
-              <div key={item.name} className="mb-6">
-                <div className="px-3 mb-2 text-[11px] font-semibold text-primary-400 uppercase tracking-widest">
-                  {item.name}
-                </div>
-                <div className="space-y-0.5">
+              <div key={item.name} className="mb-2">
+                <button
+                  onClick={() => toggleSection(item.name)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-[11px] font-semibold text-primary-500 uppercase tracking-widest hover:bg-primary-50 rounded-lg transition-colors"
+                >
+                  <span>{item.name}</span>
+                  <ChevronDownIcon
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      expandedSection === item.name ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                <div className={`space-y-0.5 overflow-hidden transition-all duration-200 ${
+                  expandedSection === item.name ? 'max-h-96 opacity-100 mt-1' : 'max-h-0 opacity-0'
+                }`}>
                   {item.children.map((child) => (
                     <Link
                       key={child.name}
                       to={child.href}
+                      onClick={handleNavClick}
                       className={`
                         flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150
                         ${isActive(child.href)
@@ -217,6 +253,7 @@ function Layout() {
               <Link
                 key={item.name}
                 to={item.href}
+                onClick={handleNavClick}
                 className={`
                   flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150
                   ${isActive(item.href)

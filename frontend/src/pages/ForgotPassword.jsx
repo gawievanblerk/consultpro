@@ -31,15 +31,11 @@ function ForgotPassword() {
         <div className="text-center mb-8">
           <div className="bg-white rounded-lg px-4 py-3 inline-block mb-4">
             <img
-              src="/teamace-icon.png"
-              alt="TeamACE"
+              src="/logo.svg"
+              alt="CoreHR"
               className="h-12"
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
             />
           </div>
-          <h1 className="text-3xl font-bold text-white">CoreHR</h1>
           <p className="mt-2 text-primary-200">HR & Consulting Platform</p>
         </div>
 
