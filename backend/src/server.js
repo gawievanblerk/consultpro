@@ -39,6 +39,196 @@ app.get('/health', (req, res) => {
 });
 
 // ============================================================================
+// Database Migrations API
+// ============================================================================
+const fs = require('fs');
+const path = require('path');
+
+// Available migrations with their descriptions
+const MIGRATIONS = {
+  '001_initial_schema': 'Core database schema',
+  '002_seed_data': 'Demo data for testing',
+  '003_phase1_features': 'Phase 1 feature enhancements',
+  '004_password_reset_invites': 'Password reset and invitation system',
+  '005_corehr_hierarchy': 'CoreHR organizational hierarchy',
+  '006_leave_management': 'Leave management system',
+  '007_client_onboarding': 'Client onboarding workflow',
+  '008_policy_and_training_lms': 'Policy and training LMS',
+  '009_teamace_employees_seed': 'TeamACE demo employees',
+  '010_user_role_cleanup': 'User role structure cleanup',
+  '011_test_employee_user': 'Test employee user data',
+  '012_payroll_system': 'Payroll processing system',
+  '013_employee_management_system': 'Employee lifecycle management (EMS)',
+  '014_company_preferences': 'Company selector preferences'
+};
+
+// GET /run-migrations - List available migrations
+app.get('/run-migrations', async (req, res) => {
+  try {
+    // Create migration tracking table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        executed_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Get executed migrations
+    const executed = await pool.query('SELECT name, executed_at FROM _migrations ORDER BY id');
+    const executedNames = new Set(executed.rows.map(r => r.name));
+
+    const migrations = Object.entries(MIGRATIONS).map(([name, description]) => ({
+      name,
+      description,
+      status: executedNames.has(name) ? 'executed' : 'pending',
+      executed_at: executed.rows.find(r => r.name === name)?.executed_at || null
+    }));
+
+    res.json({
+      success: true,
+      message: 'Available migrations',
+      data: migrations,
+      usage: {
+        run_all: 'GET /run-migrations/all',
+        run_specific: 'GET /run-migrations/:name',
+        examples: [
+          '/run-migrations/013_employee_management_system',
+          '/run-migrations/014_company_preferences'
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Error listing migrations:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /run-migrations/all - Run all pending migrations
+app.get('/run-migrations/all', async (req, res) => {
+  try {
+    // Create migration tracking table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        executed_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Get executed migrations
+    const executed = await pool.query('SELECT name FROM _migrations');
+    const executedNames = new Set(executed.rows.map(r => r.name));
+
+    const results = [];
+    const migrationsDir = path.join(__dirname, '../migrations');
+
+    for (const [name, description] of Object.entries(MIGRATIONS)) {
+      if (executedNames.has(name)) {
+        results.push({ name, status: 'skipped', message: 'Already executed' });
+        continue;
+      }
+
+      const filePath = path.join(migrationsDir, `${name}.sql`);
+      if (!fs.existsSync(filePath)) {
+        results.push({ name, status: 'error', message: 'Migration file not found' });
+        continue;
+      }
+
+      try {
+        const sql = fs.readFileSync(filePath, 'utf8');
+        await pool.query(sql);
+        await pool.query('INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [name]);
+        results.push({ name, status: 'success', message: description });
+      } catch (err) {
+        results.push({ name, status: 'error', message: err.message });
+        // Stop on first error
+        break;
+      }
+    }
+
+    const successCount = results.filter(r => r.status === 'success').length;
+    const skippedCount = results.filter(r => r.status === 'skipped').length;
+    const errorCount = results.filter(r => r.status === 'error').length;
+
+    res.json({
+      success: errorCount === 0,
+      message: `Migrations: ${successCount} executed, ${skippedCount} skipped, ${errorCount} errors`,
+      data: results
+    });
+  } catch (error) {
+    console.error('Error running all migrations:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET /run-migrations/:name - Run specific migration
+app.get('/run-migrations/:name', async (req, res) => {
+  const { name } = req.params;
+  const force = req.query.force === 'true';
+
+  try {
+    // Validate migration name
+    if (!MIGRATIONS[name]) {
+      return res.status(400).json({
+        success: false,
+        error: `Unknown migration: ${name}`,
+        available: Object.keys(MIGRATIONS)
+      });
+    }
+
+    // Create migration tracking table if not exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        executed_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Check if already executed
+    if (!force) {
+      const check = await pool.query('SELECT 1 FROM _migrations WHERE name = $1', [name]);
+      if (check.rows.length > 0) {
+        return res.json({
+          success: true,
+          message: `Migration ${name} already executed. Use ?force=true to re-run.`
+        });
+      }
+    }
+
+    // Run migration
+    const migrationsDir = path.join(__dirname, '../migrations');
+    const filePath = path.join(migrationsDir, `${name}.sql`);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        error: `Migration file not found: ${name}.sql`
+      });
+    }
+
+    const sql = fs.readFileSync(filePath, 'utf8');
+    await pool.query(sql);
+
+    // Record migration
+    await pool.query(
+      'INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET executed_at = NOW()',
+      [name]
+    );
+
+    res.json({
+      success: true,
+      message: `Migration ${name} executed successfully`,
+      description: MIGRATIONS[name]
+    });
+  } catch (error) {
+    console.error(`Error running migration ${name}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================================================
 // Public Routes (No auth required)
 // ============================================================================
 
@@ -311,229 +501,6 @@ app.get('/list-users', async (req, res) => {
     `);
     res.json({ success: true, data: result.rows });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ============================================================================
-// Temporary: Run Leave Management Migration
-// ============================================================================
-app.get('/run-leave-migration', async (req, res) => {
-  try {
-    // Check if tables already exist
-    const tableCheck = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables WHERE table_name = 'leave_types'
-      ) as exists
-    `);
-
-    if (tableCheck.rows[0].exists) {
-      // Tables exist - check if employee_id columns need to be added
-      const colCheck = await pool.query(`
-        SELECT column_name FROM information_schema.columns
-        WHERE table_name = 'leave_balances' AND column_name = 'employee_id'
-      `);
-
-      if (colCheck.rows.length === 0) {
-        // Add employee_id columns to existing tables
-        await pool.query(`ALTER TABLE leave_balances ADD COLUMN IF NOT EXISTS employee_id UUID REFERENCES employees(id)`);
-        await pool.query(`ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS employee_id UUID REFERENCES employees(id)`);
-        await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_balances_employee ON leave_balances(employee_id)`);
-        await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_requests_employee ON leave_requests(employee_id) WHERE deleted_at IS NULL`);
-        return res.json({ success: true, message: 'Added employee_id columns to leave tables' });
-      }
-
-      return res.json({ success: true, message: 'Leave tables already exist with employee support' });
-    }
-
-    // Create leave_types table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS leave_types (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        tenant_id UUID NOT NULL REFERENCES tenants(id),
-        name VARCHAR(100) NOT NULL,
-        code VARCHAR(20) NOT NULL,
-        description TEXT,
-        days_allowed INTEGER NOT NULL DEFAULT 0,
-        carry_forward BOOLEAN DEFAULT FALSE,
-        max_carry_forward INTEGER DEFAULT 0,
-        requires_approval BOOLEAN DEFAULT TRUE,
-        requires_documentation BOOLEAN DEFAULT FALSE,
-        is_paid BOOLEAN DEFAULT TRUE,
-        is_active BOOLEAN DEFAULT TRUE,
-        min_service_months INTEGER DEFAULT 0,
-        gender_restriction VARCHAR(20),
-        color VARCHAR(7) DEFAULT '#3B82F6',
-        sort_order INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        deleted_at TIMESTAMP,
-        UNIQUE(tenant_id, code)
-      )
-    `);
-
-    // Create leave_balances table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS leave_balances (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        tenant_id UUID NOT NULL REFERENCES tenants(id),
-        staff_id UUID REFERENCES staff(id),
-        employee_id UUID REFERENCES employees(id),
-        leave_type_id UUID NOT NULL REFERENCES leave_types(id),
-        year INTEGER NOT NULL,
-        entitled_days DECIMAL(5,2) NOT NULL DEFAULT 0,
-        carried_forward DECIMAL(5,2) DEFAULT 0,
-        adjustment_days DECIMAL(5,2) DEFAULT 0,
-        adjustment_reason TEXT,
-        used_days DECIMAL(5,2) DEFAULT 0,
-        pending_days DECIMAL(5,2) DEFAULT 0,
-        available_days DECIMAL(5,2) GENERATED ALWAYS AS (
-          entitled_days + carried_forward + adjustment_days - used_days - pending_days
-        ) STORED,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create leave_requests table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS leave_requests (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        tenant_id UUID NOT NULL REFERENCES tenants(id),
-        staff_id UUID REFERENCES staff(id),
-        employee_id UUID REFERENCES employees(id),
-        leave_type_id UUID NOT NULL REFERENCES leave_types(id),
-        leave_balance_id UUID REFERENCES leave_balances(id),
-        start_date DATE NOT NULL,
-        end_date DATE NOT NULL,
-        days_requested DECIMAL(5,2) NOT NULL,
-        is_half_day BOOLEAN DEFAULT FALSE,
-        half_day_period VARCHAR(20),
-        reason TEXT,
-        status VARCHAR(20) DEFAULT 'pending',
-        approver_id UUID REFERENCES users(id),
-        approved_at TIMESTAMP,
-        rejection_reason TEXT,
-        cancelled_at TIMESTAMP,
-        cancelled_by UUID REFERENCES users(id),
-        cancellation_reason TEXT,
-        supporting_document_url TEXT,
-        requested_by UUID REFERENCES users(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        deleted_at TIMESTAMP
-      )
-    `);
-
-    // Create public_holidays table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS public_holidays (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        tenant_id UUID REFERENCES tenants(id),
-        name VARCHAR(200) NOT NULL,
-        date DATE NOT NULL,
-        year INTEGER NOT NULL,
-        is_recurring BOOLEAN DEFAULT FALSE,
-        recurring_month INTEGER,
-        recurring_day INTEGER,
-        country VARCHAR(100) DEFAULT 'Nigeria',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create indexes
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_types_tenant ON leave_types(tenant_id) WHERE deleted_at IS NULL`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_balances_staff ON leave_balances(staff_id)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_requests_staff ON leave_requests(staff_id) WHERE deleted_at IS NULL`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(tenant_id, status) WHERE deleted_at IS NULL`);
-
-    // Seed default leave types
-    await pool.query(`
-      INSERT INTO leave_types (tenant_id, name, code, description, days_allowed, carry_forward, max_carry_forward, requires_approval, requires_documentation, is_paid, min_service_months, gender_restriction, color, sort_order)
-      SELECT
-        id as tenant_id,
-        lt.name, lt.code, lt.description, lt.days_allowed, lt.carry_forward, lt.max_carry_forward,
-        lt.requires_approval, lt.requires_documentation, lt.is_paid, lt.min_service_months,
-        lt.gender_restriction, lt.color, lt.sort_order
-      FROM tenants, (VALUES
-        ('Annual Leave', 'ANNUAL', 'Standard annual leave entitlement', 21, true, 5, true, false, true, 12, NULL, '#10B981', 1),
-        ('Sick Leave', 'SICK', 'Leave for illness with medical certificate', 12, false, 0, true, true, true, 0, NULL, '#EF4444', 2),
-        ('Maternity Leave', 'MATERNITY', '12 weeks maternity leave', 84, false, 0, true, true, true, 0, 'female', '#EC4899', 3),
-        ('Paternity Leave', 'PATERNITY', 'Leave for new fathers', 10, false, 0, true, true, true, 0, 'male', '#8B5CF6', 4),
-        ('Compassionate Leave', 'COMPASSIONATE', 'Leave for bereavement or emergency', 5, false, 0, true, false, true, 0, NULL, '#6B7280', 5)
-      ) AS lt(name, code, description, days_allowed, carry_forward, max_carry_forward, requires_approval, requires_documentation, is_paid, min_service_months, gender_restriction, color, sort_order)
-      WHERE tenants.deleted_at IS NULL
-      ON CONFLICT (tenant_id, code) DO NOTHING
-    `);
-
-    // Seed Nigerian public holidays
-    await pool.query(`
-      INSERT INTO public_holidays (name, date, year, is_recurring, country)
-      VALUES
-        ('New Year''s Day', '2025-01-01', 2025, true, 'Nigeria'),
-        ('Workers'' Day', '2025-05-01', 2025, true, 'Nigeria'),
-        ('Democracy Day', '2025-06-12', 2025, true, 'Nigeria'),
-        ('Independence Day', '2025-10-01', 2025, true, 'Nigeria'),
-        ('Christmas Day', '2025-12-25', 2025, true, 'Nigeria'),
-        ('Boxing Day', '2025-12-26', 2025, true, 'Nigeria')
-      ON CONFLICT DO NOTHING
-    `);
-
-    res.json({ success: true, message: 'Leave management tables created and seeded' });
-  } catch (error) {
-    console.error('Error running leave migration:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ============================================================================
-// Temporary: Run User Role Structure Migration
-// ============================================================================
-app.get('/run-role-migration', async (req, res) => {
-  try {
-    // Check if staff_company_access table already exists
-    const tableCheck = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables WHERE table_name = 'staff_company_access'
-      ) as exists
-    `);
-
-    if (tableCheck.rows[0].exists) {
-      return res.json({ success: true, message: 'staff_company_access table already exists' });
-    }
-
-    // 1. Add staff_id to users table
-    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS staff_id UUID REFERENCES staff(id)`);
-
-    // 2. Create staff-to-company deployment access table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS staff_company_access (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        staff_id UUID NOT NULL REFERENCES staff(id) ON DELETE CASCADE,
-        company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-        consultant_id UUID NOT NULL REFERENCES consultants(id),
-        access_type VARCHAR(50) DEFAULT 'full_admin',
-        start_date DATE DEFAULT CURRENT_DATE,
-        end_date DATE,
-        status VARCHAR(50) DEFAULT 'active',
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        created_by UUID REFERENCES users(id),
-        UNIQUE(staff_id, company_id, status)
-      )
-    `);
-
-    // 3. Create indexes
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_staff_company_access_staff ON staff_company_access(staff_id)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_staff_company_access_company ON staff_company_access(company_id)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_staff_company_access_consultant ON staff_company_access(consultant_id)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_staff_company_access_active ON staff_company_access(status) WHERE status = 'active'`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_users_staff_id ON users(staff_id) WHERE staff_id IS NOT NULL`);
-
-    res.json({ success: true, message: 'User role structure migration completed' });
-  } catch (error) {
-    console.error('Error running role migration:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -934,216 +901,6 @@ app.get('/cleanup-duplicates', async (req, res) => {
     });
   } catch (error) {
     console.error('Error cleaning duplicates:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ============================================================================
-// Temporary: Run Payroll System Migration
-// ============================================================================
-app.get('/run-payroll-migration', async (req, res) => {
-  try {
-    // Check if tables already exist
-    const tableCheck = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables WHERE table_name = 'payroll_runs'
-      ) as exists
-    `);
-
-    if (tableCheck.rows[0].exists) {
-      return res.json({ success: true, message: 'Payroll tables already exist' });
-    }
-
-    // Create salary_components table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS salary_components (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-        employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-        component_type VARCHAR(50) NOT NULL,
-        name VARCHAR(100) NOT NULL,
-        amount DECIMAL(15,2) NOT NULL DEFAULT 0,
-        is_taxable BOOLEAN DEFAULT TRUE,
-        is_pension_applicable BOOLEAN DEFAULT TRUE,
-        effective_date DATE DEFAULT CURRENT_DATE,
-        end_date DATE,
-        notes TEXT,
-        created_by UUID REFERENCES users(id),
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    // Create payroll_runs table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS payroll_runs (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-        company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
-        pay_period_month INTEGER NOT NULL CHECK (pay_period_month BETWEEN 1 AND 12),
-        pay_period_year INTEGER NOT NULL CHECK (pay_period_year >= 2020),
-        pay_period_start DATE NOT NULL,
-        pay_period_end DATE NOT NULL,
-        payment_date DATE NOT NULL,
-        status VARCHAR(50) DEFAULT 'draft',
-        total_gross DECIMAL(15,2) DEFAULT 0,
-        total_net DECIMAL(15,2) DEFAULT 0,
-        total_paye DECIMAL(15,2) DEFAULT 0,
-        total_pension_employee DECIMAL(15,2) DEFAULT 0,
-        total_pension_employer DECIMAL(15,2) DEFAULT 0,
-        total_nhf DECIMAL(15,2) DEFAULT 0,
-        total_nsitf DECIMAL(15,2) DEFAULT 0,
-        total_itf DECIMAL(15,2) DEFAULT 0,
-        employee_count INTEGER DEFAULT 0,
-        processed_by UUID REFERENCES users(id),
-        processed_at TIMESTAMP,
-        approved_by UUID REFERENCES users(id),
-        approved_at TIMESTAMP,
-        paid_by UUID REFERENCES users(id),
-        paid_at TIMESTAMP,
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    // Create payslips table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS payslips (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-        payroll_run_id UUID NOT NULL REFERENCES payroll_runs(id) ON DELETE CASCADE,
-        employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-        employee_name VARCHAR(255) NOT NULL,
-        employee_id_number VARCHAR(50),
-        department VARCHAR(100),
-        job_title VARCHAR(100),
-        bank_name VARCHAR(100),
-        bank_account_number VARCHAR(50),
-        bank_account_name VARCHAR(255),
-        basic_salary DECIMAL(15,2) DEFAULT 0,
-        housing_allowance DECIMAL(15,2) DEFAULT 0,
-        transport_allowance DECIMAL(15,2) DEFAULT 0,
-        meal_allowance DECIMAL(15,2) DEFAULT 0,
-        utility_allowance DECIMAL(15,2) DEFAULT 0,
-        leave_allowance DECIMAL(15,2) DEFAULT 0,
-        thirteenth_month DECIMAL(15,2) DEFAULT 0,
-        other_allowances DECIMAL(15,2) DEFAULT 0,
-        gross_salary DECIMAL(15,2) NOT NULL DEFAULT 0,
-        annual_gross DECIMAL(15,2) DEFAULT 0,
-        annual_taxable DECIMAL(15,2) DEFAULT 0,
-        paye_tax DECIMAL(15,2) DEFAULT 0,
-        pension_employee DECIMAL(15,2) DEFAULT 0,
-        pension_employer DECIMAL(15,2) DEFAULT 0,
-        nhf DECIMAL(15,2) DEFAULT 0,
-        consolidated_relief DECIMAL(15,2) DEFAULT 0,
-        loan_deduction DECIMAL(15,2) DEFAULT 0,
-        salary_advance DECIMAL(15,2) DEFAULT 0,
-        other_deductions DECIMAL(15,2) DEFAULT 0,
-        total_deductions DECIMAL(15,2) DEFAULT 0,
-        net_salary DECIMAL(15,2) NOT NULL DEFAULT 0,
-        employer_pension DECIMAL(15,2) DEFAULT 0,
-        employer_nsitf DECIMAL(15,2) DEFAULT 0,
-        employer_itf DECIMAL(15,2) DEFAULT 0,
-        calculation_details JSONB,
-        status VARCHAR(50) DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    // Create indexes
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_salary_components_employee ON salary_components(employee_id)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_payroll_runs_company ON payroll_runs(company_id)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_payslips_employee ON payslips(employee_id)`);
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_payslips_payroll_run ON payslips(payroll_run_id)`);
-
-    res.json({ success: true, message: 'Payroll tables created successfully' });
-  } catch (error) {
-    console.error('Error running payroll migration:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ============================================================================
-// Temporary: Run EMS Migration
-// ============================================================================
-// Quick fix: Add client_id column to companies table
-app.get('/run-client-id-migration', async (req, res) => {
-  try {
-    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS client_id UUID REFERENCES clients(id)`);
-    res.json({ success: true, message: 'client_id column added to companies table' });
-  } catch (error) {
-    console.error('Error adding client_id column:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Run client onboarding migration (007)
-app.get('/run-onboarding-migration', async (req, res) => {
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const migrationPath = path.join(__dirname, '../migrations/007_client_onboarding.sql');
-    const sql = fs.readFileSync(migrationPath, 'utf8');
-    await pool.query(sql);
-    res.json({ success: true, message: 'Onboarding migration completed successfully' });
-  } catch (error) {
-    if (error.message.includes('already exists')) {
-      return res.json({ success: true, message: 'Onboarding tables already exist' });
-    }
-    console.error('Error running onboarding migration:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// ============================================================================
-app.get('/run-ems-migration', async (req, res) => {
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const migrationPath = path.join(__dirname, '../migrations/013_employee_management_system.sql');
-    const sql = fs.readFileSync(migrationPath, 'utf8');
-
-    // Execute the migration
-    await pool.query(sql);
-
-    res.json({ success: true, message: 'EMS migration completed successfully' });
-  } catch (error) {
-    // Check if it's a "table already exists" error
-    if (error.message.includes('already exists')) {
-      return res.json({ success: true, message: 'EMS tables already exist' });
-    }
-    console.error('Error running EMS migration:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Add phone column to users table
-app.get('/run-users-phone-migration', async (req, res) => {
-  try {
-    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`);
-    res.json({ success: true, message: 'Users phone column added successfully' });
-  } catch (error) {
-    console.error('Error adding phone column:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Add company preferences tables
-app.get('/run-company-preferences-migration', async (req, res) => {
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const migrationPath = path.join(__dirname, '../migrations/014_company_preferences.sql');
-    const sql = fs.readFileSync(migrationPath, 'utf8');
-    await pool.query(sql);
-    res.json({ success: true, message: 'Company preferences migration completed successfully' });
-  } catch (error) {
-    if (error.message.includes('already exists')) {
-      return res.json({ success: true, message: 'Company preferences tables already exist' });
-    }
-    console.error('Error running company preferences migration:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
