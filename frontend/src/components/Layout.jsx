@@ -51,7 +51,7 @@ const navigation = [
     { name: 'Staff Pool', href: '/dashboard/staff', icon: UsersIcon },
     { name: 'Deployments', href: '/dashboard/deployments', icon: ClipboardDocumentListIcon },
   ]},
-  { name: 'Employees', userTypes: ['staff', 'company_admin'], children: [
+  { name: 'Employees', userTypes: ['consultant', 'staff', 'company_admin'], children: [
     { name: 'All Employees', href: '/dashboard/employees', icon: UsersIcon },
   ]},
   { name: 'Leave Management', userTypes: ['consultant', 'staff', 'company_admin'], children: [
