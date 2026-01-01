@@ -1,8 +1,8 @@
 <svg width="512" height="128" viewBox="0 0 512 128" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <style>
-      .text-consult { fill: #334155; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size: 42px; font-weight: 500; }
-      .text-pro { fill: #4f46e5; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size: 42px; font-weight: 600; }
+      .text-core { fill: #334155; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size: 42px; font-weight: 500; }
+      .text-hr { fill: #4f46e5; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size: 42px; font-weight: 600; }
       .tagline { fill: #64748b; font-family: system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size: 16px; font-weight: 500; letter-spacing: 0.5px; }
     </style>
     <linearGradient id="link1Gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -34,8 +34,8 @@
 
   <!-- wordmark -->
   <g transform="translate(115,54)">
-    <text class="text-consult" x="0" y="0">Consult</text>
-    <text class="text-pro" x="156" y="0">Pro</text>
-    <text class="tagline" x="2" y="30">Professional Consulting Management</text>
+    <text class="text-core" x="0" y="0">Core</text>
+    <text class="text-hr" x="98" y="0">HR</text>
+    <text class="tagline" x="2" y="30">Human Resource Management</text>
   </g>
 </svg>
