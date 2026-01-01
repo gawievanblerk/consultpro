@@ -127,7 +127,7 @@ function ForgotPassword() {
 
         {/* Footer */}
         <p className="mt-6 text-center text-sm text-primary-200">
-          Powered by ConsultPro
+          Powered by ConsultPro | Rozitech
         </p>
       </div>
     </div>

@@ -81,7 +81,7 @@ function Login() {
           </div>
 
           <div className="text-primary-400 text-sm">
-            Powered by ConsultPro
+            Powered by ConsultPro | Rozitech
           </div>
         </div>
 
@@ -261,7 +261,7 @@ function Login() {
 
           {/* Mobile footer */}
           <p className="lg:hidden mt-10 text-center text-sm text-primary-400">
-            Powered by ConsultPro
+            Powered by ConsultPro | Rozitech
           </p>
         </div>
       </div>

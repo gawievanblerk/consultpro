@@ -125,7 +125,7 @@ export default function ESSLogin() {
           </div>
 
           <div className="text-primary-400 text-sm">
-            Powered by ConsultPro
+            Powered by ConsultPro | Rozitech
           </div>
         </div>
 

@@ -321,7 +321,7 @@ function Layout() {
               <span className="hidden sm:inline font-medium">Help</span>
             </a>
             <div className="text-xs text-primary-400 font-medium tracking-wide">
-              Powered by ConsultPro
+              Powered by ConsultPro | Rozitech
             </div>
           </div>
         </header>
