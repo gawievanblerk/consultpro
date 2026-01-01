@@ -1119,6 +1119,17 @@ app.get('/run-ems-migration', async (req, res) => {
   }
 });
 
+// Add phone column to users table
+app.get('/run-users-phone-migration', async (req, res) => {
+  try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`);
+    res.json({ success: true, message: 'Users phone column added successfully' });
+  } catch (error) {
+    console.error('Error adding phone column:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // ============================================================================
 // Apply auth middleware to all other /api routes
 // ============================================================================
