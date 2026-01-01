@@ -456,10 +456,10 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     await page.goto('/dashboard/disciplinary');
     await page.waitForLoadState('networkidle');
 
-    // Verify page loads
-    await expect(page.getByRole('heading', { name: /disciplinary/i })).toBeVisible({ timeout: 10000 });
+    // Verify page loads - heading is "Employee Relations"
+    await expect(page.getByRole('heading', { name: /employee relations/i })).toBeVisible({ timeout: 10000 });
 
-    console.log('Disciplinary management page accessible');
+    console.log('Disciplinary (Employee Relations) page accessible');
   });
 
   test('7.4.3 Stage 4: Get disciplinary records', async ({ page }) => {
@@ -538,10 +538,10 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     await page.goto('/dashboard/performance');
     await page.waitForLoadState('networkidle');
 
-    // Verify page loads
-    await expect(page.getByRole('heading', { name: /performance/i })).toBeVisible({ timeout: 10000 });
+    // Verify page loads - heading is "Performance Management"
+    await expect(page.getByRole('heading', { name: /performance management/i })).toBeVisible({ timeout: 10000 });
 
-    console.log('Performance reviews page accessible');
+    console.log('Performance Management page accessible');
   });
 
   test('7.5.3 Stage 5: Get performance reviews', async ({ page }) => {
