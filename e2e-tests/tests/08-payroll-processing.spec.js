@@ -631,12 +631,12 @@ test.describe('User Story 8: Payroll Processing', () => {
 
     expect(runResult.success).toBe(true);
     expect(runResult.data.status).toBe('paid');
-    expect(runResult.data.total_gross).toBeGreaterThan(0);
-    expect(runResult.data.total_net).toBeGreaterThan(0);
-    expect(runResult.data.total_paye).toBeGreaterThan(0);
-    expect(runResult.data.total_pension_employee).toBeGreaterThan(0);
-    expect(runResult.data.employee_count).toBeGreaterThan(0);
-    expect(runResult.data.payslips.length).toBe(runResult.data.employee_count);
+    expect(parseFloat(runResult.data.total_gross)).toBeGreaterThan(0);
+    expect(parseFloat(runResult.data.total_net)).toBeGreaterThan(0);
+    expect(parseFloat(runResult.data.total_paye)).toBeGreaterThan(0);
+    expect(parseFloat(runResult.data.total_pension_employee)).toBeGreaterThan(0);
+    expect(parseInt(runResult.data.employee_count)).toBeGreaterThan(0);
+    expect(runResult.data.payslips.length).toBe(parseInt(runResult.data.employee_count));
 
     console.log('=== PAYROLL WORKFLOW COMPLETE ===');
     console.log(`Company ID: ${companyId}`);

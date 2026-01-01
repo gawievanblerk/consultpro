@@ -247,6 +247,7 @@ test.describe('User Story 9: Statutory Remittances', () => {
     authToken = await page.evaluate(() => localStorage.getItem('token'));
 
     // Generate remittances from payroll
+    console.log(`Generating remittances for payroll run: ${payrollRunId}`);
     const genResult = await page.evaluate(async ({ apiUrl, token, runId }) => {
       const res = await fetch(`${apiUrl}/api/remittances/generate-from-payroll/${runId}`, {
         method: 'POST',
@@ -255,6 +256,7 @@ test.describe('User Story 9: Statutory Remittances', () => {
       return res.json();
     }, { apiUrl, token: authToken, runId: payrollRunId });
 
+    console.log(`Generate remittances response:`, JSON.stringify(genResult));
     expect(genResult.success).toBe(true);
     expect(genResult.data.length).toBeGreaterThan(0);
 
