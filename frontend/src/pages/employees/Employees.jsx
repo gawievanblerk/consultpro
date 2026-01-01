@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import EmployeeImportModal from '../../components/EmployeeImportModal';
 import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
@@ -12,7 +13,8 @@ import {
   UserIcon,
   TrashIcon,
   EnvelopeIcon,
-  FunnelIcon
+  FunnelIcon,
+  ArrowUpTrayIcon
 } from '@heroicons/react/24/outline';
 
 const statusColors = {
@@ -41,6 +43,7 @@ function Employees() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
@@ -278,10 +281,16 @@ function Employees() {
           <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
           <p className="mt-1 text-sm text-gray-500">Manage your company employees</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="btn-primary">
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add Employee
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setImportModalOpen(true)} className="btn-secondary">
+            <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
+            Import Employees
+          </button>
+          <button onClick={() => handleOpenModal()} className="btn-primary">
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Add Employee
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -760,6 +769,16 @@ function Employees() {
           </div>
         </form>
       </Modal>
+
+      {/* Import Modal */}
+      <EmployeeImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          fetchEmployees();
+          toast.success('Employees imported successfully');
+        }}
+      />
     </div>
   );
 }
