@@ -286,7 +286,7 @@ function AcceptInvite() {
 
         {/* Footer */}
         <p className="mt-6 text-center text-sm text-primary-200">
-          Powered by Rozitech CC
+          Powered by ConsultPro
         </p>
       </div>
     </div>

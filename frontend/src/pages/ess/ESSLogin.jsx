@@ -125,7 +125,7 @@ export default function ESSLogin() {
           </div>
 
           <div className="text-primary-400 text-sm">
-            Powered by CoreHR - A Rozitech Product
+            Powered by ConsultPro
           </div>
         </div>
 

@@ -124,7 +124,7 @@ export default function PublicFooter() {
               &copy; {currentYear} CoreHR. All rights reserved.
             </p>
             <p className="text-sm text-primary-500">
-              Powered by <a href="https://rozitech.com" className="text-accent-400 hover:text-accent-300">Rozitech</a>
+              Powered by <a href="https://rozitech.com" className="text-accent-400 hover:text-accent-300">ConsultPro</a>
             </p>
           </div>
         </div>

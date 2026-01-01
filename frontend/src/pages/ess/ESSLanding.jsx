@@ -116,7 +116,7 @@ export default function ESSLanding() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-primary-500">
-              Powered by CoreHR - A Rozitech Product
+              Powered by ConsultPro
             </p>
             <div className="flex items-center gap-6 text-sm text-primary-500">
               <a href="mailto:support@corehr.africa" className="hover:text-primary-700">
