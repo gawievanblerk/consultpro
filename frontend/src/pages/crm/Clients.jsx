@@ -129,7 +129,7 @@ function Clients() {
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save client:', error);
-      toast.error('Failed to save client');
+      toast.error(error.response?.data?.error || 'Failed to save client');
     } finally {
       setSaving(false);
     }
@@ -149,7 +149,7 @@ function Clients() {
       fetchClients();
     } catch (error) {
       console.error('Failed to delete client:', error);
-      toast.error('Failed to delete client');
+      toast.error(error.response?.data?.error || 'Failed to delete client');
     }
   };
 
