@@ -194,7 +194,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
           jobTitle: 'Software Developer',
           department: 'Engineering',
           employmentType: 'full_time',
-          employmentStatus: 'probation',
+          employmentStatus: 'active',
           hireDate: new Date().toISOString().split('T')[0],
           salary: 600000,
           salaryCurrency: 'NGN',
@@ -235,7 +235,7 @@ test.describe('User Story 7: Employee Management System (EMS)', () => {
     const employee = employeesResult.data.find(e => e.email === employeeEmail);
     expect(employee).toBeTruthy();
     expect(employee.first_name).toBe('Chukwuemeka');
-    expect(employee.employment_status).toBe('probation');
+    expect(employee.employment_status).toBe('active');
 
     console.log('Employee verified in employees list');
   });
