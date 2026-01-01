@@ -22,7 +22,7 @@ services:
       - key: DEMO_MODE
         value: "true"
       - key: CORS_ORIGIN
-        value: https://corehr.africa,https://www.corehr.africa
+        value: https://corehr.africa,https://www.corehr.africa,https://ess.corehr.africa
       - key: DATABASE_URL
         fromDatabase:
           name: corehr-db
@@ -46,6 +46,7 @@ services:
     customDomains:
       - corehr.africa
       - www.corehr.africa
+      - ess.corehr.africa
     headers:
       - path: /*
         name: X-Frame-Options

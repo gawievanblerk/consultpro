@@ -17,6 +17,16 @@ import Dashboard from './pages/Dashboard';
 import Landing from './pages/public/Landing';
 import Pricing from './pages/public/Pricing';
 import SignUp from './pages/public/SignUp';
+
+// ESS (Employee Self-Service) Portal pages
+import ESSLanding from './pages/ess/ESSLanding';
+import ESSLogin from './pages/ess/ESSLogin';
+
+// Helper to detect ESS subdomain
+const isESSPortal = () => {
+  const hostname = window.location.hostname;
+  return hostname.startsWith('ess.') || hostname === 'ess.corehr.africa';
+};
 import Clients from './pages/crm/Clients';
 import ClientDetail from './pages/crm/ClientDetail';
 import Contacts from './pages/crm/Contacts';
@@ -84,7 +94,28 @@ function ProtectedRoute({ children }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    // Redirect to ESS login if on ESS portal
+    const loginPath = isESSPortal() ? '/ess/login' : '/login';
+    return <Navigate to={loginPath} replace />;
+  }
+
+  return children;
+}
+
+// ESS Protected route wrapper (for employee-only routes)
+function ESSProtectedRoute({ children }) {
+  const { isAuthenticated, loading, user } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-900"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/ess/login" replace />;
   }
 
   return children;
@@ -100,13 +131,17 @@ function App() {
               <CompanyProvider>
                 <BrowserRouter>
                 <Routes>
-          {/* Public marketing routes */}
-          <Route path="/" element={<Landing />} />
+          {/* ESS Portal routes */}
+          <Route path="/ess" element={<ESSLanding />} />
+          <Route path="/ess/login" element={<ESSLogin />} />
+
+          {/* Public marketing routes - redirect to ESS if on ESS subdomain */}
+          <Route path="/" element={isESSPortal() ? <Navigate to="/ess" replace /> : <Landing />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/signup" element={<SignUp />} />
 
           {/* Auth routes */}
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={isESSPortal() ? <Navigate to="/ess/login" replace /> : <Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/accept-invite" element={<AcceptInvite />} />
