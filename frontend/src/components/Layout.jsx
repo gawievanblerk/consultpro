@@ -286,35 +286,6 @@ function Layout() {
           User Manual
         </a>
 
-        {/* User section */}
-        <div className="border-t border-primary-100 p-4 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-accent-100 flex items-center justify-center text-accent-700 font-semibold text-sm">
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-primary-900 truncate">
-                {user?.firstName} {user?.lastName}
-              </p>
-              <p className="text-xs text-primary-500 truncate">{user?.organizationName}</p>
-              <p className="text-xs text-primary-400 capitalize">
-                {user?.userType === 'consultant' ? 'Full Access' :
-                 user?.userType === 'staff' ? 'Staff (Deployed)' :
-                 user?.userType === 'company_admin' ? 'Company Admin' :
-                 user?.userType === 'tenant_user' ? 'Company Admin' :
-                 user?.userType === 'employee' ? 'Employee' :
-                 user?.role}
-              </p>
-            </div>
-            <button
-              onClick={logout}
-              className="p-2 text-primary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-              title="Sign out"
-            >
-              <ArrowRightOnRectangleIcon className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
       </aside>
 
       {/* Main content */}
@@ -360,13 +331,6 @@ function Layout() {
             >
               <Bars3Icon className="h-5 w-5" />
             </button>
-
-            {/* CoreHR Logo - top left */}
-            <img
-              src="/corehr-logo.svg"
-              alt="CoreHR"
-              className="h-8 w-auto"
-            />
 
             {/* Company Switcher for Consultants (Header Mode) */}
             {useHeaderMode && (
