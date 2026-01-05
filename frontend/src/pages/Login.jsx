@@ -65,23 +65,23 @@ function Login() {
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div>
             <img
-              src="/logo.svg"
+              src="/corehr-logo-light.svg"
               alt="CoreHR"
-              className="h-14 brightness-0 invert"
+              className="h-12"
             />
           </div>
 
           <div className="max-w-md">
             <h1 className="text-4xl font-semibold text-white leading-tight tracking-tight mb-6">
-              Modern consulting management, simplified.
+              Modern HR management, simplified.
             </h1>
             <p className="text-primary-300 text-lg leading-relaxed">
-              Streamline your HR operations, manage client relationships, and grow your business with our comprehensive platform.
+              Streamline your HR operations, manage employees, and run payroll with our comprehensive platform.
             </p>
           </div>
 
           <div className="text-primary-400 text-sm">
-            Powered by ConsultPro | Rozitech
+            Powered by Rozitech
           </div>
         </div>
 
@@ -96,9 +96,9 @@ function Login() {
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-10">
             <img
-              src="/logo.svg"
+              src="/corehr-logo.svg"
               alt="CoreHR"
-              className="h-12 mx-auto"
+              className="h-10 mx-auto"
             />
           </div>
 
@@ -261,7 +261,7 @@ function Login() {
 
           {/* Mobile footer */}
           <p className="lg:hidden mt-10 text-center text-sm text-primary-400">
-            Powered by ConsultPro | Rozitech
+            Powered by Rozitech
           </p>
         </div>
       </div>

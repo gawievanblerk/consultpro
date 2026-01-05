@@ -355,11 +355,18 @@ function Layout() {
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-primary-100">
           <div className="flex items-center h-16 px-4 sm:px-8">
             <button
-              className="lg:hidden p-2 rounded-lg text-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-colors"
+              className="lg:hidden p-2 rounded-lg text-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-colors mr-3"
               onClick={() => setSidebarOpen(true)}
             >
               <Bars3Icon className="h-5 w-5" />
             </button>
+
+            {/* CoreHR Logo - top left */}
+            <img
+              src="/corehr-logo.svg"
+              alt="CoreHR"
+              className="h-8 w-auto"
+            />
 
             {/* Company Switcher for Consultants (Header Mode) */}
             {useHeaderMode && (
@@ -378,21 +385,33 @@ function Layout() {
             )}
 
             <div className="flex-1" />
+
+            {/* Help link */}
             <a
               href="/docs/manual.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-2 text-sm text-primary-500 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors mr-4"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-primary-500 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
             >
               <QuestionMarkCircleIcon className="h-4 w-4" />
               <span className="hidden sm:inline font-medium">Help</span>
             </a>
-            {/* CoreHR Logo - shown when user is logged in */}
-            <img
-              src="/corehr-logo.svg"
-              alt="CoreHR"
-              className="h-8 w-auto"
-            />
+
+            {/* User info and logout */}
+            <div className="flex items-center gap-3 ml-4 pl-4 border-l border-primary-200">
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-medium text-primary-700">{user?.firstName} {user?.lastName}</p>
+                <p className="text-xs text-primary-400">{user?.email}</p>
+              </div>
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-primary-500 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
           </div>
         </header>
 
