@@ -559,6 +559,7 @@ function Consultants() {
                               ) : (
                                 <p className="text-sm text-primary-500 italic">No companies yet</p>
                               )}
+                            </div>
                           </div>
                         ) : (
                           <p className="text-sm text-primary-500 text-center py-4">Failed to load details</p>
