@@ -8,15 +8,58 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   // For staff users with multiple deployments, track which company is currently active
   const [activeCompanyId, setActiveCompanyId] = useState(null);
+  // Track if this is an impersonation session
+  const [impersonation, setImpersonation] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      verifyToken(token);
+    // Check for impersonation token in URL first
+    const urlParams = new URLSearchParams(window.location.search);
+    const impersonateToken = urlParams.get('impersonate');
+
+    if (impersonateToken) {
+      // Clear the URL param without reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+      handleImpersonation(impersonateToken);
     } else {
-      setLoading(false);
+      const token = localStorage.getItem('token');
+      if (token) {
+        verifyToken(token);
+      } else {
+        setLoading(false);
+      }
     }
   }, []);
+
+  const handleImpersonation = async (token) => {
+    try {
+      // Decode token to get impersonation info (without verification - server will verify)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+
+      if (payload.isImpersonation) {
+        setImpersonation({
+          active: true,
+          impersonatedBy: payload.impersonatedBy,
+          expiresAt: new Date(payload.exp * 1000)
+        });
+      }
+
+      // Set token and verify
+      localStorage.setItem('token', token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      const response = await api.get('/api/auth/me');
+      if (response.data.success) {
+        setUser(response.data.user);
+      } else {
+        logout();
+      }
+    } catch (error) {
+      console.error('Impersonation failed:', error);
+      logout();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // When user changes, set default active company for staff users
   useEffect(() => {
@@ -76,6 +119,13 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
+    setImpersonation(null);
+  };
+
+  // End impersonation and close window
+  const endImpersonation = () => {
+    logout();
+    window.close();
   };
 
   // Set user and token directly (used by AcceptInvite)
@@ -130,7 +180,11 @@ export function AuthProvider({ children }) {
     isStaff,
     isCompanyAdmin,
     isEmployee,
-    isAdmin
+    isAdmin,
+    // Impersonation
+    impersonation,
+    isImpersonating: !!impersonation?.active,
+    endImpersonation
   };
 
   return (

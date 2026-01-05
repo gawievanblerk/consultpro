@@ -7,7 +7,9 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   PauseCircleIcon,
-  PlayIcon
+  PlayIcon,
+  UserIcon,
+  ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/outline';
 import api from '../../utils/api';
 import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
@@ -95,6 +97,27 @@ function Consultants() {
       fetchConsultants();
     } catch (err) {
       console.error(`Failed to ${action} consultant:`, err);
+    }
+  };
+
+  const handleImpersonate = async (consultant) => {
+    try {
+      const response = await api.post(
+        `/api/superadmin/consultants/${consultant.id}/impersonate`,
+        {},
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        const { token } = response.data.data;
+        // Open in new window with impersonation token
+        const url = `${window.location.origin}/dashboard?impersonate=${token}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to impersonate consultant';
+      alert(errorMsg);
+      console.error('Impersonation failed:', err);
     }
   };
 
@@ -288,6 +311,17 @@ function Consultants() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {consultant.subscription_status === 'active' && (
+                        <button
+                          onClick={() => handleImpersonate(consultant)}
+                          className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-accent-100 text-accent-700 rounded hover:bg-accent-200"
+                          title="Login as this consultant"
+                        >
+                          <UserIcon className="h-4 w-4" />
+                          Impersonate
+                          <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+                        </button>
+                      )}
                       {consultant.subscription_status === 'suspended' ? (
                         <button
                           onClick={() => handleStatusChange(consultant.id, 'activate')}

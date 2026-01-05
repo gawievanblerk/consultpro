@@ -736,4 +736,145 @@ router.get('/audit-logs', authenticateSuperadmin, async (req, res) => {
   }
 });
 
+// ============================================================================
+// IMPERSONATION ROUTES
+// ============================================================================
+
+/**
+ * POST /api/superadmin/consultants/:id/impersonate
+ * Generate impersonation token for a consultant
+ */
+router.post('/consultants/:id/impersonate', [
+  authenticateSuperadmin,
+  param('id').isUUID()
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const jwt = require('jsonwebtoken');
+
+    // Get consultant details
+    const consultantResult = await query(
+      'SELECT id, company_name, email FROM consultants WHERE id = $1',
+      [id]
+    );
+
+    if (consultantResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Consultant not found' });
+    }
+
+    const consultant = consultantResult.rows[0];
+
+    // Get primary user for this consultant
+    const userResult = await query(`
+      SELECT u.id, u.email, u.first_name, u.last_name, u.user_type
+      FROM users u
+      JOIN consultant_users cu ON u.id = cu.user_id
+      WHERE cu.consultant_id = $1 AND cu.is_primary = true
+      LIMIT 1
+    `, [id]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No primary user found for this consultant. They may not have completed onboarding.'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Generate impersonation token (short-lived, 1 hour)
+    const impersonationToken = jwt.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        userType: user.user_type || 'consultant',
+        consultantId: id,
+        tenantId: id, // consultant_id is the tenant
+        isImpersonation: true,
+        impersonatedBy: {
+          id: req.superadmin.id,
+          email: req.superadmin.email,
+          name: `${req.superadmin.first_name} ${req.superadmin.last_name}`
+        }
+      },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '1h' }
+    );
+
+    // Log the impersonation action
+    await logSuperadminAction(
+      req.superadmin.id,
+      'impersonate_consultant',
+      'consultant',
+      id,
+      {
+        consultantEmail: consultant.email,
+        consultantCompany: consultant.company_name,
+        impersonatedUserId: user.id,
+        impersonatedUserEmail: user.email
+      },
+      req
+    );
+
+    res.json({
+      success: true,
+      data: {
+        token: impersonationToken,
+        consultant: {
+          id: consultant.id,
+          email: consultant.email,
+          companyName: consultant.company_name
+        },
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name
+        },
+        redirectUrl: `/dashboard?impersonate=${impersonationToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Impersonate consultant error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate impersonation token' });
+  }
+});
+
+/**
+ * GET /api/superadmin/impersonations
+ * Get impersonation audit logs
+ */
+router.get('/impersonations', authenticateSuperadmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const result = await query(`
+      SELECT sal.*, s.email as superadmin_email, s.first_name, s.last_name
+      FROM superadmin_audit_logs sal
+      LEFT JOIN superadmins s ON sal.superadmin_id = s.id
+      WHERE sal.action = 'impersonate_consultant'
+      ORDER BY sal.created_at DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+
+    const countResult = await query(
+      "SELECT COUNT(*) FROM superadmin_audit_logs WHERE action = 'impersonate_consultant'"
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      pagination: {
+        total: parseInt(countResult.rows[0].count),
+        page: parseInt(page),
+        limit: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get impersonations error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get impersonation logs' });
+  }
+});
+
 module.exports = router;
