@@ -180,9 +180,9 @@ function Layout() {
         <div className="flex items-center justify-between px-6 py-5 border-b border-primary-100 flex-shrink-0">
           <div className="flex-1">
             <img
-              src="/logo.svg"
+              src="/corehr-logo.svg"
               alt="CoreHR"
-              className="h-12 w-auto"
+              className="h-10 w-auto"
             />
           </div>
           <button
