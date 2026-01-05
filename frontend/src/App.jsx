@@ -36,6 +36,7 @@ import Pipeline from './pages/bd/Pipeline';
 import Staff from './pages/hr/Staff';
 import Deployments from './pages/hr/Deployments';
 import Employees from './pages/employees/Employees';
+import Companies from './pages/companies/Companies';
 import LeaveRequests from './pages/leave/LeaveRequests';
 import LeaveBalances from './pages/leave/LeaveBalances';
 import Invoices from './pages/finance/Invoices';
@@ -184,6 +185,9 @@ function App() {
 
             {/* Employees Module (Company Admin) */}
             <Route path="employees" element={<Employees />} />
+
+            {/* Companies Module (Consultant) */}
+            <Route path="companies" element={<Companies />} />
 
             {/* Leave Management Module */}
             <Route path="leave-requests" element={<LeaveRequests />} />
