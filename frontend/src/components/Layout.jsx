@@ -387,9 +387,12 @@ function Layout() {
               <QuestionMarkCircleIcon className="h-4 w-4" />
               <span className="hidden sm:inline font-medium">Help</span>
             </a>
-            <div className="text-xs text-primary-400 font-medium tracking-wide">
-              Powered by ConsultPro | Rozitech
-            </div>
+            {/* CoreHR Logo - shown when user is logged in */}
+            <img
+              src="/corehr-logo.svg"
+              alt="CoreHR"
+              className="h-8 w-auto"
+            />
           </div>
         </header>
 
