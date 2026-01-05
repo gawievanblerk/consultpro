@@ -12,14 +12,16 @@ import {
   SparklesIcon
 } from '@heroicons/react/24/outline';
 
-const steps = [
+const getSteps = (hasCompanies) => [
   {
     id: 'company',
-    title: 'Create Your First Company',
-    description: 'Add your first client company to start managing their employees',
+    title: hasCompanies ? 'Manage Companies' : 'Create Your First Company',
+    description: hasCompanies
+      ? 'View and manage your client companies'
+      : 'Add your first client company to start managing their employees',
     icon: BuildingOfficeIcon,
     href: '/dashboard/companies',
-    action: 'Add Company'
+    action: hasCompanies ? 'View Companies' : 'Add Company'
   },
   {
     id: 'employees',
@@ -64,10 +66,19 @@ function OnboardingWizard({ onDismiss }) {
     }
   }, []);
 
-  // Auto-complete company step if companies exist
+  // Auto-complete/uncomplete company step based on whether companies exist
   useEffect(() => {
-    if (!loading && companies.length > 0 && !completedSteps.includes('company')) {
+    if (loading) return;
+
+    if (companies.length > 0 && !completedSteps.includes('company')) {
+      // Companies exist but step not marked complete - mark it
       markStepComplete('company');
+    } else if (companies.length === 0 && completedSteps.includes('company')) {
+      // No companies but step marked complete - unmark it
+      const newCompleted = completedSteps.filter(id => id !== 'company');
+      setCompletedSteps(newCompleted);
+      saveState(newCompleted, dismissed);
+      setCurrentStep(0); // Reset to first step
     }
   }, [companies, loading]);
 
@@ -85,7 +96,8 @@ function OnboardingWizard({ onDismiss }) {
     saveState(newCompleted, dismissed);
 
     // Move to next incomplete step
-    const nextIncomplete = steps.findIndex(s => !newCompleted.includes(s.id));
+    const currentSteps = getSteps(companies.length > 0);
+    const nextIncomplete = currentSteps.findIndex(s => !newCompleted.includes(s.id));
     if (nextIncomplete !== -1) {
       setCurrentStep(nextIncomplete);
     }
@@ -123,6 +135,8 @@ function OnboardingWizard({ onDismiss }) {
   // Don't show if loading
   if (loading) return null;
 
+  // Get steps with dynamic text based on whether companies exist
+  const steps = getSteps(companies.length > 0);
   const allComplete = completedSteps.length === steps.length;
 
   return (
