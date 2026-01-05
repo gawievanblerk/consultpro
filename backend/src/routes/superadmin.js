@@ -736,4 +736,401 @@ router.get('/audit-logs', authenticateSuperadmin, async (req, res) => {
   }
 });
 
+// ============================================================================
+// IMPERSONATION ROUTES
+// ============================================================================
+
+/**
+ * POST /api/superadmin/consultants/:id/impersonate
+ * Generate impersonation token for a consultant
+ */
+router.post('/consultants/:id/impersonate', [
+  authenticateSuperadmin,
+  param('id').isUUID()
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const jwt = require('jsonwebtoken');
+
+    // Get consultant details
+    const consultantResult = await query(
+      'SELECT id, company_name, email FROM consultants WHERE id = $1',
+      [id]
+    );
+
+    if (consultantResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Consultant not found' });
+    }
+
+    const consultant = consultantResult.rows[0];
+
+    // Get primary user for this consultant
+    const userResult = await query(`
+      SELECT u.id, u.email, u.first_name, u.last_name, u.user_type
+      FROM users u
+      JOIN consultant_users cu ON u.id = cu.user_id
+      WHERE cu.consultant_id = $1 AND cu.is_primary = true
+      LIMIT 1
+    `, [id]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No primary user found for this consultant. They may not have completed onboarding.'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Generate impersonation token (short-lived, 1 hour)
+    // Must match auth.js expected fields: sub, email, org, role, user_type
+    const impersonationToken = jwt.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        org: id, // consultant_id is the tenant (org)
+        role: 'admin',
+        user_type: user.user_type || 'consultant',
+        isImpersonation: true,
+        impersonatedBy: {
+          id: req.superadmin.id,
+          email: req.superadmin.email,
+          name: `${req.superadmin.first_name} ${req.superadmin.last_name}`
+        }
+      },
+      process.env.JWT_SECRET || 'corehr_docker_demo_secret_key_2025_standalone',
+      { expiresIn: '1h' }
+    );
+
+    // Log the impersonation action
+    await logSuperadminAction(
+      req.superadmin.id,
+      'impersonate_consultant',
+      'consultant',
+      id,
+      {
+        consultantEmail: consultant.email,
+        consultantCompany: consultant.company_name,
+        impersonatedUserId: user.id,
+        impersonatedUserEmail: user.email
+      },
+      req
+    );
+
+    res.json({
+      success: true,
+      data: {
+        token: impersonationToken,
+        consultant: {
+          id: consultant.id,
+          email: consultant.email,
+          companyName: consultant.company_name
+        },
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name
+        },
+        redirectUrl: `/dashboard?impersonate=${impersonationToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Impersonate consultant error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate impersonation token' });
+  }
+});
+
+/**
+ * GET /api/superadmin/companies/:id/employees
+ * Get employees with ESS access for a company (for impersonation)
+ */
+router.get('/companies/:id/employees', [
+  authenticateSuperadmin,
+  param('id').isUUID()
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get employees with ESS access (user_id is not null)
+    const result = await query(`
+      SELECT
+        e.id, e.first_name, e.last_name, e.email, e.job_title,
+        e.user_id, e.ess_enabled,
+        c.legal_name as company_name
+      FROM employees e
+      JOIN companies c ON e.company_id = c.id
+      WHERE e.company_id = $1
+        AND e.deleted_at IS NULL
+        AND e.user_id IS NOT NULL
+      ORDER BY e.first_name, e.last_name
+      LIMIT 50
+    `, [id]);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Get company employees error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get employees' });
+  }
+});
+
+/**
+ * POST /api/superadmin/companies/:id/impersonate
+ * Generate impersonation token for a company admin
+ */
+router.post('/companies/:id/impersonate', [
+  authenticateSuperadmin,
+  param('id').isUUID()
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const jwt = require('jsonwebtoken');
+
+    // Get company details with consultant (tenant) info
+    const companyResult = await query(`
+      SELECT c.id, c.legal_name, c.consultant_id, co.company_name as consultant_name
+      FROM companies c
+      JOIN consultants co ON c.consultant_id = co.id
+      WHERE c.id = $1 AND c.deleted_at IS NULL
+    `, [id]);
+
+    if (companyResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Company not found' });
+    }
+
+    const company = companyResult.rows[0];
+
+    // Get primary company admin for this company
+    const adminResult = await query(`
+      SELECT u.id, u.email, u.first_name, u.last_name, u.user_type, ca.id as company_admin_id
+      FROM users u
+      JOIN company_admins ca ON u.id = ca.user_id
+      WHERE ca.company_id = $1 AND ca.is_primary = true AND ca.is_active = true
+      LIMIT 1
+    `, [id]);
+
+    if (adminResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No primary admin found for this company. Create a company admin first.'
+      });
+    }
+
+    const admin = adminResult.rows[0];
+
+    // Generate impersonation token (1 hour)
+    const impersonationToken = jwt.sign(
+      {
+        sub: admin.id,
+        email: admin.email,
+        org: company.consultant_id, // tenant is the consultant
+        role: 'company_admin',
+        user_type: 'company_admin',
+        company_id: company.id,
+        isImpersonation: true,
+        impersonatedBy: {
+          id: req.superadmin.id,
+          email: req.superadmin.email,
+          name: `${req.superadmin.first_name} ${req.superadmin.last_name}`
+        }
+      },
+      process.env.JWT_SECRET || 'corehr_docker_demo_secret_key_2025_standalone',
+      { expiresIn: '1h' }
+    );
+
+    // Log the impersonation action
+    await logSuperadminAction(
+      req.superadmin.id,
+      'impersonate_company_admin',
+      'company',
+      id,
+      {
+        companyName: company.legal_name,
+        consultantId: company.consultant_id,
+        consultantName: company.consultant_name,
+        impersonatedUserId: admin.id,
+        impersonatedUserEmail: admin.email
+      },
+      req
+    );
+
+    res.json({
+      success: true,
+      data: {
+        token: impersonationToken,
+        company: {
+          id: company.id,
+          name: company.legal_name
+        },
+        admin: {
+          id: admin.id,
+          email: admin.email,
+          firstName: admin.first_name,
+          lastName: admin.last_name
+        },
+        redirectUrl: `/dashboard?impersonate=${impersonationToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Impersonate company admin error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate impersonation token' });
+  }
+});
+
+/**
+ * POST /api/superadmin/employees/:id/impersonate
+ * Generate impersonation token for an employee (ESS user)
+ */
+router.post('/employees/:id/impersonate', [
+  authenticateSuperadmin,
+  param('id').isUUID()
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const jwt = require('jsonwebtoken');
+
+    // Get employee details with company and consultant (tenant) info
+    const employeeResult = await query(`
+      SELECT
+        e.id, e.first_name, e.last_name, e.email, e.user_id, e.ess_enabled,
+        c.id as company_id, c.legal_name as company_name, c.consultant_id,
+        co.company_name as consultant_name
+      FROM employees e
+      JOIN companies c ON e.company_id = c.id
+      JOIN consultants co ON c.consultant_id = co.id
+      WHERE e.id = $1 AND e.deleted_at IS NULL
+    `, [id]);
+
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee not found' });
+    }
+
+    const employee = employeeResult.rows[0];
+
+    // Check if employee has ESS access (user account)
+    if (!employee.user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'This employee does not have ESS access. Send them an ESS invite first.'
+      });
+    }
+
+    // Get the user record
+    const userResult = await query(
+      'SELECT id, email, first_name, last_name, user_type FROM users WHERE id = $1',
+      [employee.user_id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'User account not found for this employee.'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Generate impersonation token (1 hour)
+    const impersonationToken = jwt.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        org: employee.consultant_id, // tenant is the consultant
+        role: 'employee',
+        user_type: 'employee',
+        company_id: employee.company_id,
+        employee_id: employee.id,
+        isImpersonation: true,
+        impersonatedBy: {
+          id: req.superadmin.id,
+          email: req.superadmin.email,
+          name: `${req.superadmin.first_name} ${req.superadmin.last_name}`
+        }
+      },
+      process.env.JWT_SECRET || 'corehr_docker_demo_secret_key_2025_standalone',
+      { expiresIn: '1h' }
+    );
+
+    // Log the impersonation action
+    await logSuperadminAction(
+      req.superadmin.id,
+      'impersonate_employee',
+      'employee',
+      id,
+      {
+        employeeName: `${employee.first_name} ${employee.last_name}`,
+        employeeEmail: employee.email,
+        companyId: employee.company_id,
+        companyName: employee.company_name,
+        consultantId: employee.consultant_id,
+        consultantName: employee.consultant_name,
+        impersonatedUserId: user.id,
+        impersonatedUserEmail: user.email
+      },
+      req
+    );
+
+    res.json({
+      success: true,
+      data: {
+        token: impersonationToken,
+        employee: {
+          id: employee.id,
+          firstName: employee.first_name,
+          lastName: employee.last_name,
+          email: employee.email
+        },
+        company: {
+          id: employee.company_id,
+          name: employee.company_name
+        },
+        redirectUrl: `/dashboard/my-payslips?impersonate=${impersonationToken}`
+      }
+    });
+  } catch (error) {
+    console.error('Impersonate employee error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate impersonation token' });
+  }
+});
+
+/**
+ * GET /api/superadmin/impersonations
+ * Get impersonation audit logs
+ */
+router.get('/impersonations', authenticateSuperadmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const result = await query(`
+      SELECT sal.*, s.email as superadmin_email, s.first_name, s.last_name
+      FROM superadmin_audit_logs sal
+      LEFT JOIN superadmins s ON sal.superadmin_id = s.id
+      WHERE sal.action IN ('impersonate_consultant', 'impersonate_company_admin', 'impersonate_employee')
+      ORDER BY sal.created_at DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+
+    const countResult = await query(
+      "SELECT COUNT(*) FROM superadmin_audit_logs WHERE action IN ('impersonate_consultant', 'impersonate_company_admin', 'impersonate_employee')"
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      pagination: {
+        total: parseInt(countResult.rows[0].count),
+        page: parseInt(page),
+        limit: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get impersonations error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get impersonation logs' });
+  }
+});
+
 module.exports = router;

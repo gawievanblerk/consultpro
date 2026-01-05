@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
@@ -121,16 +121,21 @@ const getFilteredNavigation = (userRole, userType) => {
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedSection, setExpandedSection] = useState(null);
-  const { user, logout, isStaff, isConsultant, activeCompanyId, switchCompany, getActiveCompany } = useAuth();
+  const { user, logout, isStaff, isConsultant, activeCompanyId, switchCompany, getActiveCompany, isImpersonating, impersonation, endImpersonation } = useAuth();
   const { companies, selectedCompany, isCompanyMode, preferences, loading: companyLoading } = useCompany();
   const location = useLocation();
 
   const isActive = (href) => location.pathname === href;
-  const filteredNav = getFilteredNavigation(user?.role, user?.userType);
+
+  // Memoize filtered navigation to prevent unnecessary re-renders
+  const filteredNav = useMemo(() =>
+    getFilteredNavigation(user?.role, user?.userType),
+    [user?.role, user?.userType]
+  );
 
   // Toggle accordion section
   const toggleSection = (sectionName) => {
-    setExpandedSection(expandedSection === sectionName ? null : sectionName);
+    setExpandedSection(prev => prev === sectionName ? null : sectionName);
   };
 
   // Close mobile sidebar when clicking a nav item
@@ -140,7 +145,7 @@ function Layout() {
     }
   };
 
-  // Auto-expand section containing active page
+  // Auto-expand section containing active page - only on route changes
   useEffect(() => {
     const activeSection = filteredNav.find(item =>
       item.children?.some(child => location.pathname === child.href)
@@ -148,7 +153,7 @@ function Layout() {
     if (activeSection) {
       setExpandedSection(activeSection.name);
     }
-  }, [location.pathname, filteredNav]);
+  }, [location.pathname]); // Only depend on pathname, not filteredNav
 
   const activeCompany = getActiveCompany();
   const hasMultipleDeployments = isStaff && user?.deployedCompanies?.length > 1;
@@ -175,9 +180,9 @@ function Layout() {
         <div className="flex items-center justify-between px-6 py-5 border-b border-primary-100 flex-shrink-0">
           <div className="flex-1">
             <img
-              src="/logo.svg"
+              src="/corehr-logo.svg"
               alt="CoreHR"
-              className="h-12 w-auto"
+              className="h-10 w-auto"
             />
           </div>
           <button
@@ -281,35 +286,6 @@ function Layout() {
           User Manual
         </a>
 
-        {/* User section */}
-        <div className="border-t border-primary-100 p-4 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-accent-100 flex items-center justify-center text-accent-700 font-semibold text-sm">
-              {user?.firstName?.[0]}{user?.lastName?.[0]}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-primary-900 truncate">
-                {user?.firstName} {user?.lastName}
-              </p>
-              <p className="text-xs text-primary-500 truncate">{user?.organizationName}</p>
-              <p className="text-xs text-primary-400 capitalize">
-                {user?.userType === 'consultant' ? 'Full Access' :
-                 user?.userType === 'staff' ? 'Staff (Deployed)' :
-                 user?.userType === 'company_admin' ? 'Company Admin' :
-                 user?.userType === 'tenant_user' ? 'Company Admin' :
-                 user?.userType === 'employee' ? 'Employee' :
-                 user?.role}
-              </p>
-            </div>
-            <button
-              onClick={logout}
-              className="p-2 text-primary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-              title="Sign out"
-            >
-              <ArrowRightOnRectangleIcon className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
       </aside>
 
       {/* Main content */}
@@ -322,11 +298,54 @@ function Layout() {
         )}
 
         <div className="flex-1 flex flex-col min-h-screen">
+        {/* Impersonation Banner */}
+        {isImpersonating && (
+          <div className={`px-4 py-2 flex items-center justify-between z-40 ${
+            user?.userType === 'employee' ? 'bg-green-500 text-white' :
+            user?.userType === 'company_admin' ? 'bg-blue-500 text-white' :
+            'bg-warning-500 text-warning-900'
+          }`}>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-white/20">
+                {user?.userType === 'employee' ? 'ESS User' :
+                 user?.userType === 'company_admin' ? 'Company Admin' :
+                 'Consultant'}
+              </span>
+              <span>
+                Impersonating: <strong>{user?.firstName} {user?.lastName}</strong>
+                {user?.email && <span className="opacity-80"> ({user?.email})</span>}
+              </span>
+              <span className="opacity-75 text-xs">
+                | By: {impersonation?.impersonatedBy?.name || 'Superadmin'}
+              </span>
+              {impersonation?.expiresAt && (
+                <span className="opacity-75 text-xs">
+                  | Expires: {new Date(impersonation.expiresAt).toLocaleTimeString()}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={endImpersonation}
+              className={`px-3 py-1 text-sm font-medium rounded transition-colors ${
+                user?.userType === 'employee' ? 'bg-green-700 hover:bg-green-800 text-white' :
+                user?.userType === 'company_admin' ? 'bg-blue-700 hover:bg-blue-800 text-white' :
+                'bg-warning-600 hover:bg-warning-700 text-white'
+              }`}
+            >
+              End Session
+            </button>
+          </div>
+        )}
+
         {/* Top bar - Minimal */}
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-primary-100">
           <div className="flex items-center h-16 px-4 sm:px-8">
             <button
-              className="lg:hidden p-2 rounded-lg text-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-colors"
+              className="lg:hidden p-2 rounded-lg text-primary-500 hover:bg-primary-50 hover:text-primary-700 transition-colors mr-3"
               onClick={() => setSidebarOpen(true)}
             >
               <Bars3Icon className="h-5 w-5" />
@@ -349,17 +368,32 @@ function Layout() {
             )}
 
             <div className="flex-1" />
+
+            {/* Help link */}
             <a
               href="/docs/manual.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-2 text-sm text-primary-500 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors mr-4"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-primary-500 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
             >
               <QuestionMarkCircleIcon className="h-4 w-4" />
               <span className="hidden sm:inline font-medium">Help</span>
             </a>
-            <div className="text-xs text-primary-400 font-medium tracking-wide">
-              Powered by ConsultPro | Rozitech
+
+            {/* User info and logout */}
+            <div className="flex items-center gap-3 ml-4 pl-4 border-l border-primary-200">
+              <div className="hidden sm:block text-right">
+                <p className="text-sm font-medium text-primary-700">{user?.firstName} {user?.lastName}</p>
+                <p className="text-xs text-primary-400">{user?.email}</p>
+              </div>
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-primary-500 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
             </div>
           </div>
         </header>

@@ -907,9 +907,19 @@ app.get('/cleanup-duplicates', async (req, res) => {
 });
 
 // ============================================================================
-// Apply auth middleware to all other /api routes
+// Apply auth middleware to all other /api routes (except superadmin, auth, onboard)
 // ============================================================================
-app.use('/api', authenticate, tenantMiddleware);
+const skipAuthPaths = ['/api/superadmin', '/api/auth', '/api/onboard'];
+app.use('/api', (req, res, next) => {
+  // Skip auth middleware for certain paths
+  if (skipAuthPaths.some(path => req.originalUrl.startsWith(path))) {
+    return next();
+  }
+  authenticate(req, res, (err) => {
+    if (err) return next(err);
+    tenantMiddleware(req, res, next);
+  });
+});
 
 // ============================================================================
 // Dashboard Routes (aggregated stats)

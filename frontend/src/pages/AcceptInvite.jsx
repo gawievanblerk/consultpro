@@ -109,14 +109,12 @@ function AcceptInvite() {
       <div className="max-w-md w-full">
         {/* Logo and title */}
         <div className="text-center mb-8">
-          <div className="bg-white rounded-lg px-4 py-3 inline-block mb-4">
-            <img
-              src="/logo.svg"
-              alt="CoreHR"
-              className="h-12"
-            />
-          </div>
-          <p className="mt-2 text-primary-200">HR & Consulting Platform</p>
+          <img
+            src="/corehr-logo-light.svg"
+            alt="CoreHR"
+            className="h-10 mx-auto"
+          />
+          <p className="mt-3 text-primary-200">HR Management Platform</p>
         </div>
 
         {/* Form card */}
@@ -282,7 +280,7 @@ function AcceptInvite() {
 
         {/* Footer */}
         <p className="mt-6 text-center text-sm text-primary-200">
-          Powered by ConsultPro | Rozitech
+          Powered by Rozitech
         </p>
       </div>
     </div>

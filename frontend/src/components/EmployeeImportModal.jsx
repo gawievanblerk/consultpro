@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import api from '../utils/api';
 import { useCompany } from '../context/CompanyContext';
 import { useToast } from '../context/ToastContext';
@@ -15,9 +16,246 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline';
 
+// Column mapping for various Excel/CSV formats to our standard format
+const COLUMN_MAPPINGS = {
+  // Standard fields
+  'first_name': 'first_name',
+  'firstname': 'first_name',
+  'first name': 'first_name',
+  'last_name': 'last_name',
+  'lastname': 'last_name',
+  'last name': 'last_name',
+  'surname': 'last_name',
+  'middle_name': 'middle_name',
+  'middlename': 'middle_name',
+  'middle name': 'middle_name',
+  'full_name': 'full_name',
+  'fullname': 'full_name',
+  'full name': 'full_name',
+  'name': 'full_name',
+  'email': 'email',
+  'email_address': 'email',
+  'email address': 'email',
+  'phone': 'phone',
+  'phone_number': 'phone',
+  'phone number': 'phone',
+  'mobile': 'phone',
+  'mobile_number': 'phone',
+  'date_of_birth': 'date_of_birth',
+  'dateofbirth': 'date_of_birth',
+  'date of birth': 'date_of_birth',
+  'dob': 'date_of_birth',
+  'birth_date': 'date_of_birth',
+  'gender': 'gender',
+  'sex': 'gender',
+  'department': 'department',
+  'dept': 'department',
+  'job_title': 'job_title',
+  'jobtitle': 'job_title',
+  'job title': 'job_title',
+  'position': 'job_title',
+  'title': 'job_title',
+  'role': 'job_title',
+  'designation': 'job_title',
+  'employment_type': 'employment_type',
+  'employmenttype': 'employment_type',
+  'employment type': 'employment_type',
+  'emp_type': 'employment_type',
+  'type': 'employment_type',
+  'hire_date': 'hire_date',
+  'hiredate': 'hire_date',
+  'hire date': 'hire_date',
+  'date_joined': 'hire_date',
+  'datejoined': 'hire_date',
+  'date joined': 'hire_date',
+  'join_date': 'hire_date',
+  'start_date': 'hire_date',
+  'confirmation_date': 'confirmation_date',
+  'confirmationdate': 'confirmation_date',
+  'confirmation date': 'confirmation_date',
+  'status': 'employment_status',
+  'employment_status': 'employment_status',
+  'emp_status': 'employment_status',
+  'salary': 'salary',
+  'basic_salary': 'salary',
+  'monthly_salary': 'salary',
+  // Nigeria compliance
+  'nin': 'nin',
+  'national_id': 'nin',
+  'bvn': 'bvn',
+  'bank_verification': 'bvn',
+  'tax_id': 'tax_id',
+  'taxid': 'tax_id',
+  'tax id': 'tax_id',
+  'tax id (tin)': 'tax_id',
+  'tin': 'tax_id',
+  'pension_pin': 'pension_pin',
+  'pensionpin': 'pension_pin',
+  'pension pin': 'pension_pin',
+  'rsa_pin': 'pension_pin',
+  'pension_pfa': 'pension_pfa',
+  'pfa': 'pension_pfa',
+  'nhf_number': 'nhf_number',
+  'nhfnumber': 'nhf_number',
+  'nhf number': 'nhf_number',
+  'nhf_no': 'nhf_number',
+  'nhf no': 'nhf_number',
+  'nhis_number': 'nhis_number',
+  'nhisnumber': 'nhis_number',
+  'nhis': 'nhis_number',
+  // Banking
+  'bank_name': 'bank_name',
+  'bankname': 'bank_name',
+  'bank name': 'bank_name',
+  'bank': 'bank_name',
+  'bank_account_number': 'bank_account_number',
+  'account_number': 'bank_account_number',
+  'account number': 'bank_account_number',
+  'account_no': 'bank_account_number',
+  'bank_account_name': 'bank_account_name',
+  'account_name': 'bank_account_name',
+  'account name': 'bank_account_name',
+};
+
+// Split full name into first and last name
+const splitFullName = (fullName) => {
+  if (!fullName) return { first_name: '', last_name: '' };
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return { first_name: parts[0], last_name: '' };
+  }
+  if (parts.length === 2) {
+    return { first_name: parts[0], last_name: parts[1] };
+  }
+  // For 3+ parts, first is first_name, last is last_name, middle is middle_name
+  return {
+    first_name: parts[0],
+    middle_name: parts.slice(1, -1).join(' '),
+    last_name: parts[parts.length - 1]
+  };
+};
+
+// Normalize employment type values
+const normalizeEmploymentType = (value) => {
+  if (!value) return 'full_time';
+  const lower = value.toString().toLowerCase().trim();
+  if (lower.includes('full') || lower === 'ft') return 'full_time';
+  if (lower.includes('part') || lower === 'pt') return 'part_time';
+  if (lower.includes('contract')) return 'contract';
+  if (lower.includes('intern')) return 'intern';
+  return 'full_time';
+};
+
+// Normalize employment status values
+const normalizeEmploymentStatus = (value) => {
+  if (!value) return 'active';
+  const lower = value.toString().toLowerCase().trim();
+  if (lower === 'active' || lower === 'employed') return 'active';
+  if (lower.includes('probation')) return 'probation';
+  if (lower.includes('leave')) return 'on_leave';
+  if (lower.includes('suspend')) return 'suspended';
+  if (lower.includes('terminat') || lower.includes('exit') || lower === 'left') return 'terminated';
+  return 'active';
+};
+
+// Parse date from various formats
+const parseDate = (value) => {
+  if (!value) return null;
+  // If it's already a Date object (from Excel)
+  if (value instanceof Date) {
+    return value.toISOString().split('T')[0];
+  }
+  // If it's a number (Excel serial date)
+  if (typeof value === 'number') {
+    const date = XLSX.SSF.parse_date_code(value);
+    if (date) {
+      return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
+    }
+  }
+  // Try to parse string date
+  const str = value.toString().trim();
+  // Try ISO format first (YYYY-MM-DD)
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    return str.split('T')[0];
+  }
+  // Try DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmyMatch) {
+    return `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}-${dmyMatch[1].padStart(2, '0')}`;
+  }
+  // Try MM/DD/YYYY
+  const mdyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (mdyMatch) {
+    // Assume MM/DD/YYYY if month <= 12
+    const month = parseInt(mdyMatch[1]);
+    if (month <= 12) {
+      return `${mdyMatch[3]}-${mdyMatch[1].padStart(2, '0')}-${mdyMatch[2].padStart(2, '0')}`;
+    }
+  }
+  return null;
+};
+
+// Clean phone number
+const cleanPhoneNumber = (value) => {
+  if (!value) return '';
+  return value.toString().replace(/[\s\n\r]/g, '').trim();
+};
+
+// Map a row from any format to our standard format
+const mapRowToStandard = (row) => {
+  const mapped = {};
+
+  // First pass: map known columns
+  for (const [key, value] of Object.entries(row)) {
+    const normalizedKey = key.toString().toLowerCase().trim();
+    const standardField = COLUMN_MAPPINGS[normalizedKey];
+    if (standardField && value !== undefined && value !== null && value !== '') {
+      mapped[standardField] = value;
+    }
+  }
+
+  // Handle full_name splitting
+  if (mapped.full_name && (!mapped.first_name || !mapped.last_name)) {
+    const nameParts = splitFullName(mapped.full_name);
+    if (!mapped.first_name) mapped.first_name = nameParts.first_name;
+    if (!mapped.last_name) mapped.last_name = nameParts.last_name;
+    if (!mapped.middle_name && nameParts.middle_name) mapped.middle_name = nameParts.middle_name;
+  }
+  delete mapped.full_name;
+
+  // Normalize values
+  if (mapped.employment_type) {
+    mapped.employment_type = normalizeEmploymentType(mapped.employment_type);
+  }
+  if (mapped.employment_status) {
+    mapped.employment_status = normalizeEmploymentStatus(mapped.employment_status);
+  }
+  if (mapped.hire_date) {
+    mapped.hire_date = parseDate(mapped.hire_date);
+  }
+  if (mapped.date_of_birth) {
+    mapped.date_of_birth = parseDate(mapped.date_of_birth);
+  }
+  if (mapped.confirmation_date) {
+    mapped.confirmation_date = parseDate(mapped.confirmation_date);
+  }
+  if (mapped.phone) {
+    mapped.phone = cleanPhoneNumber(mapped.phone);
+  }
+
+  // Trim string values
+  for (const [key, value] of Object.entries(mapped)) {
+    if (typeof value === 'string') {
+      mapped[key] = value.trim();
+    }
+  }
+
+  return mapped;
+};
+
 const STEPS = [
   { id: 1, name: 'Select Company', description: 'Choose target company' },
-  { id: 2, name: 'Upload File', description: 'Upload CSV file' },
+  { id: 2, name: 'Upload File', description: 'Upload CSV or Excel' },
   { id: 3, name: 'Preview Data', description: 'Review and validate' },
   { id: 4, name: 'Options', description: 'Configure import' },
   { id: 5, name: 'Results', description: 'Import complete' }
@@ -78,49 +316,66 @@ export default function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
   }, []);
 
   const handleFileSelect = (selectedFile) => {
+    const fileName = selectedFile.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
     // Validate file type
-    if (!selectedFile.name.endsWith('.csv')) {
-      toast.error('Please upload a CSV file');
+    if (!isCSV && !isExcel) {
+      toast.error('Please upload a CSV or Excel file (.csv, .xlsx, .xls)');
       return;
     }
 
-    // Validate file size (2MB max)
-    if (selectedFile.size > 2 * 1024 * 1024) {
-      toast.error('File size must be less than 2MB');
+    // Validate file size (5MB max for Excel, 2MB for CSV)
+    const maxSize = isExcel ? 5 * 1024 * 1024 : 2 * 1024 * 1024;
+    if (selectedFile.size > maxSize) {
+      toast.error(`File size must be less than ${isExcel ? '5MB' : '2MB'}`);
       return;
     }
 
     setFile(selectedFile);
-    parseCSV(selectedFile);
+
+    if (isExcel) {
+      parseExcel(selectedFile);
+    } else {
+      parseCSV(selectedFile);
+    }
   };
 
-  const parseCSV = (csvFile) => {
-    Papa.parse(csvFile, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header) => header.trim().toLowerCase().replace(/\s+/g, '_'),
-      complete: (results) => {
-        const data = results.data;
-        const errors = results.errors;
+  const parseExcel = (excelFile) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 
-        // Validate row count
-        if (data.length > 500) {
+        // Get first sheet
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // Convert to JSON
+        const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        if (rawData.length === 0) {
+          toast.error('Excel file is empty');
+          setFile(null);
+          return;
+        }
+
+        if (rawData.length > 500) {
           toast.error('Maximum 500 employees per import. Please split your file.');
           setFile(null);
           return;
         }
 
-        if (data.length === 0) {
-          toast.error('CSV file is empty');
-          setFile(null);
-          return;
-        }
+        // Map to standard format
+        const mappedData = rawData.map(row => mapRowToStandard(row));
 
         // Validate each row
         const rowErrors = [];
-        data.forEach((row, index) => {
+        mappedData.forEach((row, index) => {
           const rowNum = index + 2; // +2 for header row and 1-based indexing
-          const missingFields = REQUIRED_FIELDS.filter(field => !row[field]?.trim());
+          const missingFields = REQUIRED_FIELDS.filter(field => !row[field]?.toString().trim());
 
           if (missingFields.length > 0) {
             rowErrors.push({
@@ -140,7 +395,76 @@ export default function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
           }
         });
 
-        setParsedData(data);
+        setParsedData(mappedData);
+        setParseErrors([]);
+        setValidationErrors(rowErrors);
+
+        // Show detected columns info
+        const detectedFields = Object.keys(mappedData[0] || {}).filter(k => mappedData[0][k]);
+        console.log('Detected fields:', detectedFields);
+        toast.success(`Loaded ${mappedData.length} employees from Excel`);
+      } catch (error) {
+        toast.error('Failed to parse Excel file');
+        console.error('Excel parse error:', error);
+        setFile(null);
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read Excel file');
+      setFile(null);
+    };
+    reader.readAsArrayBuffer(excelFile);
+  };
+
+  const parseCSV = (csvFile) => {
+    Papa.parse(csvFile, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const rawData = results.data;
+        const errors = results.errors;
+
+        // Validate row count
+        if (rawData.length > 500) {
+          toast.error('Maximum 500 employees per import. Please split your file.');
+          setFile(null);
+          return;
+        }
+
+        if (rawData.length === 0) {
+          toast.error('CSV file is empty');
+          setFile(null);
+          return;
+        }
+
+        // Map to standard format
+        const mappedData = rawData.map(row => mapRowToStandard(row));
+
+        // Validate each row
+        const rowErrors = [];
+        mappedData.forEach((row, index) => {
+          const rowNum = index + 2; // +2 for header row and 1-based indexing
+          const missingFields = REQUIRED_FIELDS.filter(field => !row[field]?.toString().trim());
+
+          if (missingFields.length > 0) {
+            rowErrors.push({
+              row: rowNum,
+              error: `Missing required fields: ${missingFields.join(', ')}`,
+              data: row
+            });
+          }
+
+          // Validate email format if provided
+          if (row.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) {
+            rowErrors.push({
+              row: rowNum,
+              error: 'Invalid email format',
+              data: row
+            });
+          }
+        });
+
+        setParsedData(mappedData);
         setParseErrors(errors);
         setValidationErrors(rowErrors);
       },
@@ -307,9 +631,9 @@ export default function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
             {step === 2 && (
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-lg font-medium text-gray-900 mb-2">Upload CSV File</h4>
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">Upload Employee File</h4>
                   <p className="text-sm text-gray-500 mb-4">
-                    Upload a CSV file with employee data. Maximum 500 employees per import.
+                    Upload a CSV or Excel file with employee data. Maximum 500 employees per import.
                   </p>
                 </div>
 
@@ -357,7 +681,7 @@ export default function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
                     <>
                       <DocumentArrowUpIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-gray-600 mb-2">
-                        Drag and drop your CSV file here, or{' '}
+                        Drag and drop your file here, or{' '}
                         <button
                           onClick={() => fileInputRef.current?.click()}
                           className="text-primary-600 hover:text-primary-700 font-medium"
@@ -365,7 +689,7 @@ export default function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
                           browse
                         </button>
                       </p>
-                      <p className="text-sm text-gray-400">CSV files only, max 2MB</p>
+                      <p className="text-sm text-gray-400">CSV or Excel files (.csv, .xlsx, .xls)</p>
                     </>
                   )}
                 </div>
@@ -373,10 +697,15 @@ export default function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                   onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
                   className="hidden"
                 />
+
+                {/* Column mapping info */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+                  <strong>Supported columns:</strong> Full Name (or First Name + Last Name), Email, Phone, Department, Job Title, Hire Date, Employment Type, Status, and Nigeria compliance fields (NIN, BVN, TIN, Pension PIN, NHF No).
+                </div>
               </div>
             )}
 

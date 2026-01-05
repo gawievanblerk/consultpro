@@ -7,7 +7,13 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   PauseCircleIcon,
-  PlayIcon
+  PlayIcon,
+  UserIcon,
+  ArrowTopRightOnSquareIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  UsersIcon,
+  IdentificationIcon
 } from '@heroicons/react/24/outline';
 import api from '../../utils/api';
 import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
@@ -18,6 +24,12 @@ function Consultants() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [expandedConsultant, setExpandedConsultant] = useState(null);
+  const [consultantDetails, setConsultantDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [expandedCompany, setExpandedCompany] = useState(null);
+  const [companyEmployees, setCompanyEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     email: '',
     companyName: '',
@@ -95,6 +107,118 @@ function Consultants() {
       fetchConsultants();
     } catch (err) {
       console.error(`Failed to ${action} consultant:`, err);
+    }
+  };
+
+  const handleImpersonate = async (consultant) => {
+    try {
+      const response = await api.post(
+        `/api/superadmin/consultants/${consultant.id}/impersonate`,
+        {},
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        const { token } = response.data.data;
+        // Open in new window with impersonation token
+        const url = `${window.location.origin}/dashboard?impersonate=${token}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to impersonate consultant';
+      alert(errorMsg);
+      console.error('Impersonation failed:', err);
+    }
+  };
+
+  const handleExpandConsultant = async (consultantId) => {
+    if (expandedConsultant === consultantId) {
+      setExpandedConsultant(null);
+      setConsultantDetails(null);
+      return;
+    }
+
+    setExpandedConsultant(consultantId);
+    setDetailsLoading(true);
+
+    try {
+      const response = await api.get(
+        `/api/superadmin/consultants/${consultantId}`,
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        setConsultantDetails(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch consultant details:', err);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleImpersonateCompanyAdmin = async (companyId, companyName) => {
+    try {
+      const response = await api.post(
+        `/api/superadmin/companies/${companyId}/impersonate`,
+        {},
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        const { redirectUrl } = response.data.data;
+        window.open(`${window.location.origin}${redirectUrl}`, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to impersonate company admin';
+      alert(errorMsg);
+      console.error('Company admin impersonation failed:', err);
+    }
+  };
+
+  const handleImpersonateEmployee = async (employeeId, employeeName) => {
+    try {
+      const response = await api.post(
+        `/api/superadmin/employees/${employeeId}/impersonate`,
+        {},
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        const { redirectUrl } = response.data.data;
+        window.open(`${window.location.origin}${redirectUrl}`, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to impersonate employee';
+      alert(errorMsg);
+      console.error('Employee impersonation failed:', err);
+    }
+  };
+
+  const handleExpandCompany = async (companyId) => {
+    if (expandedCompany === companyId) {
+      setExpandedCompany(null);
+      setCompanyEmployees([]);
+      return;
+    }
+
+    setExpandedCompany(companyId);
+    setEmployeesLoading(true);
+
+    try {
+      const response = await api.get(
+        `/api/superadmin/companies/${companyId}/employees`,
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        setCompanyEmployees(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch company employees:', err);
+      setCompanyEmployees([]);
+    } finally {
+      setEmployeesLoading(false);
     }
   };
 
@@ -218,7 +342,7 @@ function Consultants() {
       </div>
 
       {/* Consultants Table */}
-      <div className="bg-white rounded-xl border border-primary-100 overflow-hidden">
+      <div className="bg-white rounded-xl border border-primary-100 overflow-x-auto">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-600"></div>
@@ -237,7 +361,7 @@ function Consultants() {
             </button>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[1100px]">
             <thead className="bg-primary-50 border-b border-primary-100">
               <tr>
                 <th className="px-4 py-3 text-left">
@@ -258,54 +382,191 @@ function Consultants() {
             </thead>
             <tbody className="divide-y divide-primary-100">
               {consultants.map((consultant) => (
-                <tr
-                  key={consultant.id}
-                  className={`hover:bg-primary-50/50 ${isSelected(consultant.id) ? 'bg-accent-50' : ''}`}
-                >
-                  <td className="px-4 py-4">
-                    <SelectCheckbox
-                      checked={isSelected(consultant.id)}
-                      onChange={() => toggleItem(consultant.id)}
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-accent-100 flex items-center justify-center text-accent-700 font-semibold">
-                        {consultant.company_name?.[0]?.toUpperCase() || 'C'}
-                      </div>
-                      <div>
-                        <p className="font-medium text-primary-900">{consultant.company_name}</p>
-                        <p className="text-sm text-primary-500">{consultant.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">{getTierBadge(consultant.tier)}</td>
-                  <td className="px-6 py-4">{getStatusBadge(consultant.subscription_status)}</td>
-                  <td className="px-6 py-4 text-primary-600">{consultant.company_count || 0}</td>
-                  <td className="px-6 py-4 text-primary-600">{consultant.employee_count || 0}</td>
-                  <td className="px-6 py-4 text-sm text-primary-500">
-                    {new Date(consultant.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {consultant.subscription_status === 'suspended' ? (
+                <React.Fragment key={consultant.id}>
+                  <tr
+                    className={`hover:bg-primary-50/50 ${isSelected(consultant.id) ? 'bg-accent-50' : ''} ${expandedConsultant === consultant.id ? 'bg-primary-50' : ''}`}
+                  >
+                    <td className="px-4 py-4">
+                      <SelectCheckbox
+                        checked={isSelected(consultant.id)}
+                        onChange={() => toggleItem(consultant.id)}
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
                         <button
-                          onClick={() => handleStatusChange(consultant.id, 'activate')}
-                          className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
+                          onClick={() => handleExpandConsultant(consultant.id)}
+                          className="p-1 hover:bg-primary-100 rounded"
                         >
-                          Activate
+                          {expandedConsultant === consultant.id ? (
+                            <ChevronDownIcon className="h-4 w-4 text-primary-500" />
+                          ) : (
+                            <ChevronRightIcon className="h-4 w-4 text-primary-500" />
+                          )}
                         </button>
-                      ) : consultant.subscription_status !== 'churned' && (
-                        <button
-                          onClick={() => handleStatusChange(consultant.id, 'suspend')}
-                          className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
-                        >
-                          Suspend
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                        <div className="h-10 w-10 rounded-lg bg-accent-100 flex items-center justify-center text-accent-700 font-semibold">
+                          {consultant.company_name?.[0]?.toUpperCase() || 'C'}
+                        </div>
+                        <div>
+                          <p className="font-medium text-primary-900">{consultant.company_name}</p>
+                          <p className="text-sm text-primary-500">{consultant.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">{getTierBadge(consultant.tier)}</td>
+                    <td className="px-6 py-4">{getStatusBadge(consultant.subscription_status)}</td>
+                    <td className="px-6 py-4 text-primary-600">{consultant.company_count || 0}</td>
+                    <td className="px-6 py-4 text-primary-600">{consultant.employee_count || 0}</td>
+                    <td className="px-6 py-4 text-sm text-primary-500">
+                      {new Date(consultant.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {(consultant.subscription_status === 'active' || consultant.subscription_status === 'trial') && (
+                          <button
+                            onClick={() => handleImpersonate(consultant)}
+                            className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-accent-100 text-accent-700 rounded hover:bg-accent-200"
+                            title="Login as this consultant"
+                          >
+                            <UserIcon className="h-4 w-4" />
+                            Impersonate
+                            <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+                          </button>
+                        )}
+                        {consultant.subscription_status === 'suspended' ? (
+                          <button
+                            onClick={() => handleStatusChange(consultant.id, 'activate')}
+                            className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200"
+                          >
+                            Activate
+                          </button>
+                        ) : consultant.subscription_status !== 'churned' && (
+                          <button
+                            onClick={() => handleStatusChange(consultant.id, 'suspend')}
+                            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                          >
+                            Suspend
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {/* Expanded Details Row */}
+                  {expandedConsultant === consultant.id && (
+                    <tr>
+                      <td colSpan="8" className="px-6 py-4 bg-primary-50/50">
+                        {detailsLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent-600"></div>
+                          </div>
+                        ) : consultantDetails ? (
+                          <div className="space-y-4">
+                            {/* Companies Section */}
+                            <div>
+                              <h4 className="text-sm font-semibold text-primary-700 mb-3 flex items-center gap-2">
+                                <BuildingOffice2Icon className="h-4 w-4" />
+                                Companies ({consultantDetails.companies?.length || 0})
+                              </h4>
+                              {consultantDetails.companies?.length > 0 ? (
+                                <div className="space-y-2">
+                                  {consultantDetails.companies.map((company) => (
+                                    <div key={company.id} className="bg-white rounded-lg border border-primary-100 overflow-hidden">
+                                      <div className="flex items-center justify-between p-3">
+                                        <div className="flex items-center gap-3">
+                                          <button
+                                            onClick={() => handleExpandCompany(company.id)}
+                                            className="p-1 hover:bg-primary-100 rounded"
+                                          >
+                                            {expandedCompany === company.id ? (
+                                              <ChevronDownIcon className="h-4 w-4 text-primary-500" />
+                                            ) : (
+                                              <ChevronRightIcon className="h-4 w-4 text-primary-500" />
+                                            )}
+                                          </button>
+                                          <div className="h-8 w-8 rounded bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-medium">
+                                            {company.legal_name?.[0]?.toUpperCase() || 'C'}
+                                          </div>
+                                          <div>
+                                            <p className="text-sm font-medium text-primary-900">{company.legal_name}</p>
+                                            <p className="text-xs text-primary-500">
+                                              {company.employee_count || 0} employees • {company.status}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={() => handleImpersonateCompanyAdmin(company.id, company.legal_name)}
+                                          className="inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 font-medium"
+                                          title="Login as company admin"
+                                        >
+                                          <IdentificationIcon className="h-3.5 w-3.5" />
+                                          Impersonate Admin
+                                          <ArrowTopRightOnSquareIcon className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                      {/* Expanded employees section */}
+                                      {expandedCompany === company.id && (
+                                        <div className="border-t border-primary-100 bg-primary-50/50 p-3">
+                                          <h5 className="text-xs font-semibold text-primary-600 mb-2 flex items-center gap-1">
+                                            <UsersIcon className="h-3.5 w-3.5" />
+                                            Employees with ESS Access
+                                          </h5>
+                                          {employeesLoading ? (
+                                            <div className="flex items-center justify-center py-4">
+                                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-accent-600"></div>
+                                            </div>
+                                          ) : companyEmployees.length > 0 ? (
+                                            <div className="grid gap-1.5">
+                                              {companyEmployees.map((emp) => (
+                                                <div
+                                                  key={emp.id}
+                                                  className="flex items-center justify-between bg-white p-2 rounded border border-primary-100"
+                                                >
+                                                  <div className="flex items-center gap-2">
+                                                    <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-xs font-medium">
+                                                      {emp.first_name?.[0]?.toUpperCase() || 'E'}
+                                                    </div>
+                                                    <div>
+                                                      <p className="text-xs font-medium text-primary-900">
+                                                        {emp.first_name} {emp.last_name}
+                                                      </p>
+                                                      <p className="text-[10px] text-primary-500">
+                                                        {emp.job_title || emp.email}
+                                                      </p>
+                                                    </div>
+                                                  </div>
+                                                  <button
+                                                    onClick={() => handleImpersonateEmployee(emp.id, `${emp.first_name} ${emp.last_name}`)}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium"
+                                                    title="Login as this employee (ESS)"
+                                                  >
+                                                    <UserIcon className="h-3 w-3" />
+                                                    ESS
+                                                    <ArrowTopRightOnSquareIcon className="h-2.5 w-2.5" />
+                                                  </button>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <p className="text-xs text-primary-500 italic py-2">
+                                              No employees with ESS access. Invite employees to ESS first.
+                                            </p>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-primary-500 italic">No companies yet</p>
+                              )}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-primary-500 text-center py-4">Failed to load details</p>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

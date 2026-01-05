@@ -15,7 +15,10 @@ import {
   FunnelIcon,
   CheckCircleIcon,
   ClockIcon,
-  XCircleIcon
+  XCircleIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ExclamationCircleIcon
 } from '@heroicons/react/24/outline';
 
 const statusColors = {
@@ -59,6 +62,13 @@ const companyTypeOptions = [
   { value: 'ngo', label: 'Non-Governmental Organization (NGO)' }
 ];
 
+const wizardSteps = [
+  { id: 'basic', title: 'Basic Info', description: 'Company name and type' },
+  { id: 'contact', title: 'Contact', description: 'Contact and address' },
+  { id: 'compliance', title: 'Compliance', description: 'Nigeria statutory' },
+  { id: 'payroll', title: 'Payroll', description: 'Payment settings' }
+];
+
 function Companies() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
@@ -72,7 +82,9 @@ function Companies() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic');
+  const [currentStep, setCurrentStep] = useState(0);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   const [formData, setFormData] = useState({
     legalName: '',
@@ -185,7 +197,9 @@ function Companies() {
       setEditingCompany(null);
       resetForm();
     }
-    setActiveTab('basic');
+    setCurrentStep(0);
+    setErrors({});
+    setTouched({});
     setModalOpen(true);
   };
 
@@ -260,6 +274,74 @@ function Companies() {
   const handleViewEmployees = (companyId) => {
     // Navigate to employees page with company filter
     navigate(`/dashboard/employees?company=${companyId}`);
+  };
+
+  // Validation rules per step
+  const validateStep = (step) => {
+    const newErrors = {};
+
+    if (step === 0) { // Basic Info
+      if (!formData.legalName.trim()) {
+        newErrors.legalName = 'Legal name is required';
+      }
+      if (!formData.industry) {
+        newErrors.industry = 'Industry is required';
+      }
+    }
+
+    if (step === 1) { // Contact
+      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = 'Invalid email format';
+      }
+      if (formData.website && !/^https?:\/\/.+/.test(formData.website)) {
+        newErrors.website = 'Website must start with http:// or https://';
+      }
+    }
+
+    // Steps 2 & 3 (Compliance & Payroll) are optional
+
+    return newErrors;
+  };
+
+  const getStepErrors = (step) => {
+    const stepErrors = validateStep(step);
+    return Object.keys(stepErrors).length > 0 ? stepErrors : null;
+  };
+
+  const isStepComplete = (step) => {
+    return !getStepErrors(step);
+  };
+
+  const handleNext = () => {
+    const stepErrors = validateStep(currentStep);
+    if (Object.keys(stepErrors).length > 0) {
+      setErrors(stepErrors);
+      // Mark all fields as touched
+      const touchedFields = {};
+      Object.keys(stepErrors).forEach(key => touchedFields[key] = true);
+      setTouched(prev => ({ ...prev, ...touchedFields }));
+      return;
+    }
+    setErrors({});
+    if (currentStep < wizardSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+      setErrors({});
+    }
+  };
+
+  const handleFieldChange = (field, value) => {
+    setFormData({ ...formData, [field]: value });
+    setTouched({ ...touched, [field]: true });
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors({ ...errors, [field]: undefined });
+    }
   };
 
   const filteredCompanies = companies.filter(company =>
@@ -428,59 +510,82 @@ function Companies() {
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingCompany ? 'Edit Company' : 'Add Company'} size="xl">
         <form onSubmit={handleSubmit}>
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 mb-4 overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => setActiveTab('basic')}
-              className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeTab === 'basic' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Basic Info
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('contact')}
-              className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeTab === 'contact' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Contact & Address
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('compliance')}
-              className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeTab === 'compliance' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Nigeria Compliance
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('payroll')}
-              className={`px-4 py-2 text-sm font-medium whitespace-nowrap ${activeTab === 'payroll' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Payroll Settings
-            </button>
+          {/* Wizard Progress Steps */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              {wizardSteps.map((step, index) => (
+                <div key={step.id} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center relative">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                        index < currentStep
+                          ? 'bg-accent-600 text-white'
+                          : index === currentStep
+                          ? 'bg-accent-100 text-accent-700 ring-2 ring-accent-600'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {index < currentStep ? (
+                        <CheckCircleIcon className="h-5 w-5" />
+                      ) : (
+                        index + 1
+                      )}
+                    </div>
+                    <div className="mt-2 text-center">
+                      <p className={`text-xs font-medium ${index === currentStep ? 'text-accent-700' : 'text-gray-500'}`}>
+                        {step.title}
+                      </p>
+                      <p className="text-xs text-gray-400 hidden sm:block">{step.description}</p>
+                    </div>
+                  </div>
+                  {index < wizardSteps.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-2 ${index < currentStep ? 'bg-accent-600' : 'bg-gray-200'}`} />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Basic Info Tab */}
-          {activeTab === 'basic' && (
+          {/* Error Summary */}
+          {Object.keys(errors).length > 0 && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <ExclamationCircleIcon className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">Please fix the following errors:</p>
+                  <ul className="mt-1 text-sm text-red-600 list-disc list-inside">
+                    {Object.values(errors).filter(Boolean).map((error, i) => (
+                      <li key={i}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 1: Basic Info */}
+          {currentStep === 0 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Legal Name *</label>
+                  <label className="form-label">Legal Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
-                    required
                     value={formData.legalName}
-                    onChange={(e) => setFormData({ ...formData, legalName: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('legalName', e.target.value)}
+                    className={`form-input ${errors.legalName && touched.legalName ? 'border-red-500 focus:ring-red-500' : ''}`}
                     placeholder="e.g. ABC Limited"
                   />
+                  {errors.legalName && touched.legalName && (
+                    <p className="mt-1 text-xs text-red-500">{errors.legalName}</p>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Trading Name</label>
                   <input
                     type="text"
                     value={formData.tradingName}
-                    onChange={(e) => setFormData({ ...formData, tradingName: e.target.value })}
+                    onChange={(e) => handleFieldChange('tradingName', e.target.value)}
                     className="form-input"
                     placeholder="e.g. ABC"
                   />
@@ -491,7 +596,7 @@ function Companies() {
                   <label className="form-label">Company Type</label>
                   <select
                     value={formData.companyType}
-                    onChange={(e) => setFormData({ ...formData, companyType: e.target.value })}
+                    onChange={(e) => handleFieldChange('companyType', e.target.value)}
                     className="form-input"
                   >
                     {companyTypeOptions.map(opt => (
@@ -500,24 +605,27 @@ function Companies() {
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Industry</label>
+                  <label className="form-label">Industry <span className="text-red-500">*</span></label>
                   <select
                     value={formData.industry}
-                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('industry', e.target.value)}
+                    className={`form-input ${errors.industry && touched.industry ? 'border-red-500 focus:ring-red-500' : ''}`}
                   >
                     <option value="">Select industry...</option>
                     {industryOptions.map(industry => (
                       <option key={industry} value={industry}>{industry}</option>
                     ))}
                   </select>
+                  {errors.industry && touched.industry && (
+                    <p className="mt-1 text-xs text-red-500">{errors.industry}</p>
+                  )}
                 </div>
               </div>
               <div>
                 <label className="form-label">Employee Count Range</label>
                 <select
                   value={formData.employeeCountRange}
-                  onChange={(e) => setFormData({ ...formData, employeeCountRange: e.target.value })}
+                  onChange={(e) => handleFieldChange('employeeCountRange', e.target.value)}
                   className="form-input"
                 >
                   <option value="">Select range...</option>
@@ -531,8 +639,8 @@ function Companies() {
             </div>
           )}
 
-          {/* Contact & Address Tab */}
-          {activeTab === 'contact' && (
+          {/* Step 2: Contact & Address */}
+          {currentStep === 1 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -540,17 +648,20 @@ function Companies() {
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('email', e.target.value)}
+                    className={`form-input ${errors.email && touched.email ? 'border-red-500 focus:ring-red-500' : ''}`}
                     placeholder="info@company.com"
                   />
+                  {errors.email && touched.email && (
+                    <p className="mt-1 text-xs text-red-500">{errors.email}</p>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Phone</label>
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => handleFieldChange('phone', e.target.value)}
                     className="form-input"
                     placeholder="+234 XXX XXX XXXX"
                   />
@@ -560,10 +671,13 @@ function Companies() {
                   <input
                     type="url"
                     value={formData.website}
-                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('website', e.target.value)}
+                    className={`form-input ${errors.website && touched.website ? 'border-red-500 focus:ring-red-500' : ''}`}
                     placeholder="https://www.company.com"
                   />
+                  {errors.website && touched.website && (
+                    <p className="mt-1 text-xs text-red-500">{errors.website}</p>
+                  )}
                 </div>
               </div>
               <div>
@@ -571,7 +685,7 @@ function Companies() {
                 <input
                   type="text"
                   value={formData.addressLine1}
-                  onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
+                  onChange={(e) => handleFieldChange('addressLine1', e.target.value)}
                   className="form-input"
                   placeholder="Street address"
                 />
@@ -581,7 +695,7 @@ function Companies() {
                 <input
                   type="text"
                   value={formData.addressLine2}
-                  onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
+                  onChange={(e) => handleFieldChange('addressLine2', e.target.value)}
                   className="form-input"
                   placeholder="Suite, floor, building"
                 />
@@ -592,7 +706,7 @@ function Companies() {
                   <input
                     type="text"
                     value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    onChange={(e) => handleFieldChange('city', e.target.value)}
                     className="form-input"
                     placeholder="e.g. Lagos"
                   />
@@ -602,7 +716,7 @@ function Companies() {
                   <input
                     type="text"
                     value={formData.state}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    onChange={(e) => handleFieldChange('state', e.target.value)}
                     className="form-input"
                     placeholder="e.g. Lagos State"
                   />
@@ -612,7 +726,7 @@ function Companies() {
                   <input
                     type="text"
                     value={formData.postalCode}
-                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                    onChange={(e) => handleFieldChange('postalCode', e.target.value)}
                     className="form-input"
                     placeholder="e.g. 100001"
                   />
@@ -621,17 +735,17 @@ function Companies() {
             </div>
           )}
 
-          {/* Nigeria Compliance Tab */}
-          {activeTab === 'compliance' && (
+          {/* Step 3: Nigeria Compliance */}
+          {currentStep === 2 && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500 mb-4">Nigerian statutory registration numbers</p>
+              <p className="text-sm text-gray-500 mb-4">Nigerian statutory registration numbers (optional - can be added later)</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">TIN (Tax ID Number)</label>
                   <input
                     type="text"
                     value={formData.tin}
-                    onChange={(e) => setFormData({ ...formData, tin: e.target.value })}
+                    onChange={(e) => handleFieldChange('tin', e.target.value)}
                     className="form-input"
                     placeholder="Company TIN"
                   />
@@ -641,7 +755,7 @@ function Companies() {
                   <input
                     type="text"
                     value={formData.rcNumber}
-                    onChange={(e) => setFormData({ ...formData, rcNumber: e.target.value })}
+                    onChange={(e) => handleFieldChange('rcNumber', e.target.value)}
                     className="form-input"
                     placeholder="e.g. RC123456"
                   />
@@ -653,7 +767,7 @@ function Companies() {
                   <input
                     type="text"
                     value={formData.pensionCode}
-                    onChange={(e) => setFormData({ ...formData, pensionCode: e.target.value })}
+                    onChange={(e) => handleFieldChange('pensionCode', e.target.value)}
                     className="form-input"
                     placeholder="PenCom employer code"
                   />
@@ -663,7 +777,7 @@ function Companies() {
                   <input
                     type="text"
                     value={formData.nhfCode}
-                    onChange={(e) => setFormData({ ...formData, nhfCode: e.target.value })}
+                    onChange={(e) => handleFieldChange('nhfCode', e.target.value)}
                     className="form-input"
                     placeholder="National Housing Fund code"
                   />
@@ -675,7 +789,7 @@ function Companies() {
                   <input
                     type="text"
                     value={formData.nhisCode}
-                    onChange={(e) => setFormData({ ...formData, nhisCode: e.target.value })}
+                    onChange={(e) => handleFieldChange('nhisCode', e.target.value)}
                     className="form-input"
                     placeholder="Health insurance code"
                   />
@@ -685,7 +799,7 @@ function Companies() {
                   <input
                     type="text"
                     value={formData.itfCode}
-                    onChange={(e) => setFormData({ ...formData, itfCode: e.target.value })}
+                    onChange={(e) => handleFieldChange('itfCode', e.target.value)}
                     className="form-input"
                     placeholder="Industrial Training Fund"
                   />
@@ -695,7 +809,7 @@ function Companies() {
                   <input
                     type="text"
                     value={formData.nsitfCode}
-                    onChange={(e) => setFormData({ ...formData, nsitfCode: e.target.value })}
+                    onChange={(e) => handleFieldChange('nsitfCode', e.target.value)}
                     className="form-input"
                     placeholder="Social Insurance Trust Fund"
                   />
@@ -704,8 +818,8 @@ function Companies() {
             </div>
           )}
 
-          {/* Payroll Settings Tab */}
-          {activeTab === 'payroll' && (
+          {/* Step 4: Payroll Settings */}
+          {currentStep === 3 && (
             <div className="space-y-4">
               <p className="text-sm text-gray-500 mb-4">Configure payroll processing settings</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -713,7 +827,7 @@ function Companies() {
                   <label className="form-label">Default Currency</label>
                   <select
                     value={formData.defaultCurrency}
-                    onChange={(e) => setFormData({ ...formData, defaultCurrency: e.target.value })}
+                    onChange={(e) => handleFieldChange('defaultCurrency', e.target.value)}
                     className="form-input"
                   >
                     <option value="NGN">NGN - Nigerian Naira</option>
@@ -726,7 +840,7 @@ function Companies() {
                   <label className="form-label">Pay Frequency</label>
                   <select
                     value={formData.payFrequency}
-                    onChange={(e) => setFormData({ ...formData, payFrequency: e.target.value })}
+                    onChange={(e) => handleFieldChange('payFrequency', e.target.value)}
                     className="form-input"
                   >
                     <option value="weekly">Weekly</option>
@@ -743,7 +857,7 @@ function Companies() {
                     min="1"
                     max="28"
                     value={formData.payrollCutoffDay}
-                    onChange={(e) => setFormData({ ...formData, payrollCutoffDay: e.target.value })}
+                    onChange={(e) => handleFieldChange('payrollCutoffDay', e.target.value)}
                     className="form-input"
                     placeholder="Day of month (1-28)"
                   />
@@ -756,7 +870,7 @@ function Companies() {
                     min="1"
                     max="31"
                     value={formData.payDay}
-                    onChange={(e) => setFormData({ ...formData, payDay: e.target.value })}
+                    onChange={(e) => handleFieldChange('payDay', e.target.value)}
                     className="form-input"
                     placeholder="Day of month (1-31)"
                   />
@@ -766,11 +880,50 @@ function Companies() {
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
-            <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? 'Saving...' : (editingCompany ? 'Update' : 'Create')}
+          {/* Wizard Navigation */}
+          <div className="flex justify-between items-center pt-6 mt-6 border-t">
+            <button
+              type="button"
+              onClick={currentStep === 0 ? handleCloseModal : handlePrevious}
+              className="btn-secondary inline-flex items-center gap-2"
+            >
+              {currentStep === 0 ? (
+                'Cancel'
+              ) : (
+                <>
+                  <ArrowLeftIcon className="h-4 w-4" />
+                  Previous
+                </>
+              )}
             </button>
+
+            <div className="text-sm text-gray-500">
+              Step {currentStep + 1} of {wizardSteps.length}
+            </div>
+
+            {currentStep < wizardSteps.length - 1 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="btn-primary inline-flex items-center gap-2"
+              >
+                Next
+                <ArrowRightIcon className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={saving}
+                className="btn-primary inline-flex items-center gap-2"
+              >
+                {saving ? 'Saving...' : (
+                  <>
+                    <CheckCircleIcon className="h-4 w-4" />
+                    {editingCompany ? 'Update Company' : 'Create Company'}
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </form>
       </Modal>
