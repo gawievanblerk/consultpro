@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCompany } from '../context/CompanyContext';
@@ -126,11 +126,16 @@ function Layout() {
   const location = useLocation();
 
   const isActive = (href) => location.pathname === href;
-  const filteredNav = getFilteredNavigation(user?.role, user?.userType);
+
+  // Memoize filtered navigation to prevent unnecessary re-renders
+  const filteredNav = useMemo(() =>
+    getFilteredNavigation(user?.role, user?.userType),
+    [user?.role, user?.userType]
+  );
 
   // Toggle accordion section
   const toggleSection = (sectionName) => {
-    setExpandedSection(expandedSection === sectionName ? null : sectionName);
+    setExpandedSection(prev => prev === sectionName ? null : sectionName);
   };
 
   // Close mobile sidebar when clicking a nav item
@@ -140,7 +145,7 @@ function Layout() {
     }
   };
 
-  // Auto-expand section containing active page
+  // Auto-expand section containing active page - only on route changes
   useEffect(() => {
     const activeSection = filteredNav.find(item =>
       item.children?.some(child => location.pathname === child.href)
@@ -148,7 +153,7 @@ function Layout() {
     if (activeSection) {
       setExpandedSection(activeSection.name);
     }
-  }, [location.pathname, filteredNav]);
+  }, [location.pathname]); // Only depend on pathname, not filteredNav
 
   const activeCompany = getActiveCompany();
   const hasMultipleDeployments = isStaff && user?.deployedCompanies?.length > 1;
