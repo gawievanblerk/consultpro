@@ -9,7 +9,7 @@ services:
     region: oregon
     plan: free
     rootDir: backend
-    buildCommand: npm ci
+    buildCommand: npm ci && npm run migrate
     startCommand: node src/server.js
     healthCheckPath: /health
     customDomains:
