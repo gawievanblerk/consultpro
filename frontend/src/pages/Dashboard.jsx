@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { useHelp } from '../context/HelpContext';
 import { HelpButton } from '../components/HelpModal';
+import { useAuth } from '../context/AuthContext';
+import OnboardingWizard from '../components/OnboardingWizard';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -44,7 +46,9 @@ ChartJS.register(
 
 function Dashboard() {
   const { showHelp } = useHelp();
+  const { isConsultant } = useAuth();
   const [stats, setStats] = useState(null);
+  const [showWizard, setShowWizard] = useState(true);
   const [recentTasks, setRecentTasks] = useState([]);
   const [pipelineData, setPipelineData] = useState([]);
   const [revenueTrend, setRevenueTrend] = useState([]);
@@ -270,6 +274,11 @@ function Dashboard() {
         </div>
         <HelpButton onClick={() => showHelp('dashboard')} />
       </div>
+
+      {/* Onboarding Wizard for Consultants */}
+      {isConsultant && showWizard && (
+        <OnboardingWizard onDismiss={() => setShowWizard(false)} />
+      )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -53,6 +53,7 @@ const navigation = [
     { name: 'Deployments', href: '/dashboard/deployments', icon: ClipboardDocumentListIcon },
   ]},
   { name: 'Employees', userTypes: ['consultant', 'staff', 'company_admin'], children: [
+    { name: 'Companies', href: '/dashboard/companies', icon: BuildingOfficeIcon, userTypes: ['consultant'] },
     { name: 'All Employees', href: '/dashboard/employees', icon: UsersIcon },
   ]},
   { name: 'Leave Management', userTypes: ['consultant', 'staff', 'company_admin'], children: [

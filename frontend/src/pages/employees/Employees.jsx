@@ -14,7 +14,8 @@ import {
   TrashIcon,
   EnvelopeIcon,
   FunnelIcon,
-  ArrowUpTrayIcon
+  ArrowUpTrayIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 
 const statusColors = {
@@ -243,6 +244,44 @@ function Employees() {
     }
   };
 
+  const handleBulkEssInvite = async () => {
+    const eligibleEmployees = employees.filter(emp =>
+      selectedIds.has(emp.id) && emp.email && !emp.ess_activated_at
+    );
+
+    if (eligibleEmployees.length === 0) {
+      toast.error('No eligible employees selected. Employees must have an email and not already have ESS access.');
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: 'Send ESS Invitations',
+      message: `Send ESS portal invitations to ${eligibleEmployees.length} employee(s)?${selectedCount > eligibleEmployees.length ? ` (${selectedCount - eligibleEmployees.length} will be skipped - no email or already activated)` : ''}`,
+      confirmText: 'Send Invitations',
+      variant: 'primary'
+    });
+    if (!confirmed) return;
+
+    try {
+      const response = await api.post('/api/employees/ess/bulk-invite', {
+        employee_ids: Array.from(selectedIds)
+      });
+
+      if (response.data.success) {
+        const { sent, skipped, failed } = response.data.data;
+        let message = `${sent} invitation(s) sent`;
+        if (skipped > 0) message += `, ${skipped} skipped`;
+        if (failed > 0) message += `, ${failed} failed`;
+        toast.success(message);
+        clearSelection();
+        fetchEmployees();
+      }
+    } catch (error) {
+      console.error('Failed to send bulk ESS invites:', error);
+      toast.error(error.response?.data?.error || 'Failed to send invitations');
+    }
+  };
+
   const handleSendEssInvite = async (employee) => {
     if (!employee.email) {
       toast.error('Employee does not have an email address');
@@ -431,6 +470,14 @@ function Employees() {
         selectedCount={selectedCount}
         onClearSelection={clearSelection}
         onBulkDelete={handleBulkDelete}
+        customActions={[
+          {
+            label: 'Send ESS Invites',
+            icon: PaperAirplaneIcon,
+            onClick: handleBulkEssInvite,
+            className: 'bg-accent-600 hover:bg-accent-700'
+          }
+        ]}
       />
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingEmployee ? 'Edit Employee' : 'Add Employee'} size="xl">
