@@ -311,7 +311,7 @@ function Consultants() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {consultant.subscription_status === 'active' && (
+                      {(consultant.subscription_status === 'active' || consultant.subscription_status === 'trial') && (
                         <button
                           onClick={() => handleImpersonate(consultant)}
                           className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-accent-100 text-accent-700 rounded hover:bg-accent-200"
