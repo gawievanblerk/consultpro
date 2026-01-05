@@ -81,11 +81,11 @@ export default function ESSLogin() {
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div>
             <img
-              src="/logo.svg"
+              src="/corehr-logo-light.svg"
               alt="CoreHR"
-              className="h-14 brightness-0 invert"
+              className="h-12"
             />
-            <span className="ml-2 text-white/80 text-lg font-medium">Employee Portal</span>
+            <span className="mt-2 block text-white/80 text-lg font-medium">Employee Portal</span>
           </div>
 
           <div className="max-w-md">
@@ -125,7 +125,7 @@ export default function ESSLogin() {
           </div>
 
           <div className="text-primary-400 text-sm">
-            Powered by ConsultPro | Rozitech
+            Powered by Rozitech
           </div>
         </div>
 
@@ -140,9 +140,9 @@ export default function ESSLogin() {
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-10">
             <img
-              src="/logo.svg"
+              src="/corehr-logo.svg"
               alt="CoreHR"
-              className="h-12 mx-auto"
+              className="h-10 mx-auto"
             />
             <p className="text-primary-600 mt-2">Employee Portal</p>
           </div>

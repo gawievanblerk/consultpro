@@ -40,7 +40,7 @@ export default function ESSLanding() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src="/logo.svg" alt="CoreHR" className="h-10 w-auto" />
+              <img src="/corehr-logo.svg" alt="CoreHR" className="h-9 w-auto" />
               <span className="text-lg font-semibold text-primary-900">Employee Portal</span>
             </div>
             <Link
@@ -116,7 +116,7 @@ export default function ESSLanding() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-primary-500">
-              Powered by ConsultPro | Rozitech
+              Powered by Rozitech
             </p>
             <div className="flex items-center gap-6 text-sm text-primary-500">
               <a href="mailto:support@corehr.africa" className="hover:text-primary-700">

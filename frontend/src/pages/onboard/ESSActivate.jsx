@@ -134,9 +134,11 @@ function ESSActivate() {
       <div className="bg-white rounded-xl shadow-lg max-w-md w-full overflow-hidden">
         {/* Header */}
         <div className="bg-accent-600 px-8 py-6 text-center">
-          <div className="h-16 w-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
-            <UserCircleIcon className="h-10 w-10 text-accent-600" />
-          </div>
+          <img
+            src="/corehr-logo-light.svg"
+            alt="CoreHR"
+            className="h-10 mx-auto mb-4"
+          />
           <h1 className="text-xl font-semibold text-white">Activate Your Account</h1>
           <p className="text-accent-100 mt-1">Employee Self-Service Portal</p>
         </div>
