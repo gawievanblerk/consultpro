@@ -908,7 +908,7 @@ router.post('/companies/:id/impersonate', [
       SELECT u.id, u.email, u.first_name, u.last_name, u.user_type, ca.id as company_admin_id
       FROM users u
       JOIN company_admins ca ON u.id = ca.user_id
-      WHERE ca.company_id = $1 AND ca.is_primary = true AND ca.is_active = true
+      WHERE ca.company_id = $1 AND ca.is_primary = true
       LIMIT 1
     `, [id]);
 
