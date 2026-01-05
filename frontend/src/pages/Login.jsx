@@ -240,22 +240,6 @@ function Login() {
                   )}
                 </button>
               </form>
-
-              {/* Demo credentials */}
-              <div className="mt-10 pt-8 border-t border-primary-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-accent-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <svg className="w-4 h-4 text-accent-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-primary-700 mb-1">Demo Credentials</p>
-                    <p className="text-sm text-primary-500">Email: admin@corehr.africa</p>
-                    <p className="text-sm text-primary-500">Password: Demo123!</p>
-                  </div>
-                </div>
-              </div>
             </>
           )}
 
