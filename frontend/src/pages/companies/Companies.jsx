@@ -18,8 +18,11 @@ import {
   XCircleIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  ShieldCheckIcon,
+  StarIcon
 } from '@heroicons/react/24/outline';
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
 const statusColors = {
   onboarding: 'badge-warning',
@@ -85,6 +88,16 @@ function Companies() {
   const [currentStep, setCurrentStep] = useState(0);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+
+  // Admin management state
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState(null);
+  const [admins, setAdmins] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedRole, setSelectedRole] = useState('admin');
+  const [addingAdmin, setAddingAdmin] = useState(false);
 
   const [formData, setFormData] = useState({
     legalName: '',
@@ -276,6 +289,107 @@ function Companies() {
     navigate(`/dashboard/employees?company=${companyId}`);
   };
 
+  // Admin management functions
+  const handleOpenAdminModal = async (company) => {
+    setSelectedCompany(company);
+    setAdminModalOpen(true);
+    setLoadingAdmins(true);
+    setSelectedEmployeeId('');
+    setSelectedRole('admin');
+
+    try {
+      // Fetch admins and employees in parallel
+      const [adminsRes, employeesRes] = await Promise.all([
+        api.get(`/api/companies/${company.id}/admins`),
+        api.get(`/api/employees?company=${company.id}&limit=100`)
+      ]);
+
+      if (adminsRes.data.success) {
+        setAdmins(adminsRes.data.data);
+      }
+      if (employeesRes.data.success) {
+        // Filter to only employees with ESS enabled (user_id exists)
+        const essEmployees = employeesRes.data.data.filter(e => e.user_id);
+        setEmployees(essEmployees);
+      }
+    } catch (error) {
+      console.error('Failed to load admin data:', error);
+      toast.error('Failed to load admin data');
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
+  const handleCloseAdminModal = () => {
+    setAdminModalOpen(false);
+    setSelectedCompany(null);
+    setAdmins([]);
+    setEmployees([]);
+  };
+
+  const handleAddAdmin = async () => {
+    if (!selectedEmployeeId) {
+      toast.error('Please select an employee');
+      return;
+    }
+
+    setAddingAdmin(true);
+    try {
+      const isPrimary = admins.length === 0; // First admin is primary
+      const response = await api.post(`/api/companies/${selectedCompany.id}/admins`, {
+        employeeId: selectedEmployeeId,
+        role: selectedRole,
+        isPrimary
+      });
+
+      if (response.data.success) {
+        toast.success(response.data.message);
+        // Refresh admins list
+        const adminsRes = await api.get(`/api/companies/${selectedCompany.id}/admins`);
+        if (adminsRes.data.success) {
+          setAdmins(adminsRes.data.data);
+        }
+        setSelectedEmployeeId('');
+      }
+    } catch (error) {
+      console.error('Failed to add admin:', error);
+      toast.error(error.response?.data?.error || 'Failed to add admin');
+    } finally {
+      setAddingAdmin(false);
+    }
+  };
+
+  const handleRemoveAdmin = async (adminId) => {
+    const confirmed = await confirm({
+      title: 'Remove Admin',
+      message: 'Are you sure you want to remove this admin?',
+      confirmText: 'Remove',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/api/companies/${selectedCompany.id}/admins/${adminId}`);
+      toast.success('Admin removed');
+      setAdmins(admins.filter(a => a.id !== adminId));
+    } catch (error) {
+      console.error('Failed to remove admin:', error);
+      toast.error('Failed to remove admin');
+    }
+  };
+
+  const handleSetPrimaryAdmin = async (adminId) => {
+    try {
+      await api.put(`/api/companies/${selectedCompany.id}/admins/${adminId}/primary`);
+      toast.success('Primary admin updated');
+      // Update local state
+      setAdmins(admins.map(a => ({ ...a, is_primary: a.id === adminId })));
+    } catch (error) {
+      console.error('Failed to set primary admin:', error);
+      toast.error('Failed to set primary admin');
+    }
+  };
+
   // Validation rules per step
   const validateStep = (step) => {
     const newErrors = {};
@@ -456,6 +570,13 @@ function Companies() {
                       title="Edit Company"
                     >
                       <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleOpenAdminModal(company)}
+                      className="p-2 text-gray-500 hover:text-purple-600 hover:bg-gray-100 rounded"
+                      title="Manage Admins"
+                    >
+                      <ShieldCheckIcon className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleViewEmployees(company.id)}
@@ -926,6 +1047,131 @@ function Companies() {
             )}
           </div>
         </form>
+      </Modal>
+
+      {/* Admin Management Modal */}
+      <Modal
+        isOpen={adminModalOpen}
+        onClose={handleCloseAdminModal}
+        title={`Manage Admins - ${selectedCompany?.legal_name || ''}`}
+        size="lg"
+      >
+        {loadingAdmins ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-700"></div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Current Admins */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Current Admins</h3>
+              {admins.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">No admins assigned yet. Add one below.</p>
+              ) : (
+                <div className="space-y-2">
+                  {admins.map((admin) => (
+                    <div
+                      key={admin.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 bg-purple-100 rounded-full flex items-center justify-center">
+                          <span className="text-purple-700 font-medium">
+                            {admin.first_name?.[0]}{admin.last_name?.[0]}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900">
+                              {admin.first_name} {admin.last_name}
+                            </span>
+                            {admin.is_primary && (
+                              <span className="inline-flex items-center gap-1 text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
+                                <StarIconSolid className="h-3 w-3" />
+                                Primary
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500">{admin.email}</div>
+                          <div className="text-xs text-gray-400 capitalize">{admin.role?.replace('_', ' ')}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!admin.is_primary && (
+                          <button
+                            onClick={() => handleSetPrimaryAdmin(admin.id)}
+                            className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded"
+                            title="Set as Primary"
+                          >
+                            <StarIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleRemoveAdmin(admin.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                          title="Remove Admin"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add New Admin */}
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Add Admin from Employees</h3>
+              {employees.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">
+                  No employees with ESS access found. Enable ESS for employees first.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="form-label">Select Employee</label>
+                      <select
+                        value={selectedEmployeeId}
+                        onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                        className="form-input"
+                      >
+                        <option value="">Choose an employee...</option>
+                        {employees
+                          .filter(e => !admins.some(a => a.user_id === e.user_id))
+                          .map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.first_name} {emp.last_name} ({emp.email})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Role</label>
+                      <select
+                        value={selectedRole}
+                        onChange={(e) => setSelectedRole(e.target.value)}
+                        className="form-input"
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="hr_manager">HR Manager</option>
+                        <option value="payroll_admin">Payroll Admin</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleAddAdmin}
+                    disabled={!selectedEmployeeId || addingAdmin}
+                    className="btn-primary"
+                  >
+                    {addingAdmin ? 'Adding...' : 'Add as Admin'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
