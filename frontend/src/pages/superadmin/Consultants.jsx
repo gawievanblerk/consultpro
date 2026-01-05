@@ -241,7 +241,7 @@ function Consultants() {
       </div>
 
       {/* Consultants Table */}
-      <div className="bg-white rounded-xl border border-primary-100 overflow-hidden">
+      <div className="bg-white rounded-xl border border-primary-100 overflow-x-auto">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-600"></div>
@@ -260,7 +260,7 @@ function Consultants() {
             </button>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[900px]">
             <thead className="bg-primary-50 border-b border-primary-100">
               <tr>
                 <th className="px-4 py-3 text-left">
