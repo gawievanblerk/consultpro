@@ -706,4 +706,170 @@ router.post('/:id/admins/invite', [
   }
 });
 
+/**
+ * POST /api/companies/:id/admins
+ * Promote an employee to company admin
+ */
+router.post('/:id/admins', [
+  param('id').isUUID(),
+  body('employeeId').isUUID(),
+  body('role').optional().isIn(['admin', 'hr_manager', 'payroll_admin']),
+  body('isPrimary').optional().isBoolean()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const { id } = req.params;
+    const { employeeId, role = 'admin', isPrimary = false } = req.body;
+
+    const canAccess = await req.canAccessCompany(id);
+    if (!canAccess) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    // Get employee and verify they belong to this company
+    const employeeResult = await query(`
+      SELECT e.id, e.first_name, e.last_name, e.email, e.user_id, e.company_id
+      FROM employees e
+      WHERE e.id = $1 AND e.company_id = $2 AND e.deleted_at IS NULL
+    `, [employeeId, id]);
+
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found in this company'
+      });
+    }
+
+    const employee = employeeResult.rows[0];
+
+    // Check if employee has a user account (ESS enabled)
+    if (!employee.user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'This employee does not have a user account. Enable ESS access first.'
+      });
+    }
+
+    // Check if already an admin
+    const existingAdmin = await query(
+      'SELECT id FROM company_admins WHERE company_id = $1 AND user_id = $2',
+      [id, employee.user_id]
+    );
+
+    if (existingAdmin.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'This employee is already an admin for this company'
+      });
+    }
+
+    // If setting as primary, unset any existing primary admin
+    if (isPrimary) {
+      await query(
+        'UPDATE company_admins SET is_primary = false WHERE company_id = $1',
+        [id]
+      );
+    }
+
+    // Create company admin record
+    const result = await query(`
+      INSERT INTO company_admins (company_id, user_id, role, is_primary)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [id, employee.user_id, role, isPrimary]);
+
+    res.status(201).json({
+      success: true,
+      message: `${employee.first_name} ${employee.last_name} has been made a company admin`,
+      data: {
+        ...result.rows[0],
+        employee: {
+          id: employee.id,
+          firstName: employee.first_name,
+          lastName: employee.last_name,
+          email: employee.email
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Promote employee to admin error:', error);
+    res.status(500).json({ success: false, error: 'Failed to promote employee to admin' });
+  }
+});
+
+/**
+ * DELETE /api/companies/:companyId/admins/:adminId
+ * Remove a company admin
+ */
+router.delete('/:companyId/admins/:adminId', [
+  param('companyId').isUUID(),
+  param('adminId').isUUID()
+], async (req, res) => {
+  try {
+    const { companyId, adminId } = req.params;
+
+    const canAccess = await req.canAccessCompany(companyId);
+    if (!canAccess) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    const result = await query(
+      'DELETE FROM company_admins WHERE id = $1 AND company_id = $2 RETURNING *',
+      [adminId, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Admin not found' });
+    }
+
+    res.json({ success: true, message: 'Admin removed successfully' });
+  } catch (error) {
+    console.error('Remove company admin error:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove admin' });
+  }
+});
+
+/**
+ * PUT /api/companies/:companyId/admins/:adminId/primary
+ * Set an admin as primary
+ */
+router.put('/:companyId/admins/:adminId/primary', [
+  param('companyId').isUUID(),
+  param('adminId').isUUID()
+], async (req, res) => {
+  try {
+    const { companyId, adminId } = req.params;
+
+    const canAccess = await req.canAccessCompany(companyId);
+    if (!canAccess) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    // Unset all other primary admins
+    await query(
+      'UPDATE company_admins SET is_primary = false WHERE company_id = $1',
+      [companyId]
+    );
+
+    // Set this admin as primary
+    const result = await query(
+      'UPDATE company_admins SET is_primary = true WHERE id = $1 AND company_id = $2 RETURNING *',
+      [adminId, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Admin not found' });
+    }
+
+    res.json({ success: true, message: 'Primary admin updated', data: result.rows[0] });
+  } catch (error) {
+    console.error('Set primary admin error:', error);
+    res.status(500).json({ success: false, error: 'Failed to set primary admin' });
+  }
+});
+
 module.exports = router;
