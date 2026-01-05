@@ -487,6 +487,245 @@ router.get('/:id/invoices/summary', async (req, res) => {
   }
 });
 
+// GET /api/clients/:id/company - Get linked company for onboarded client
+router.get('/:id/company', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT co.*, cl.onboarding_status, cl.onboarded_at
+       FROM companies co
+       JOIN clients cl ON cl.id = co.client_id
+       WHERE co.client_id = $1 AND cl.tenant_id = $2 AND cl.deleted_at IS NULL`,
+      [req.params.id, req.tenant_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No company linked to this client'
+      });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+
+  } catch (error) {
+    console.error('Get client company error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch company' });
+  }
+});
+
+// POST /api/clients/:id/onboard - Onboard client to HR platform
+router.post('/:id/onboard', async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+    const { admin_email, admin_first_name, admin_last_name } = req.body;
+    const clientId = req.params.id;
+
+    if (!admin_email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Admin email is required'
+      });
+    }
+
+    // Get the client
+    const clientResult = await client.query(
+      `SELECT c.*, con.id as consultant_id
+       FROM clients c
+       JOIN consultants con ON con.tenant_id = c.tenant_id
+       WHERE c.id = $1 AND c.tenant_id = $2 AND c.deleted_at IS NULL`,
+      [clientId, req.tenant_id]
+    );
+
+    if (clientResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Client not found'
+      });
+    }
+
+    const clientData = clientResult.rows[0];
+
+    // Check if already onboarded
+    if (clientData.onboarding_status === 'active') {
+      return res.status(400).json({
+        success: false,
+        error: 'Client is already onboarded'
+      });
+    }
+
+    // Check if company already exists for this client
+    const existingCompany = await client.query(
+      `SELECT id FROM companies WHERE client_id = $1`,
+      [clientId]
+    );
+
+    await client.query('BEGIN');
+
+    let companyId;
+
+    if (existingCompany.rows.length > 0) {
+      companyId = existingCompany.rows[0].id;
+    } else {
+      // Create company from client data
+      companyId = uuidv4();
+      await client.query(
+        `INSERT INTO companies (
+          id, consultant_id, legal_name, trading_name, industry,
+          email, phone, website, address_line1, address_line2,
+          city, state, country, tin, rc_number, client_id, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'active')`,
+        [
+          companyId,
+          clientData.consultant_id,
+          clientData.company_name,
+          clientData.company_name,
+          clientData.industry,
+          clientData.email,
+          clientData.phone,
+          clientData.website,
+          clientData.address_line1,
+          clientData.address_line2,
+          clientData.city,
+          clientData.state,
+          clientData.country,
+          clientData.tin,
+          clientData.rc_number,
+          clientId
+        ]
+      );
+    }
+
+    // Generate invitation token
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    // Create company invitation
+    const invitationId = uuidv4();
+    await client.query(
+      `INSERT INTO company_invitations (
+        id, company_id, consultant_id, client_id, email, first_name, last_name,
+        role, token, expires_at, invited_by
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'admin', $8, $9, $10)`,
+      [
+        invitationId,
+        companyId,
+        clientData.consultant_id,
+        clientId,
+        admin_email,
+        admin_first_name || null,
+        admin_last_name || null,
+        token,
+        expiresAt,
+        req.user.id
+      ]
+    );
+
+    // Update client onboarding status
+    await client.query(
+      `UPDATE clients
+       SET onboarding_status = 'invited', updated_at = NOW()
+       WHERE id = $1`,
+      [clientId]
+    );
+
+    // Log activity
+    await client.query(
+      `INSERT INTO activity_logs (tenant_id, entity_type, entity_id, activity_type, description, performed_by)
+       VALUES ($1, 'client', $2, 'onboarded', $3, $4)`,
+      [req.tenant_id, clientId, `Onboarded client: ${clientData.company_name} - Invited ${admin_email}`, req.user.id]
+    );
+
+    await client.query('COMMIT');
+
+    // TODO: Send invitation email with token
+    // For now, return the token in development
+    const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/onboard/company?token=${token}`;
+
+    res.status(201).json({
+      success: true,
+      data: {
+        company_id: companyId,
+        invitation_id: invitationId,
+        admin_email,
+        expires_at: expiresAt,
+        invite_url: inviteUrl
+      },
+      message: 'Client onboarded successfully. Invitation sent to admin.'
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Onboard client error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to onboard client'
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/clients/:id/resend-invite - Resend company admin invitation
+router.post('/:id/resend-invite', async (req, res) => {
+  try {
+    const clientId = req.params.id;
+
+    // Get existing invitation
+    const invitation = await pool.query(
+      `SELECT ci.*, cl.company_name
+       FROM company_invitations ci
+       JOIN clients cl ON cl.id = ci.client_id
+       WHERE ci.client_id = $1 AND ci.accepted_at IS NULL
+       ORDER BY ci.created_at DESC
+       LIMIT 1`,
+      [clientId]
+    );
+
+    if (invitation.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'No pending invitation found for this client'
+      });
+    }
+
+    const inv = invitation.rows[0];
+
+    // Generate new token
+    const crypto = require('crypto');
+    const newToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // Update invitation
+    await pool.query(
+      `UPDATE company_invitations
+       SET token = $1, expires_at = $2, resend_count = resend_count + 1,
+           last_resent_at = NOW(), updated_at = NOW()
+       WHERE id = $3`,
+      [newToken, expiresAt, inv.id]
+    );
+
+    const inviteUrl = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/onboard/company?token=${newToken}`;
+
+    res.json({
+      success: true,
+      data: {
+        invitation_id: inv.id,
+        admin_email: inv.email,
+        expires_at: expiresAt,
+        resend_count: inv.resend_count + 1,
+        invite_url: inviteUrl
+      },
+      message: 'Invitation resent successfully'
+    });
+
+  } catch (error) {
+    console.error('Resend invite error:', error);
+    res.status(500).json({ success: false, error: 'Failed to resend invitation' });
+  }
+});
+
 // DELETE /api/clients/:id - Soft delete client
 router.delete('/:id', async (req, res) => {
   try {

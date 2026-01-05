@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, ClipboardDocumentListIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -25,6 +26,17 @@ function Deployments() {
     billing_rate: '',
     billing_type: 'monthly'
   });
+
+  const {
+    selectedIds,
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected
+  } = useBulkSelection(deployments);
 
   useEffect(() => {
     fetchDeployments();
@@ -140,6 +152,25 @@ function Deployments() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Deployments',
+      message: `Are you sure you want to delete ${selectedCount} deployment(s)? This action cannot be undone.`,
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all([...selectedIds].map(id => api.delete(`/api/deployments/${id}`)));
+      toast.success(`${selectedCount} deployment(s) deleted successfully`);
+      clearSelection();
+      fetchDeployments();
+    } catch (error) {
+      console.error('Failed to delete deployments:', error);
+      toast.error('Failed to delete some deployments');
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -179,6 +210,13 @@ function Deployments() {
           <table className="table min-w-full">
             <thead>
               <tr>
+                <th className="w-10">
+                  <SelectCheckbox
+                    checked={isAllSelected}
+                    indeterminate={isPartiallySelected}
+                    onChange={(e) => { e.stopPropagation(); toggleAll(); }}
+                  />
+                </th>
                 <th>Staff</th>
                 <th>Client</th>
                 <th>Role</th>
@@ -193,8 +231,14 @@ function Deployments() {
                 <tr
                   key={deployment.id}
                   onClick={() => handleOpenModal(deployment)}
-                  className="cursor-pointer hover:bg-gray-50"
+                  className={`cursor-pointer hover:bg-gray-50 ${isSelected(deployment.id) ? 'bg-accent-50' : ''}`}
                 >
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <SelectCheckbox
+                      checked={isSelected(deployment.id)}
+                      onChange={() => toggleItem(deployment.id)}
+                    />
+                  </td>
                   <td>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-primary-100 rounded-lg flex items-center justify-center">
@@ -227,13 +271,19 @@ function Deployments() {
               ))}
               {deployments.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">No deployments found</td>
+                  <td colSpan="8" className="text-center py-8 text-gray-500">No deployments found</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       )}
+
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+      />
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingDeployment ? 'Edit Deployment' : 'New Deployment'} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">

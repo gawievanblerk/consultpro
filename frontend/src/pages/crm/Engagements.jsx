@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, BriefcaseIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -24,6 +25,17 @@ function Engagements() {
     end_date: '',
     description: ''
   });
+
+  const {
+    selectedIds,
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected
+  } = useBulkSelection(engagements);
 
   useEffect(() => {
     fetchEngagements();
@@ -127,6 +139,25 @@ function Engagements() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Engagements',
+      message: `Are you sure you want to delete ${selectedCount} engagement(s)? This action cannot be undone.`,
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all([...selectedIds].map(id => api.delete(`/api/engagements/${id}`)));
+      toast.success(`${selectedCount} engagement(s) deleted successfully`);
+      clearSelection();
+      fetchEngagements();
+    } catch (error) {
+      console.error('Failed to delete engagements:', error);
+      toast.error('Failed to delete some engagements');
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -166,13 +197,21 @@ function Engagements() {
           {engagements.map((engagement) => (
             <div
               key={engagement.id}
-              className="card hover:shadow-md transition-shadow cursor-pointer"
+              className={`card hover:shadow-md transition-shadow cursor-pointer ${isSelected(engagement.id) ? 'bg-accent-50 border-accent-200' : ''}`}
               onClick={() => handleOpenModal(engagement)}
             >
               <div className="p-5">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="h-10 w-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                    <BriefcaseIcon className="h-5 w-5 text-primary-700" />
+                  <div className="flex items-center gap-3">
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <SelectCheckbox
+                        checked={isSelected(engagement.id)}
+                        onChange={() => toggleItem(engagement.id)}
+                      />
+                    </div>
+                    <div className="h-10 w-10 bg-primary-100 rounded-lg flex items-center justify-center">
+                      <BriefcaseIcon className="h-5 w-5 text-primary-700" />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {getStatusBadge(engagement.status)}
@@ -198,6 +237,12 @@ function Engagements() {
           )}
         </div>
       )}
+
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+      />
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingEngagement ? 'Edit Engagement' : 'New Engagement'} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
-import { PlusIcon, MagnifyingGlassIcon, UserIcon, TrashIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, UserIcon, TrashIcon, EnvelopeIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 // Badge helper for system role
 const getRoleBadge = (role) => {
@@ -18,7 +19,7 @@ const getRoleBadge = (role) => {
 // Badge helper for employment type
 const getEmploymentTypeBadge = (type) => {
   switch (type) {
-    case 'permanent': return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Permanent</span>;
+    case 'permanent': return <span className="text-xs bg-accent-100 text-accent-700 px-2 py-0.5 rounded">Permanent</span>;
     case 'contract': return <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded">Contract</span>;
     case 'temporary': return <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Temporary</span>;
     default: return <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">Outsourced</span>;
@@ -50,6 +51,18 @@ function Staff() {
     status: 'active',
     is_available: true
   });
+
+  // Bulk selection
+  const {
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected,
+    selectedIds
+  } = useBulkSelection(staff);
 
   useEffect(() => {
     fetchStaff();
@@ -154,6 +167,114 @@ function Staff() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Staff Members',
+      message: `Are you sure you want to delete ${selectedCount} staff member(s)? This action cannot be undone.`,
+      confirmText: 'Delete All',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id => api.delete(`/api/staff/${id}`))
+      );
+      toast.success(`${selectedCount} staff member(s) deleted successfully`);
+      clearSelection();
+      fetchStaff();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      toast.error('Failed to delete some staff members');
+    }
+  };
+
+  const handleBulkInvite = async () => {
+    const confirmed = await confirm({
+      title: 'Send Invitations',
+      message: `Send user account invitations to ${selectedCount} staff member(s)? Staff without email addresses or with existing accounts will be skipped.`,
+      confirmText: 'Send Invitations',
+      variant: 'primary'
+    });
+    if (!confirmed) return;
+    try {
+      const response = await api.post('/api/staff/bulk-invite', {
+        staff_ids: Array.from(selectedIds),
+        role: 'user'
+      });
+      if (response.data.success) {
+        const { success, skipped, failed } = response.data.data;
+        let message = `${success.length} invitation(s) sent`;
+        if (skipped.length > 0) message += `, ${skipped.length} skipped`;
+        if (failed.length > 0) message += `, ${failed.length} failed`;
+        toast.success(message);
+        clearSelection();
+        fetchStaff();
+      }
+    } catch (error) {
+      console.error('Failed to bulk invite:', error);
+      toast.error(error.response?.data?.error || 'Failed to send invitations');
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      'employee_id',
+      'first_name',
+      'last_name',
+      'email',
+      'phone',
+      'job_title',
+      'department',
+      'employment_type',
+      'hourly_rate',
+      'skills',
+      'status'
+    ];
+
+    const sampleData = [
+      'EMP-001',
+      'John',
+      'Doe',
+      'john.doe@company.com',
+      '08012345678',
+      'Software Engineer',
+      'Engineering',
+      'permanent',
+      '5000',
+      'Excel, Project Management',
+      'active'
+    ];
+
+    const instructions = [
+      '# Staff Import Template',
+      '# ',
+      '# Instructions:',
+      '# - employee_id: Unique identifier (required)',
+      '# - first_name: First name (required)',
+      '# - last_name: Last name (required)',
+      '# - email: Email address for invitations',
+      '# - phone: Nigerian format (080/081/090/091/070/071)',
+      '# - job_title: Position title',
+      '# - department: Department name',
+      '# - employment_type: permanent, contract, temporary, or outsourced',
+      '# - hourly_rate: Rate in NGN',
+      '# - skills: Comma-separated list',
+      '# - status: active, on_leave, or terminated',
+      '#',
+      ''
+    ];
+
+    const csv = instructions.join('\n') + headers.join(',') + '\n' + sampleData.join(',');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'staff_import_template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+    toast.success('Template downloaded');
+  };
+
   const handleInvite = async (person) => {
     if (!person.email) {
       toast.warning('Staff member has no email address');
@@ -198,10 +319,16 @@ function Staff() {
           <h1 className="text-2xl font-bold text-gray-900">Staff Pool</h1>
           <p className="mt-1 text-sm text-gray-500">Outsourced personnel management</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="btn-primary">
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add Staff
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleDownloadTemplate} className="btn-secondary">
+            <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+            CSV Template
+          </button>
+          <button onClick={() => handleOpenModal()} className="btn-primary">
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Add Staff
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -234,64 +361,100 @@ function Staff() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-700"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredStaff.map((person) => (
-            <div
-              key={person.id}
-              className="card hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => handleOpenModal(person)}
-            >
-              <div className="p-5">
-                <div className="flex items-start">
-                  <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
-                    <UserIcon className="h-6 w-6 text-primary-700" />
-                  </div>
-                  <div className="ml-3 flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-gray-900">{person.first_name} {person.last_name}</p>
-                      {getStatusBadge(person.status, person.is_available)}
+        <>
+          {/* Select All Header */}
+          {filteredStaff.length > 0 && (
+            <div className="flex items-center gap-3 px-2 py-2 bg-white rounded-lg border border-primary-100 mb-4">
+              <SelectCheckbox
+                checked={isAllSelected}
+                indeterminate={isPartiallySelected}
+                onChange={toggleAll}
+              />
+              <span className="text-sm text-gray-600">
+                {isAllSelected ? 'Deselect all' : 'Select all'}
+              </span>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredStaff.map((person) => (
+              <div
+                key={person.id}
+                className={`card hover:shadow-md transition-shadow cursor-pointer ${isSelected(person.id) ? 'bg-accent-50 ring-2 ring-accent-200' : ''}`}
+                onClick={() => handleOpenModal(person)}
+              >
+                <div className="p-5">
+                  <div className="flex items-start">
+                    <div className="mr-3" onClick={(e) => e.stopPropagation()}>
+                      <SelectCheckbox
+                        checked={isSelected(person.id)}
+                        onChange={() => toggleItem(person.id)}
+                      />
                     </div>
-                    <p className="text-sm text-gray-500">{person.job_title}</p>
-                    <p className="text-xs text-gray-400 mt-1">ID: {person.employee_id}</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {getRoleBadge(person.user_role)}
-                      {getEmploymentTypeBadge(person.employment_type)}
+                    <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
+                      <UserIcon className="h-6 w-6 text-primary-700" />
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="font-semibold text-gray-900">{person.first_name} {person.last_name}</p>
+                        {getStatusBadge(person.status, person.is_available)}
+                      </div>
+                      <p className="text-sm text-gray-500">{person.job_title}</p>
+                      <p className="text-xs text-gray-400 mt-1">ID: {person.employee_id}</p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {getRoleBadge(person.user_role)}
+                        {getEmploymentTypeBadge(person.employment_type)}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
-                  <div className="flex flex-wrap gap-1">
-                    {person.skills?.slice(0, 3).map((skill, i) => (
-                      <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{skill}</span>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {person.email && !person.user_id && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+                    <div className="flex flex-wrap gap-1">
+                      {person.skills?.slice(0, 3).map((skill, i) => (
+                        <span key={i} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">{skill}</span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {person.email && !person.user_id && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleInvite(person); }}
+                          disabled={inviting === person.id}
+                          className="p-1 text-gray-500 hover:text-accent-600 disabled:opacity-50"
+                          title="Invite to create user account"
+                        >
+                          <EnvelopeIcon className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleInvite(person); }}
-                        disabled={inviting === person.id}
-                        className="p-1 text-gray-500 hover:text-green-600 disabled:opacity-50"
-                        title="Invite to create user account"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(person.id); }}
+                        className="p-1 text-gray-500 hover:text-red-600"
                       >
-                        <EnvelopeIcon className="h-4 w-4" />
+                        <TrashIcon className="h-4 w-4" />
                       </button>
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(person.id); }}
-                      className="p-1 text-gray-500 hover:text-red-600"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {filteredStaff.length === 0 && (
-            <div className="col-span-full text-center py-12 text-gray-500">No staff found</div>
-          )}
-        </div>
+            ))}
+            {filteredStaff.length === 0 && (
+              <div className="col-span-full text-center py-12 text-gray-500">No staff found</div>
+            )}
+          </div>
+        </>
       )}
+
+      {/* Bulk Actions Bar */}
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+        customActions={[
+          {
+            label: 'Invite',
+            icon: EnvelopeIcon,
+            onClick: handleBulkInvite,
+            className: 'bg-accent-600 hover:bg-accent-700'
+          }
+        ]}
+      />
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingStaff ? 'Edit Staff' : 'Add Staff'} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -339,9 +502,10 @@ function Staff() {
               />
             </div>
             <div>
-              <label className="form-label">Email</label>
+              <label className="form-label">Email *</label>
               <input
                 type="email"
+                required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="form-input"

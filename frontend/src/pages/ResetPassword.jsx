@@ -83,16 +83,12 @@ function ResetPassword() {
         <div className="text-center mb-8">
           <div className="bg-white rounded-lg px-4 py-3 inline-block mb-4">
             <img
-              src="/teamace-icon.png"
-              alt="TeamACE"
+              src="/logo.svg"
+              alt="CoreHR"
               className="h-12"
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
             />
           </div>
-          <h1 className="text-3xl font-bold text-white">ConsultPro</h1>
-          <p className="mt-2 text-primary-200">TeamACE HR Platform</p>
+          <p className="mt-2 text-primary-200">HR & Consulting Platform</p>
         </div>
 
         {/* Form card */}
@@ -124,8 +120,8 @@ function ResetPassword() {
             </div>
           ) : success ? (
             <div className="text-center">
-              <div className="mx-auto h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                <CheckCircleIcon className="h-8 w-8 text-green-600" />
+              <div className="mx-auto h-16 w-16 rounded-full bg-accent-100 flex items-center justify-center mb-4">
+                <CheckCircleIcon className="h-8 w-8 text-accent-600" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">Password Reset</h2>
               <p className="text-gray-600 mb-6">
@@ -221,7 +217,7 @@ function ResetPassword() {
 
         {/* Footer */}
         <p className="mt-6 text-center text-sm text-primary-200">
-          Powered by Rozitech CC
+          Powered by ConsultPro | Rozitech
         </p>
       </div>
     </div>

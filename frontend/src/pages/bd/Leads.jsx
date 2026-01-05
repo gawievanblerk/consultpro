@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
-import { PlusIcon, MagnifyingGlassIcon, UserPlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, UserPlusIcon, TrashIcon, PencilIcon } from '@heroicons/react/24/outline';
 
 function Leads() {
   const { toast } = useToast();
@@ -26,6 +27,18 @@ function Leads() {
     expected_close_date: '',
     notes: ''
   });
+
+  // Bulk selection
+  const {
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected,
+    selectedIds
+  } = useBulkSelection(leads);
 
   useEffect(() => {
     fetchLeads();
@@ -121,6 +134,27 @@ function Leads() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Leads',
+      message: `Are you sure you want to delete ${selectedCount} lead(s)? This action cannot be undone.`,
+      confirmText: 'Delete All',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id => api.delete(`/api/leads/${id}`))
+      );
+      toast.success(`${selectedCount} lead(s) deleted successfully`);
+      clearSelection();
+      fetchLeads();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      toast.error('Failed to delete some leads');
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -131,11 +165,12 @@ function Leads() {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'new': return <span className="badge-primary">New</span>;
+      case 'new': return <span className="badge-info">New</span>;
       case 'contacted': return <span className="badge-warning">Contacted</span>;
       case 'qualified': return <span className="badge-success">Qualified</span>;
-      case 'converted': return <span className="badge-accent">Converted</span>;
-      default: return <span className="badge">{status}</span>;
+      case 'converted': return <span className="badge-success">Converted</span>;
+      case 'lost': return <span className="badge-neutral">Lost</span>;
+      default: return <span className="badge-neutral">{status}</span>;
     }
   };
 
@@ -144,152 +179,187 @@ function Leads() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-          <p className="mt-1 text-sm text-gray-500">Manage sales opportunities</p>
+          <h1 className="text-2xl font-semibold text-primary-900 tracking-tight">Leads</h1>
+          <p className="mt-1 text-primary-500">Manage sales opportunities</p>
         </div>
         <button onClick={() => handleOpenModal()} className="btn-primary">
-          <PlusIcon className="h-5 w-5 mr-2" />
+          <PlusIcon className="h-4 w-4" />
           Add Lead
         </button>
       </div>
 
-      <div className="card">
-        <div className="p-4">
-          <div className="relative">
-            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search leads..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="form-input pl-10"
-            />
-          </div>
+      {/* Search */}
+      <div className="bg-white rounded-xl border border-primary-100 p-4">
+        <div className="relative">
+          <MagnifyingGlassIcon className="h-4 w-4 absolute left-4 top-1/2 -translate-y-1/2 text-primary-400" />
+          <input
+            type="text"
+            placeholder="Search leads..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all duration-200 focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+          />
         </div>
       </div>
 
+      {/* Leads list */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-700"></div>
+          <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600 rounded-full animate-spin"></div>
         </div>
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="table min-w-full">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Contact</th>
-                <th>Source</th>
-                <th>Status</th>
-                <th>Value</th>
-                <th>Expected Close</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredLeads.map((lead) => (
-                <tr
-                  key={lead.id}
-                  onClick={() => handleOpenModal(lead)}
-                  className="cursor-pointer hover:bg-gray-50"
-                >
-                  <td>
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0 bg-accent-100 rounded-lg flex items-center justify-center">
-                        <UserPlusIcon className="h-5 w-5 text-accent-600" />
-                      </div>
-                      <div className="ml-3">
-                        <p className="font-medium">{lead.company_name}</p>
-                        <p className="text-xs text-gray-500">{lead.industry}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <p>{lead.contact_name || '-'}</p>
-                    <p className="text-xs text-gray-500">{lead.email}</p>
-                  </td>
-                  <td>{lead.source || '-'}</td>
-                  <td>{getStatusBadge(lead.status)}</td>
-                  <td className="font-medium">{formatCurrency(lead.estimated_value)}</td>
-                  <td>{lead.expected_close_date ? new Date(lead.expected_close_date).toLocaleDateString() : '-'}</td>
-                  <td>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(lead.id); }}
-                      className="p-1 text-gray-500 hover:text-red-600"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  </td>
+        <div className="bg-white rounded-xl border border-primary-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-primary-100">
+                  <th className="px-4 py-4 text-left">
+                    <SelectCheckbox
+                      checked={isAllSelected}
+                      indeterminate={isPartiallySelected}
+                      onChange={toggleAll}
+                    />
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Company</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Contact</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Source</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Value</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-primary-500 uppercase tracking-wider">Expected Close</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-primary-500 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-              {filteredLeads.length === 0 && (
-                <tr>
-                  <td colSpan="7" className="text-center py-8 text-gray-500">No leads found</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredLeads.map((lead, idx) => (
+                  <tr
+                    key={lead.id}
+                    className={`cursor-pointer transition-colors hover:bg-primary-50/50 ${isSelected(lead.id) ? 'bg-accent-50' : ''} ${idx !== filteredLeads.length - 1 ? 'border-b border-primary-50' : ''}`}
+                  >
+                    <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                      <SelectCheckbox
+                        checked={isSelected(lead.id)}
+                        onChange={() => toggleItem(lead.id)}
+                      />
+                    </td>
+                    <td className="px-6 py-4" onClick={() => handleOpenModal(lead)}>
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 flex-shrink-0 bg-accent-50 rounded-lg flex items-center justify-center">
+                          <UserPlusIcon className="h-5 w-5 text-accent-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-primary-900">{lead.company_name}</p>
+                          <p className="text-xs text-primary-400">{lead.industry}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-primary-700">{lead.contact_name || '-'}</p>
+                      <p className="text-xs text-primary-400">{lead.email}</p>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-primary-600 capitalize">{lead.source?.replace('_', ' ') || '-'}</td>
+                    <td className="px-6 py-4">{getStatusBadge(lead.status)}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-primary-900">{formatCurrency(lead.estimated_value)}</td>
+                    <td className="px-6 py-4 text-sm text-primary-600">{lead.expected_close_date ? new Date(lead.expected_close_date).toLocaleDateString() : '-'}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleOpenModal(lead); }}
+                          className="p-2 text-primary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(lead.id); }}
+                          className="p-2 text-primary-400 hover:text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredLeads.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-16 text-center">
+                      <UserPlusIcon className="h-12 w-12 text-primary-200 mx-auto mb-4" />
+                      <p className="text-primary-500 font-medium">No leads found</p>
+                      <p className="text-sm text-primary-400 mt-1">Add your first lead to get started</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingLead ? 'Edit Lead' : 'Add Lead'} size="lg">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Bulk Actions Bar */}
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+      />
+
+      {/* Modal */}
+      <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingLead ? 'Edit Lead' : 'New Lead'} size="lg">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="form-label">Company Name *</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Company Name *</label>
               <input
                 type="text"
                 required
                 value={formData.company_name}
                 onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div>
-              <label className="form-label">Contact Name</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Contact Name</label>
               <input
                 type="text"
                 value={formData.contact_name}
                 onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div>
-              <label className="form-label">Email</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Email</label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div>
-              <label className="form-label">Phone</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Phone</label>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div>
-              <label className="form-label">Industry</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Industry</label>
               <input
                 type="text"
                 value={formData.industry}
                 onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div>
-              <label className="form-label">Source</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Source</label>
               <select
                 value={formData.source}
                 onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-700 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               >
                 <option value="website">Website</option>
                 <option value="referral">Referral</option>
@@ -300,11 +370,11 @@ function Leads() {
               </select>
             </div>
             <div>
-              <label className="form-label">Status</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Status</label>
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-700 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               >
                 <option value="new">New</option>
                 <option value="contacted">Contacted</option>
@@ -314,37 +384,40 @@ function Leads() {
               </select>
             </div>
             <div>
-              <label className="form-label">Estimated Value (NGN)</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Estimated Value (NGN)</label>
               <input
                 type="number"
                 value={formData.estimated_value}
                 onChange={(e) => setFormData({ ...formData, estimated_value: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="form-label">Expected Close Date</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Expected Close Date</label>
               <input
                 type="date"
                 value={formData.expected_close_date}
                 onChange={(e) => setFormData({ ...formData, expected_close_date: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-700 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="form-label">Notes</label>
+              <label className="block text-sm font-medium text-primary-700 mb-2">Notes</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="form-input"
+                className="w-full px-4 py-2.5 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
                 rows={3}
+                placeholder="Add any additional notes..."
               />
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
+          <div className="flex justify-end gap-3 pt-5 border-t border-primary-100">
+            <button type="button" onClick={handleCloseModal} className="btn-secondary">
+              Cancel
+            </button>
             <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? 'Saving...' : (editingLead ? 'Update' : 'Create')}
+              {saving ? 'Saving...' : (editingLead ? 'Update Lead' : 'Create Lead')}
             </button>
           </div>
         </form>

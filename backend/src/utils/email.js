@@ -1,5 +1,5 @@
 /**
- * Email Utility for ConsultPro
+ * Email Utility for CoreHR
  * Uses Resend API for reliable email delivery
  */
 
@@ -23,12 +23,12 @@ try {
   console.log('Resend package not available - emails will be logged to console');
 }
 
-// Default sender - Resend provides onboarding@resend.dev for testing
-const defaultFrom = process.env.EMAIL_FROM || 'ConsultPro <onboarding@resend.dev>';
+// Default sender - using rozitech.com domain
+const defaultFrom = process.env.EMAIL_FROM || 'CoreHR <noreply@rozitech.com>';
 
 // Frontend URL for links
 const getFrontendUrl = () => {
-  return process.env.FRONTEND_URL || 'https://consultpro-frontend.onrender.com';
+  return process.env.FRONTEND_URL || 'https://corehr-frontend.onrender.com';
 };
 
 /**
@@ -96,12 +96,12 @@ const sendPasswordResetEmail = async (email, token, userName) => {
     <body>
       <div class="container">
         <div class="header">
-          <h1>ConsultPro</h1>
+          <h1>CoreHR</h1>
         </div>
         <div class="content">
           <h2>Password Reset Request</h2>
           <p>Hi${userName ? ' ' + userName : ''},</p>
-          <p>We received a request to reset your password for your ConsultPro account.</p>
+          <p>We received a request to reset your password for your CoreHR account.</p>
           <p>Click the button below to reset your password:</p>
           <p style="text-align: center;">
             <a href="${resetUrl}" class="button">Reset Password</a>
@@ -123,7 +123,7 @@ const sendPasswordResetEmail = async (email, token, userName) => {
 
   return sendEmail({
     to: email,
-    subject: 'Reset your ConsultPro password',
+    subject: 'Reset your CoreHR password',
     html
   });
 };
@@ -157,12 +157,12 @@ const sendInviteEmail = async (email, token, inviterName, organizationName, role
     <body>
       <div class="container">
         <div class="header">
-          <h1>ConsultPro</h1>
+          <h1>CoreHR</h1>
         </div>
         <div class="content">
           <h2>You're Invited!</h2>
           <p>Hi,</p>
-          <p><strong>${inviterName || 'An administrator'}</strong> has invited you to join <strong>${organizationName || 'ConsultPro'}</strong>.</p>
+          <p><strong>${inviterName || 'An administrator'}</strong> has invited you to join <strong>${organizationName || 'CoreHR'}</strong>.</p>
 
           <div class="highlight">
             <p><strong>Your Role:</strong> ${role.charAt(0).toUpperCase() + role.slice(1)}</p>
@@ -189,7 +189,81 @@ const sendInviteEmail = async (email, token, inviterName, organizationName, role
 
   return sendEmail({
     to: email,
-    subject: `You're invited to join ${organizationName || 'ConsultPro'}`,
+    subject: `You're invited to join ${organizationName || 'CoreHR'}`,
+    html
+  });
+};
+
+/**
+ * Send consultant invitation email (from Super Admin)
+ */
+const sendConsultantInviteEmail = async (email, token, companyName, tier) => {
+  const inviteUrl = `${getFrontendUrl()}/onboard/consultant?token=${token}`;
+
+  const tierDescriptions = {
+    starter: 'Starter Plan - Up to 50 clients, 3 users',
+    professional: 'Professional Plan - Unlimited clients, 10 users',
+    enterprise: 'Enterprise Plan - Full access, unlimited users'
+  };
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #0d2865; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px 20px; background: #f9fafb; }
+        .button { display: inline-block; background: #41d8d1; color: #0d2865; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+        .highlight { background: #e0f7f6; padding: 15px; border-radius: 6px; margin: 15px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>CoreHR</h1>
+        </div>
+        <div class="content">
+          <h2>Welcome to CoreHR!</h2>
+          <p>Hi,</p>
+          <p>You've been invited to join CoreHR as an HR Consultant for <strong>${companyName}</strong>.</p>
+
+          <div class="highlight">
+            <p><strong>Subscription:</strong> ${tierDescriptions[tier] || tier}</p>
+          </div>
+
+          <p>Click the button below to complete your registration and set up your consultant account:</p>
+          <p style="text-align: center;">
+            <a href="${inviteUrl}" class="button">Complete Registration</a>
+          </p>
+          <p>This invitation will expire in 7 days.</p>
+
+          <h3>What you can do with CoreHR:</h3>
+          <ul>
+            <li>Manage multiple client companies</li>
+            <li>Track employee records and documents</li>
+            <li>Process payroll and generate reports</li>
+            <li>Handle leave management and approvals</li>
+          </ul>
+
+          <p style="margin-top: 30px; font-size: 12px; color: #666;">
+            Or copy and paste this link into your browser:<br>
+            <a href="${inviteUrl}">${inviteUrl}</a>
+          </p>
+        </div>
+        <div class="footer">
+          <p>Powered by Rozitech CC</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: `Welcome to CoreHR - Complete your registration for ${companyName}`,
     html
   });
 };
@@ -197,5 +271,6 @@ const sendInviteEmail = async (email, token, inviterName, organizationName, role
 module.exports = {
   sendEmail,
   sendPasswordResetEmail,
-  sendInviteEmail
+  sendInviteEmail,
+  sendConsultantInviteEmail
 };

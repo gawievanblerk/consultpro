@@ -427,7 +427,7 @@ router.get('/:id/pdf', async (req, res) => {
     doc.fillColor('white')
        .fontSize(24)
        .font('Helvetica-Bold')
-       .text(invoice.tenant_name || 'ConsultPro', 50, 25);
+       .text(invoice.tenant_name || 'CoreHR', 50, 25);
 
     doc.fontSize(10)
        .font('Helvetica')
@@ -631,7 +631,7 @@ router.get('/:id/pdf', async (req, res) => {
              50, footerY + 35, { align: 'center', width: doc.page.width - 100 });
 
     doc.fillColor(teal)
-       .text('Powered by ConsultPro', 50, footerY + 55, { align: 'center', width: doc.page.width - 100 });
+       .text('Powered by CoreHR', 50, footerY + 55, { align: 'center', width: doc.page.width - 100 });
 
     doc.end();
 
@@ -716,7 +716,7 @@ router.post('/:id/send-email', async (req, res) => {
     <!-- Header -->
     <tr>
       <td style="background-color: #0d2865; padding: 30px; text-align: center;">
-        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${invoice.tenant_name || 'ConsultPro'}</h1>
+        <h1 style="color: #ffffff; margin: 0; font-size: 24px;">${invoice.tenant_name || 'CoreHR'}</h1>
         <p style="color: #41d8d1; margin: 5px 0 0 0; font-size: 12px;">Professional Consulting Services</p>
       </td>
     </tr>
@@ -805,7 +805,7 @@ router.post('/:id/send-email', async (req, res) => {
     <tr>
       <td style="background-color: #f3f4f6; padding: 20px; text-align: center;">
         <p style="color: #666; margin: 0 0 10px 0; font-size: 12px;">Thank you for your business!</p>
-        <p style="color: #41d8d1; margin: 0; font-size: 11px;">Powered by ConsultPro</p>
+        <p style="color: #41d8d1; margin: 0; font-size: 11px;">Powered by CoreHR</p>
       </td>
     </tr>
   </table>
@@ -815,7 +815,7 @@ router.post('/:id/send-email', async (req, res) => {
 
     await sendEmail({
       to: invoice.client_email,
-      subject: `Invoice ${invoice.invoice_number} from ${invoice.tenant_name || 'ConsultPro'}`,
+      subject: `Invoice ${invoice.invoice_number} from ${invoice.tenant_name || 'CoreHR'}`,
       html: emailHtml
     });
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import {
@@ -279,6 +280,36 @@ function Users() {
     );
   });
 
+  const {
+    selectedIds,
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected
+  } = useBulkSelection(filteredUsers);
+
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Users',
+      message: `Are you sure you want to delete ${selectedCount} user(s)? This action cannot be undone.`,
+      confirmText: 'Delete',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all([...selectedIds].map(id => api.delete(`/api/users/${id}`)));
+      toast.success(`${selectedCount} user(s) deleted successfully`);
+      clearSelection();
+      fetchUsers();
+    } catch (error) {
+      console.error('Failed to delete users:', error);
+      toast.error('Failed to delete some users');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -346,6 +377,13 @@ function Users() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                  <SelectCheckbox
+                    checked={isAllSelected}
+                    indeterminate={isPartiallySelected}
+                    onChange={(e) => { e.stopPropagation(); toggleAll(); }}
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   User
                 </th>
@@ -365,7 +403,13 @@ function Users() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+                <tr key={user.id} className={`hover:bg-gray-50 ${isSelected(user.id) ? 'bg-accent-50' : ''}`}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <SelectCheckbox
+                      checked={isSelected(user.id)}
+                      onChange={() => toggleItem(user.id)}
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-medium">
@@ -389,7 +433,7 @@ function Users() {
                       onClick={() => handleToggleActive(user)}
                       className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
                         user.isActive
-                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          ? 'bg-accent-100 text-accent-800 hover:bg-accent-200'
                           : 'bg-red-100 text-red-800 hover:bg-red-200'
                       }`}
                     >
@@ -441,7 +485,7 @@ function Users() {
               ))}
               {filteredUsers.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                     <UserIcon className="h-12 w-12 mx-auto text-gray-300 mb-3" />
                     <p>No users found</p>
                   </td>
@@ -510,6 +554,12 @@ function Users() {
           </div>
         )}
       </div>
+
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+      />
 
       {/* Add/Edit User Modal */}
       <Modal

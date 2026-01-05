@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { PlusIcon, MagnifyingGlassIcon, UserIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -26,6 +27,17 @@ function Contacts() {
     is_decision_maker: false,
     notes: ''
   });
+
+  const {
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected,
+    selectedIds
+  } = useBulkSelection(contacts);
 
   useEffect(() => {
     fetchContacts();
@@ -131,6 +143,27 @@ function Contacts() {
     }
   };
 
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: 'Delete Contacts',
+      message: `Are you sure you want to delete ${selectedCount} contact(s)? This action cannot be undone.`,
+      confirmText: 'Delete All',
+      variant: 'danger'
+    });
+    if (!confirmed) return;
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map(id => api.delete(`/api/contacts/${id}`))
+      );
+      toast.success(`${selectedCount} contact(s) deleted successfully`);
+      clearSelection();
+      fetchContacts();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      toast.error('Failed to delete some contacts');
+    }
+  };
+
   const filteredContacts = contacts.filter(contact =>
     `${contact.first_name} ${contact.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
     contact.email?.toLowerCase().includes(search.toLowerCase())
@@ -173,6 +206,13 @@ function Contacts() {
           <table className="table min-w-full">
             <thead>
               <tr>
+                <th className="w-12">
+                  <SelectCheckbox
+                    checked={isAllSelected}
+                    indeterminate={isPartiallySelected}
+                    onChange={toggleAll}
+                  />
+                </th>
                 <th>Name</th>
                 <th>Company</th>
                 <th>Job Title</th>
@@ -185,10 +225,15 @@ function Contacts() {
               {filteredContacts.map((contact) => (
                 <tr
                   key={contact.id}
-                  onClick={() => handleOpenModal(contact)}
-                  className="cursor-pointer hover:bg-gray-50"
+                  className={`cursor-pointer hover:bg-gray-50 ${isSelected(contact.id) ? 'bg-accent-50' : ''}`}
                 >
-                  <td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <SelectCheckbox
+                      checked={isSelected(contact.id)}
+                      onChange={() => toggleItem(contact.id)}
+                    />
+                  </td>
+                  <td onClick={() => handleOpenModal(contact)}>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0 bg-accent-100 rounded-full flex items-center justify-center">
                         <UserIcon className="h-5 w-5 text-accent-600" />
@@ -201,10 +246,10 @@ function Contacts() {
                       </div>
                     </div>
                   </td>
-                  <td>{contact.client_name || '-'}</td>
-                  <td>{contact.job_title || '-'}</td>
-                  <td>{contact.email || '-'}</td>
-                  <td>{contact.phone || '-'}</td>
+                  <td onClick={() => handleOpenModal(contact)}>{contact.client_name || '-'}</td>
+                  <td onClick={() => handleOpenModal(contact)}>{contact.job_title || '-'}</td>
+                  <td onClick={() => handleOpenModal(contact)}>{contact.email || '-'}</td>
+                  <td onClick={() => handleOpenModal(contact)}>{contact.phone || '-'}</td>
                   <td>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(contact.id); }}
@@ -217,13 +262,19 @@ function Contacts() {
               ))}
               {filteredContacts.length === 0 && (
                 <tr>
-                  <td colSpan="6" className="text-center py-8 text-gray-500">No contacts found</td>
+                  <td colSpan="7" className="text-center py-8 text-gray-500">No contacts found</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       )}
+
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+      />
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingContact ? 'Edit Contact' : 'Add Contact'} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">

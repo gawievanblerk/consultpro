@@ -1,5 +1,5 @@
 /**
- * Help Content for ConsultPro
+ * Help Content for CoreHR
  * Organized by module and section
  */
 
