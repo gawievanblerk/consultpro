@@ -260,7 +260,7 @@ function Consultants() {
             </button>
           </div>
         ) : (
-          <table className="w-full min-w-[900px]">
+          <table className="w-full min-w-[1100px]">
             <thead className="bg-primary-50 border-b border-primary-100">
               <tr>
                 <th className="px-4 py-3 text-left">
