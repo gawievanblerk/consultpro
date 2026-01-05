@@ -783,13 +783,14 @@ router.post('/consultants/:id/impersonate', [
     const user = userResult.rows[0];
 
     // Generate impersonation token (short-lived, 1 hour)
+    // Must match auth.js expected fields: sub, email, org, role, user_type
     const impersonationToken = jwt.sign(
       {
         sub: user.id,
         email: user.email,
-        userType: user.user_type || 'consultant',
-        consultantId: id,
-        tenantId: id, // consultant_id is the tenant
+        org: id, // consultant_id is the tenant (org)
+        role: 'admin',
+        user_type: user.user_type || 'consultant',
         isImpersonation: true,
         impersonatedBy: {
           id: req.superadmin.id,
@@ -797,7 +798,7 @@ router.post('/consultants/:id/impersonate', [
           name: `${req.superadmin.first_name} ${req.superadmin.last_name}`
         }
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET || 'corehr_docker_demo_secret_key_2025_standalone',
       { expiresIn: '1h' }
     );
 
