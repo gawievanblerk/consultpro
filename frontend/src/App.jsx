@@ -80,7 +80,9 @@ import PerformanceReviews from './pages/ems/PerformanceReviews';
 import ExitManagement from './pages/ems/ExitManagement';
 import Disciplinary from './pages/ems/Disciplinary';
 import OnboardingManagement from './pages/ems/OnboardingManagement';
+import OnboardingWorkflowAdmin from './pages/ems/OnboardingWorkflowAdmin';
 import MyOnboarding from './pages/ess/MyOnboarding';
+import MyOnboardingWizard from './pages/ess/MyOnboardingWizard';
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -220,12 +222,14 @@ function App() {
             <Route path="my-certificates" element={<MyCertificates />} />
 
             {/* Employee Management System (EMS) */}
+            <Route path="onboarding-workflow" element={<OnboardingWorkflowAdmin />} />
             <Route path="onboarding-admin" element={<OnboardingManagement />} />
             <Route path="probation" element={<ProbationManagement />} />
             <Route path="performance" element={<PerformanceReviews />} />
             <Route path="exit-management" element={<ExitManagement />} />
             <Route path="disciplinary" element={<Disciplinary />} />
             <Route path="my-onboarding" element={<MyOnboarding />} />
+            <Route path="my-onboarding-wizard" element={<MyOnboardingWizard />} />
 
             {/* Settings/Admin */}
             <Route path="users" element={<Users />} />

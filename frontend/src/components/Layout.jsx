@@ -87,13 +87,14 @@ const navigation = [
     { name: 'My Certificates', href: '/dashboard/my-certificates', icon: TrophyIcon },
   ]},
   { name: 'Employee Management', userTypes: ['consultant', 'staff', 'company_admin'], children: [
-    { name: 'Onboarding', href: '/dashboard/onboarding-admin', icon: RocketLaunchIcon },
-    { name: 'Probation', href: '/dashboard/probation', icon: ClockIcon },
+    { name: 'Onboarding Workflow', href: '/dashboard/onboarding-workflow', icon: RocketLaunchIcon },
+    { name: 'Onboarding Checklists', href: '/dashboard/onboarding-admin', icon: ClipboardDocumentListIcon },
+    { name: 'Probation Check-ins', href: '/dashboard/probation', icon: ClockIcon },
     { name: 'Performance', href: '/dashboard/performance', icon: StarIcon },
     { name: 'Disciplinary', href: '/dashboard/disciplinary', icon: ShieldExclamationIcon },
     { name: 'Exit Management', href: '/dashboard/exit-management', icon: UserMinusIcon },
   ]},
-  { name: 'My Onboarding', href: '/dashboard/my-onboarding', icon: RocketLaunchIcon, userTypes: ['employee'] },
+  { name: 'My Onboarding', href: '/dashboard/my-onboarding-wizard', icon: RocketLaunchIcon, userTypes: ['employee'] },
   { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon, userTypes: ['consultant', 'staff', 'company_admin'] },
   { name: 'Settings', roles: ['admin'], userTypes: ['consultant', 'company_admin'], children: [
     { name: 'Users', href: '/dashboard/users', icon: UserCircleIcon },

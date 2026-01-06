@@ -534,4 +534,518 @@ router.get('/default-items', async (req, res) => {
   res.json({ success: true, data: DEFAULT_CHECKLIST_ITEMS });
 });
 
+// ============================================================================
+// ESS - BFI PHASED ONBOARDING (Extended)
+// ============================================================================
+
+const onboardingService = require('../services/onboardingService');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Configure multer for document uploads
+const uploadDir = path.join(__dirname, '../../uploads/onboarding');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /pdf|jpg|jpeg|png|doc|docx/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only PDF, images, and Word documents are allowed'));
+  }
+});
+
+/**
+ * GET /api/onboarding-checklist/my-onboarding
+ * Employee's full phased onboarding status (ESS)
+ */
+router.get('/my-onboarding', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+
+    // Get employee ID from user
+    const employeeResult = await pool.query(
+      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
+      [userId, tenantId]
+    );
+
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
+
+    const employeeId = employeeResult.rows[0].id;
+
+    // Get onboarding progress using service
+    const progress = await onboardingService.getOnboardingProgress(tenantId, employeeId);
+
+    if (!progress) {
+      return res.json({
+        success: true,
+        data: null,
+        message: 'No onboarding workflow found. Contact HR to initialize your onboarding.'
+      });
+    }
+
+    res.json({ success: true, data: progress });
+  } catch (error) {
+    console.error('Error fetching my onboarding:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch onboarding status' });
+  }
+});
+
+/**
+ * GET /api/onboarding-checklist/my-documents
+ * Employee's required onboarding documents (ESS)
+ */
+router.get('/my-documents', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    const { phase } = req.query;
+
+    // Get employee ID
+    const employeeResult = await pool.query(
+      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
+      [userId, tenantId]
+    );
+
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
+
+    const employeeId = employeeResult.rows[0].id;
+
+    let query = `
+      SELECT
+        od.*,
+        p.name as policy_name,
+        p.description as policy_description,
+        p.file_url as policy_url,
+        dt.template_content,
+        dt.template_type
+      FROM onboarding_documents od
+      LEFT JOIN policies p ON od.policy_id = p.id
+      LEFT JOIN document_templates dt ON od.template_id = dt.id
+      WHERE od.employee_id = $1 AND od.tenant_id = $2
+    `;
+    const params = [employeeId, tenantId];
+
+    if (phase) {
+      query += ` AND od.phase = $3`;
+      params.push(parseInt(phase));
+    }
+
+    query += ' ORDER BY od.phase, od.is_required DESC, od.document_name';
+
+    const result = await pool.query(query, params);
+
+    // Group by phase
+    const documentsByPhase = {};
+    for (const doc of result.rows) {
+      const phaseKey = `phase${doc.phase}`;
+      if (!documentsByPhase[phaseKey]) {
+        documentsByPhase[phaseKey] = [];
+      }
+      documentsByPhase[phaseKey].push(doc);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        all: result.rows,
+        byPhase: documentsByPhase
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching my documents:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch documents' });
+  }
+});
+
+/**
+ * POST /api/onboarding-checklist/my-documents/:docId/upload
+ * Employee uploads a document (ESS)
+ */
+router.post('/my-documents/:docId/upload', upload.single('file'), async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    const { docId } = req.params;
+
+    // Get employee ID
+    const employeeResult = await pool.query(
+      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
+      [userId, tenantId]
+    );
+
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
+
+    const employeeId = employeeResult.rows[0].id;
+
+    // Verify document belongs to employee
+    const docResult = await pool.query(
+      'SELECT * FROM onboarding_documents WHERE id = $1 AND employee_id = $2',
+      [docId, employeeId]
+    );
+
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No file uploaded' });
+    }
+
+    // Update document record
+    const result = await pool.query(`
+      UPDATE onboarding_documents
+      SET status = 'uploaded',
+          file_path = $1,
+          file_name = $2,
+          file_size = $3,
+          mime_type = $4,
+          uploaded_at = NOW(),
+          updated_at = NOW()
+      WHERE id = $5
+      RETURNING *
+    `, [
+      req.file.path,
+      req.file.originalname,
+      req.file.size,
+      req.file.mimetype,
+      docId
+    ]);
+
+    // Update phase status
+    const doc = docResult.rows[0];
+    await onboardingService.updatePhaseStatus(tenantId, employeeId, doc.phase);
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Error uploading document:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload document' });
+  }
+});
+
+/**
+ * POST /api/onboarding-checklist/my-documents/:docId/sign
+ * Employee signs a document (ESS)
+ */
+router.post('/my-documents/:docId/sign', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    const { docId } = req.params;
+    const { signature_data } = req.body;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    if (!signature_data) {
+      return res.status(400).json({ success: false, error: 'Signature is required' });
+    }
+
+    // Get employee ID
+    const employeeResult = await pool.query(
+      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
+      [userId, tenantId]
+    );
+
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
+
+    const employeeId = employeeResult.rows[0].id;
+
+    // Verify document belongs to employee and requires signature
+    const docResult = await pool.query(
+      'SELECT * FROM onboarding_documents WHERE id = $1 AND employee_id = $2',
+      [docId, employeeId]
+    );
+
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    const doc = docResult.rows[0];
+
+    if (!doc.requires_signature && !doc.requires_acknowledgment) {
+      return res.status(400).json({ success: false, error: 'This document does not require signing' });
+    }
+
+    const newStatus = doc.requires_signature ? 'signed' : 'acknowledged';
+
+    // Update document record
+    const result = await pool.query(`
+      UPDATE onboarding_documents
+      SET status = $1,
+          signature_data = $2,
+          acknowledged_at = NOW(),
+          ip_address = $3,
+          user_agent = $4,
+          updated_at = NOW()
+      WHERE id = $5
+      RETURNING *
+    `, [newStatus, signature_data, ipAddress, userAgent, docId]);
+
+    // Update phase status
+    await onboardingService.updatePhaseStatus(tenantId, employeeId, doc.phase);
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Error signing document:', error);
+    res.status(500).json({ success: false, error: 'Failed to sign document' });
+  }
+});
+
+/**
+ * POST /api/onboarding-checklist/my-documents/:docId/acknowledge
+ * Employee acknowledges a document (ESS)
+ */
+router.post('/my-documents/:docId/acknowledge', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    const { docId } = req.params;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+
+    // Get employee ID
+    const employeeResult = await pool.query(
+      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
+      [userId, tenantId]
+    );
+
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
+
+    const employeeId = employeeResult.rows[0].id;
+
+    // Verify document belongs to employee
+    const docResult = await pool.query(
+      'SELECT * FROM onboarding_documents WHERE id = $1 AND employee_id = $2',
+      [docId, employeeId]
+    );
+
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    const doc = docResult.rows[0];
+
+    // Update document record
+    const result = await pool.query(`
+      UPDATE onboarding_documents
+      SET status = 'acknowledged',
+          acknowledged_at = NOW(),
+          ip_address = $1,
+          user_agent = $2,
+          updated_at = NOW()
+      WHERE id = $3
+      RETURNING *
+    `, [ipAddress, userAgent, docId]);
+
+    // Update phase status
+    await onboardingService.updatePhaseStatus(tenantId, employeeId, doc.phase);
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Error acknowledging document:', error);
+    res.status(500).json({ success: false, error: 'Failed to acknowledge document' });
+  }
+});
+
+/**
+ * GET /api/onboarding-checklist/my-profile-completion
+ * Employee's profile completion percentage (ESS)
+ */
+router.get('/my-profile-completion', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+
+    // Get employee ID
+    const employeeResult = await pool.query(
+      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
+      [userId, tenantId]
+    );
+
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
+
+    const employeeId = employeeResult.rows[0].id;
+
+    // Calculate profile completion
+    const percentage = await onboardingService.calculateProfileCompletion(employeeId);
+
+    // Get field-level completion details
+    const fieldsResult = await pool.query(`
+      SELECT
+        first_name, last_name, email, phone,
+        date_of_birth, gender, marital_status,
+        address, city, state, country,
+        national_id, tax_id,
+        bank_name, bank_account_number, bank_account_name,
+        emergency_contact_name, emergency_contact_phone,
+        job_title, department
+      FROM employees WHERE id = $1
+    `, [employeeId]);
+
+    const employee = fieldsResult.rows[0];
+
+    const fieldStatus = {
+      personal: {
+        first_name: !!employee.first_name,
+        last_name: !!employee.last_name,
+        email: !!employee.email,
+        phone: !!employee.phone,
+        date_of_birth: !!employee.date_of_birth,
+        gender: !!employee.gender,
+        marital_status: !!employee.marital_status,
+        national_id: !!employee.national_id
+      },
+      address: {
+        address: !!employee.address,
+        city: !!employee.city,
+        state: !!employee.state,
+        country: !!employee.country
+      },
+      banking: {
+        bank_name: !!employee.bank_name,
+        bank_account_number: !!employee.bank_account_number,
+        bank_account_name: !!employee.bank_account_name
+      },
+      emergency: {
+        emergency_contact_name: !!employee.emergency_contact_name,
+        emergency_contact_phone: !!employee.emergency_contact_phone
+      },
+      employment: {
+        job_title: !!employee.job_title,
+        department: !!employee.department,
+        tax_id: !!employee.tax_id
+      }
+    };
+
+    res.json({
+      success: true,
+      data: {
+        percentage,
+        sections: fieldStatus,
+        minimumRequired: 80,
+        meetsMinimum: percentage >= 80
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching profile completion:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch profile completion' });
+  }
+});
+
+/**
+ * GET /api/onboarding-checklist/my-document/:docId/content
+ * Get document content/template for viewing (ESS)
+ */
+router.get('/my-document/:docId/content', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const userId = req.user.id;
+    const { docId } = req.params;
+
+    // Get employee ID
+    const employeeResult = await pool.query(`
+      SELECT e.* FROM employees e
+      WHERE e.user_id = $1 AND e.tenant_id = $2
+    `, [userId, tenantId]);
+
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
+
+    const employee = employeeResult.rows[0];
+
+    // Get document with template
+    const docResult = await pool.query(`
+      SELECT od.*, dt.template_content, dt.template_type,
+             p.name as policy_name, p.description as policy_description, p.file_url as policy_url
+      FROM onboarding_documents od
+      LEFT JOIN document_templates dt ON od.template_id = dt.id
+      LEFT JOIN policies p ON od.policy_id = p.id
+      WHERE od.id = $1 AND od.employee_id = $2
+    `, [docId, employee.id]);
+
+    if (docResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Document not found' });
+    }
+
+    const doc = docResult.rows[0];
+
+    // If it's a policy, return policy details
+    if (doc.policy_id) {
+      return res.json({
+        success: true,
+        data: {
+          type: 'policy',
+          name: doc.policy_name,
+          description: doc.policy_description,
+          url: doc.policy_url,
+          status: doc.status
+        }
+      });
+    }
+
+    // If it has a template, process placeholders
+    let content = doc.template_content || '';
+    if (content) {
+      const placeholders = {
+        '{{employee_name}}': `${employee.first_name} ${employee.last_name}`,
+        '{{employee_email}}': employee.email,
+        '{{employee_number}}': employee.employee_number,
+        '{{job_title}}': employee.job_title || '',
+        '{{department}}': employee.department || '',
+        '{{hire_date}}': employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : '',
+        '{{date}}': new Date().toLocaleDateString()
+      };
+
+      for (const [key, value] of Object.entries(placeholders)) {
+        content = content.replace(new RegExp(key, 'g'), value);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        type: doc.template_type || 'document',
+        name: doc.document_name,
+        content,
+        status: doc.status,
+        requiresSignature: doc.requires_signature,
+        requiresAcknowledgment: doc.requires_acknowledgment
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching document content:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch document content' });
+  }
+});
+
 module.exports = router;
