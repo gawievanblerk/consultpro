@@ -97,13 +97,14 @@ async function initializeOnboarding(tenantId, companyId, employeeId, workflowId 
     const phaseConfig = workflow?.phase_config || DEFAULT_PHASE_CONFIG;
 
     // Create employee_onboarding record
+    // Note: current_phase is INTEGER (1-5), not string
     const onboardingResult = await client.query(`
       INSERT INTO employee_onboarding (
         tenant_id, company_id, employee_id, workflow_id,
         current_phase, overall_status, phase_statuses, started_at
-      ) VALUES ($1, $2, $3, $4, 'phase1', 'in_progress', $5, NOW())
+      ) VALUES ($1, $2, $3, $4, 1, 'in_progress', $5, NOW())
       ON CONFLICT (employee_id) DO UPDATE SET
-        current_phase = 'phase1',
+        current_phase = 1,
         overall_status = 'in_progress',
         started_at = COALESCE(employee_onboarding.started_at, NOW())
       RETURNING *
