@@ -1312,7 +1312,7 @@ router.post('/employees/:id/clone', [
     });
   } catch (error) {
     console.error('Clone employee error:', error);
-    res.status(500).json({ success: false, error: 'Failed to clone employee' });
+    res.status(500).json({ success: false, error: `Clone failed: ${error.message}` });
   }
 });
 
