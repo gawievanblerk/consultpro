@@ -1416,28 +1416,59 @@ router.delete('/test-clones/:id', [
     }
 
     // Delete associated data in order (respecting foreign keys)
+    // Use try-catch for each to handle tables that might not exist
 
-    // 1. Delete onboarding documents
-    await query('DELETE FROM onboarding_documents WHERE employee_id = $1', [id]);
+    // Onboarding related
+    await query('DELETE FROM onboarding_documents WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_onboarding WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM probation_checkin_tasks WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_medical_info WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 2. Delete employee onboarding record
-    await query('DELETE FROM employee_onboarding WHERE employee_id = $1', [id]);
+    // EMS related (migration 013)
+    await query('DELETE FROM employee_documents WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_dependents WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_emergency_contacts WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_education WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_work_history WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_disciplinary WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_grievances WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_grievances WHERE against_employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_assets WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_transitions WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_performance_reviews WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_performance_reviews WHERE reviewer_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_training WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_certifications WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_skills WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_exit_interviews WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 3. Delete probation checkin tasks
-    await query('DELETE FROM probation_checkin_tasks WHERE employee_id = $1', [id]);
+    // Payroll related (migration 012)
+    await query('DELETE FROM payroll_deductions WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM payroll_earnings WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM payroll_records WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 4. Delete medical info
-    await query('DELETE FROM employee_medical_info WHERE employee_id = $1', [id]);
+    // Statutory remittances (migration 015)
+    await query('DELETE FROM statutory_remittance_items WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 5. Delete ESS invitation
-    await query('DELETE FROM employee_invitations WHERE employee_id = $1', [id]);
+    // Leave management (migration 006)
+    await query('DELETE FROM leave_requests WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM leave_balances WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 6. Delete user account if exists
+    // Training progress
+    await query('DELETE FROM training_progress WHERE employee_id = $1', [id]).catch(() => {});
+
+    // Employee positions (migration 005)
+    await query('DELETE FROM employee_positions WHERE employee_id = $1', [id]).catch(() => {});
+
+    // ESS invitation
+    await query('DELETE FROM employee_invitations WHERE employee_id = $1', [id]).catch(() => {});
+
+    // User account if exists
     if (clone.user_id) {
-      await query('DELETE FROM users WHERE id = $1', [clone.user_id]);
+      await query('DELETE FROM users WHERE id = $1', [clone.user_id]).catch(() => {});
     }
 
-    // 7. Finally delete the employee (hard delete for test clones)
+    // Finally delete the employee (hard delete for test clones)
     await query('DELETE FROM employees WHERE id = $1', [id]);
 
     // Log the action
