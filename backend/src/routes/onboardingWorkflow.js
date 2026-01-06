@@ -47,7 +47,7 @@ router.use(authenticateToken);
  */
 router.get('/workflows', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { company_id, active_only } = req.query;
 
     let query = `
@@ -84,7 +84,7 @@ router.get('/workflows', async (req, res) => {
  */
 router.get('/workflows/:id', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { id } = req.params;
 
     const result = await pool.query(`
@@ -111,7 +111,7 @@ router.get('/workflows/:id', async (req, res) => {
  */
 router.post('/workflows', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { name, description, company_id, phase_config, is_default } = req.body;
 
@@ -147,7 +147,7 @@ router.post('/workflows', async (req, res) => {
  */
 router.put('/workflows/:id', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { id } = req.params;
     const { name, description, phase_config, is_default, is_active } = req.body;
 
@@ -200,31 +200,55 @@ router.put('/workflows/:id', async (req, res) => {
  */
 router.get('/employees', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { company_id, status, phase } = req.query;
 
-    let query = `
-      SELECT
-        eo.*,
-        e.first_name, e.last_name, e.email, e.employee_number,
-        e.job_title, e.department, e.hire_date, e.employment_status,
-        e.profile_completion_percentage,
-        c.legal_name as company_name,
-        w.name as workflow_name,
-        (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id) as total_documents,
-        (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id AND od.status IN ('signed', 'acknowledged', 'verified')) as completed_documents
-      FROM employee_onboarding eo
-      JOIN employees e ON eo.employee_id = e.id
-      JOIN companies c ON eo.company_id = c.id
-      LEFT JOIN onboarding_workflows w ON eo.workflow_id = w.id
-      WHERE eo.tenant_id = $1
-    `;
-    const params = [tenantId];
-    let paramIdx = 2;
+    console.log('[Employees] tenantId:', tenantId, 'company_id:', company_id, 'user:', req.user?.email);
+
+    let query;
+    let params;
+    let paramIdx;
 
     if (company_id) {
-      query += ` AND eo.company_id = $${paramIdx++}`;
-      params.push(company_id);
+      // Use company_id as primary filter when provided
+      query = `
+        SELECT
+          eo.*,
+          e.first_name, e.last_name, e.email, e.employee_number,
+          e.job_title, e.department, e.hire_date, e.employment_status,
+          e.profile_completion_percentage,
+          c.legal_name as company_name,
+          w.name as workflow_name,
+          (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id) as total_documents,
+          (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id AND od.status IN ('signed', 'acknowledged', 'verified')) as completed_documents
+        FROM employee_onboarding eo
+        JOIN employees e ON eo.employee_id = e.id
+        JOIN companies c ON eo.company_id = c.id
+        LEFT JOIN onboarding_workflows w ON eo.workflow_id = w.id
+        WHERE eo.company_id = $1
+      `;
+      params = [company_id];
+      paramIdx = 2;
+    } else {
+      // Fallback to tenant_id filter
+      query = `
+        SELECT
+          eo.*,
+          e.first_name, e.last_name, e.email, e.employee_number,
+          e.job_title, e.department, e.hire_date, e.employment_status,
+          e.profile_completion_percentage,
+          c.legal_name as company_name,
+          w.name as workflow_name,
+          (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id) as total_documents,
+          (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id AND od.status IN ('signed', 'acknowledged', 'verified')) as completed_documents
+        FROM employee_onboarding eo
+        JOIN employees e ON eo.employee_id = e.id
+        JOIN companies c ON eo.company_id = c.id
+        LEFT JOIN onboarding_workflows w ON eo.workflow_id = w.id
+        WHERE eo.tenant_id = $1
+      `;
+      params = [tenantId];
+      paramIdx = 2;
     }
 
     if (status) {
@@ -239,7 +263,9 @@ router.get('/employees', async (req, res) => {
 
     query += ' ORDER BY eo.created_at DESC';
 
+    console.log('[Employees] Query params:', params);
     const result = await pool.query(query, params);
+    console.log('[Employees] Found', result.rows.length, 'employees in onboarding');
 
     // Calculate progress percentage
     const employees = result.rows.map(row => ({
@@ -317,7 +343,7 @@ router.get('/new-hires', async (req, res) => {
  */
 router.get('/employees/:employeeId', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { employeeId } = req.params;
 
     // Get onboarding record
@@ -581,7 +607,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
 router.post('/employees/:employeeId/activate', async (req, res) => {
   const client = await pool.connect();
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { employeeId } = req.params;
 
@@ -743,7 +769,7 @@ router.post('/employees/:employeeId/activate', async (req, res) => {
  */
 router.get('/employees/:employeeId/documents', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { employeeId } = req.params;
     const { phase, status } = req.query;
 
@@ -782,7 +808,7 @@ router.get('/employees/:employeeId/documents', async (req, res) => {
  */
 router.post('/employees/:employeeId/documents/:docId/upload', upload.single('file'), async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { employeeId, docId } = req.params;
 
     if (!req.file) {
@@ -839,7 +865,7 @@ router.post('/employees/:employeeId/documents/:docId/upload', upload.single('fil
  */
 router.post('/employees/:employeeId/documents/:docId/sign', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { employeeId, docId } = req.params;
     const { signature_data, acknowledgment } = req.body;
 
@@ -912,7 +938,7 @@ router.post('/employees/:employeeId/documents/:docId/sign', async (req, res) => 
  */
 router.put('/employees/:employeeId/documents/:docId/verify', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { employeeId, docId } = req.params;
 
@@ -946,7 +972,7 @@ router.put('/employees/:employeeId/documents/:docId/verify', async (req, res) =>
  */
 router.put('/employees/:employeeId/documents/:docId/reject', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { employeeId, docId } = req.params;
     const { reason } = req.body;
@@ -983,7 +1009,7 @@ router.put('/employees/:employeeId/documents/:docId/reject', async (req, res) =>
  */
 router.put('/employees/:employeeId/file-complete', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { employeeId } = req.params;
 
