@@ -588,43 +588,41 @@ router.get('/my-onboarding', async (req, res) => {
 
     let employeeId, tenantId;
 
+    // Try multiple ways to find the employee
+    let employeeResult;
+
     if (impersonatedEmployeeId) {
-      // Impersonation case - use employee_id directly
-      const employeeResult = await pool.query(`
+      // First try: Impersonation case - use employee_id directly
+      console.log('[My Onboarding] Trying employee_id lookup:', impersonatedEmployeeId);
+      employeeResult = await pool.query(`
         SELECT e.id, e.company_id, co.tenant_id
         FROM employees e
         JOIN companies c ON e.company_id = c.id
         JOIN consultants co ON c.consultant_id = co.id
         WHERE e.id = $1 AND e.deleted_at IS NULL
       `, [impersonatedEmployeeId]);
+    }
 
-      if (employeeResult.rows.length === 0) {
-        console.log('[My Onboarding] Impersonated employee not found:', impersonatedEmployeeId);
-        return res.status(404).json({ success: false, error: 'Employee record not found' });
-      }
-
-      employeeId = employeeResult.rows[0].id;
-      tenantId = employeeResult.rows[0].tenant_id;
-      console.log('[My Onboarding] Found impersonated employee:', employeeId, 'tenant:', tenantId);
-    } else {
-      // Normal case - lookup by user_id
-      const employeeResult = await pool.query(`
+    if (!employeeResult || employeeResult.rows.length === 0) {
+      // Second try: lookup by user_id
+      console.log('[My Onboarding] Trying user_id lookup:', userId);
+      employeeResult = await pool.query(`
         SELECT e.id, e.company_id, co.tenant_id
         FROM employees e
         JOIN companies c ON e.company_id = c.id
         JOIN consultants co ON c.consultant_id = co.id
         WHERE e.user_id = $1 AND e.deleted_at IS NULL
       `, [userId]);
-
-      if (employeeResult.rows.length === 0) {
-        console.log('[My Onboarding] No employee found for user:', userId);
-        return res.status(404).json({ success: false, error: 'Employee record not found' });
-      }
-
-      employeeId = employeeResult.rows[0].id;
-      tenantId = employeeResult.rows[0].tenant_id;
-      console.log('[My Onboarding] Found employee by user_id:', employeeId, 'tenant:', tenantId);
     }
+
+    if (!employeeResult || employeeResult.rows.length === 0) {
+      console.log('[My Onboarding] No employee found. employee_id:', impersonatedEmployeeId, 'user_id:', userId);
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
+
+    employeeId = employeeResult.rows[0].id;
+    tenantId = employeeResult.rows[0].tenant_id;
+    console.log('[My Onboarding] Found employee:', employeeId, 'tenant:', tenantId);
 
     // Get onboarding progress using service
     const progress = await onboardingService.getOnboardingProgress(tenantId, employeeId);
@@ -658,21 +656,29 @@ router.get('/my-documents', async (req, res) => {
 
     let employeeId;
 
+    // Try employee_id from impersonation first, then user_id lookup
     if (impersonatedEmployeeId) {
-      // Impersonation case - use employee_id directly
-      employeeId = impersonatedEmployeeId;
-    } else {
-      // Normal case - lookup by user_id
+      const verify = await pool.query(
+        'SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL',
+        [impersonatedEmployeeId]
+      );
+      if (verify.rows.length > 0) {
+        employeeId = impersonatedEmployeeId;
+      }
+    }
+
+    if (!employeeId && userId) {
       const employeeResult = await pool.query(
         'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
         [userId]
       );
-
-      if (employeeResult.rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'Employee record not found' });
+      if (employeeResult.rows.length > 0) {
+        employeeId = employeeResult.rows[0].id;
       }
+    }
 
-      employeeId = employeeResult.rows[0].id;
+    if (!employeeId) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
     }
 
     let query = `
@@ -929,21 +935,29 @@ router.get('/my-profile-completion', async (req, res) => {
 
     let employeeId;
 
+    // Try employee_id from impersonation first, then user_id lookup
     if (impersonatedEmployeeId) {
-      // Impersonation case - use employee_id directly
-      employeeId = impersonatedEmployeeId;
-    } else {
-      // Normal case - lookup by user_id
+      const verify = await pool.query(
+        'SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL',
+        [impersonatedEmployeeId]
+      );
+      if (verify.rows.length > 0) {
+        employeeId = impersonatedEmployeeId;
+      }
+    }
+
+    if (!employeeId && userId) {
       const employeeResult = await pool.query(
         'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
         [userId]
       );
-
-      if (employeeResult.rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'Employee record not found' });
+      if (employeeResult.rows.length > 0) {
+        employeeId = employeeResult.rows[0].id;
       }
+    }
 
-      employeeId = employeeResult.rows[0].id;
+    if (!employeeId) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
     }
 
     // Calculate profile completion
