@@ -61,7 +61,8 @@ const MIGRATIONS = {
   '013_employee_management_system': 'Employee lifecycle management (EMS)',
   '014_company_preferences': 'Company selector preferences',
   '015_statutory_remittances': 'Statutory remittance tracking (PAYE, Pension, NHF)',
-  '016_onboarding_workflow': 'BFI onboarding workflow with hard gates, medical info, probation check-ins'
+  '016_onboarding_workflow': 'BFI onboarding workflow with hard gates, medical info, probation check-ins',
+  '017_test_clone_support': 'Test clone support for onboarding workflow testing'
 };
 
 // GET /run-migrations - List available migrations

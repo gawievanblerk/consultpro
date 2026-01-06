@@ -13,7 +13,10 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   UsersIcon,
-  IdentificationIcon
+  IdentificationIcon,
+  DocumentDuplicateIcon,
+  ClipboardDocumentIcon,
+  BeakerIcon
 } from '@heroicons/react/24/outline';
 import api from '../../utils/api';
 import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
@@ -39,6 +42,12 @@ function Consultants() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
+
+  // Clone for testing state
+  const [cloneLoading, setCloneLoading] = useState(null); // employee id being cloned
+  const [showCloneResult, setShowCloneResult] = useState(false);
+  const [cloneResult, setCloneResult] = useState(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const {
     selectedIds,
@@ -219,6 +228,67 @@ function Consultants() {
       setCompanyEmployees([]);
     } finally {
       setEmployeesLoading(false);
+    }
+  };
+
+  const handleCloneEmployee = async (employeeId) => {
+    setCloneLoading(employeeId);
+    try {
+      const response = await api.post(
+        `/api/superadmin/employees/${employeeId}/clone`,
+        {},
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        setCloneResult(response.data.data);
+        setShowCloneResult(true);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to clone employee';
+      alert(errorMsg);
+      console.error('Clone employee failed:', err);
+    } finally {
+      setCloneLoading(null);
+    }
+  };
+
+  const handleCopyActivationLink = async () => {
+    if (cloneResult?.invitation?.activationLink) {
+      try {
+        await navigator.clipboard.writeText(cloneResult.invitation.activationLink);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
+  };
+
+  const handleOpenActivationLink = () => {
+    if (cloneResult?.invitation?.activationLink) {
+      window.open(cloneResult.invitation.activationLink, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleImpersonateClone = async () => {
+    if (!cloneResult?.clonedEmployee?.id) return;
+
+    try {
+      const response = await api.post(
+        `/api/superadmin/employees/${cloneResult.clonedEmployee.id}/impersonate`,
+        {},
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        const { redirectUrl } = response.data.data;
+        window.open(`${window.location.origin}${redirectUrl}`, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      // Clone might not have ESS access yet - need to activate first
+      const errorMsg = err.response?.data?.error || 'Failed to impersonate clone';
+      alert(`${errorMsg}\n\nNote: The clone needs to complete ESS activation first.`);
     }
   };
 
@@ -519,30 +589,64 @@ function Consultants() {
                                               {companyEmployees.map((emp) => (
                                                 <div
                                                   key={emp.id}
-                                                  className="flex items-center justify-between bg-white p-2 rounded border border-primary-100"
+                                                  className={`flex items-center justify-between p-2 rounded border ${
+                                                    emp.is_test_clone
+                                                      ? 'bg-purple-50 border-purple-200'
+                                                      : 'bg-white border-primary-100'
+                                                  }`}
                                                 >
                                                   <div className="flex items-center gap-2">
-                                                    <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-xs font-medium">
-                                                      {emp.first_name?.[0]?.toUpperCase() || 'E'}
+                                                    <div className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-medium ${
+                                                      emp.is_test_clone
+                                                        ? 'bg-purple-200 text-purple-700'
+                                                        : 'bg-green-100 text-green-700'
+                                                    }`}>
+                                                      {emp.is_test_clone ? (
+                                                        <BeakerIcon className="h-3 w-3" />
+                                                      ) : (
+                                                        emp.first_name?.[0]?.toUpperCase() || 'E'
+                                                      )}
                                                     </div>
                                                     <div>
-                                                      <p className="text-xs font-medium text-primary-900">
+                                                      <p className="text-xs font-medium text-primary-900 flex items-center gap-1">
                                                         {emp.first_name} {emp.last_name}
+                                                        {emp.is_test_clone && (
+                                                          <span className="px-1 py-0.5 bg-purple-200 text-purple-700 text-[9px] rounded font-semibold">
+                                                            TEST
+                                                          </span>
+                                                        )}
                                                       </p>
                                                       <p className="text-[10px] text-primary-500">
                                                         {emp.job_title || emp.email}
                                                       </p>
                                                     </div>
                                                   </div>
-                                                  <button
-                                                    onClick={() => handleImpersonateEmployee(emp.id, `${emp.first_name} ${emp.last_name}`)}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium"
-                                                    title="Login as this employee (ESS)"
-                                                  >
-                                                    <UserIcon className="h-3 w-3" />
-                                                    ESS
-                                                    <ArrowTopRightOnSquareIcon className="h-2.5 w-2.5" />
-                                                  </button>
+                                                  <div className="flex items-center gap-1">
+                                                    {!emp.is_test_clone && (
+                                                      <button
+                                                        onClick={() => handleCloneEmployee(emp.id)}
+                                                        disabled={cloneLoading === emp.id}
+                                                        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-purple-100 text-purple-700 rounded hover:bg-purple-200 font-medium disabled:opacity-50"
+                                                        title="Clone for onboarding testing"
+                                                      >
+                                                        {cloneLoading === emp.id ? (
+                                                          <span className="animate-spin h-3 w-3 border border-purple-700 border-t-transparent rounded-full" />
+                                                        ) : (
+                                                          <DocumentDuplicateIcon className="h-3 w-3" />
+                                                        )}
+                                                        Clone
+                                                      </button>
+                                                    )}
+                                                    <button
+                                                      onClick={() => handleImpersonateEmployee(emp.id, `${emp.first_name} ${emp.last_name}`)}
+                                                      className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-green-100 text-green-700 rounded hover:bg-green-200 font-medium"
+                                                      title="Login as this employee (ESS)"
+                                                    >
+                                                      <UserIcon className="h-3 w-3" />
+                                                      ESS
+                                                      <ArrowTopRightOnSquareIcon className="h-2.5 w-2.5" />
+                                                    </button>
+                                                  </div>
                                                 </div>
                                               ))}
                                             </div>
@@ -662,6 +766,121 @@ function Consultants() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Clone Result Modal */}
+      {showCloneResult && cloneResult && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <BeakerIcon className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-primary-900">Test Clone Created</h2>
+                <p className="text-sm text-primary-500">Ready for onboarding workflow testing</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              {/* Clone Details */}
+              <div className="bg-purple-50 rounded-lg p-4 border border-purple-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="px-2 py-0.5 bg-purple-200 text-purple-700 text-xs rounded font-semibold">
+                    TEST CLONE
+                  </span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <p>
+                    <span className="text-primary-500">Name:</span>{' '}
+                    <span className="font-medium text-primary-900">
+                      {cloneResult.clonedEmployee?.first_name} {cloneResult.clonedEmployee?.last_name}
+                    </span>
+                  </p>
+                  <p>
+                    <span className="text-primary-500">Employee #:</span>{' '}
+                    <span className="font-medium text-primary-900">{cloneResult.clonedEmployee?.employee_number}</span>
+                  </p>
+                  <p>
+                    <span className="text-primary-500">Email:</span>{' '}
+                    <span className="font-mono text-xs text-primary-900">{cloneResult.clonedEmployee?.email}</span>
+                  </p>
+                  <p>
+                    <span className="text-primary-500">Status:</span>{' '}
+                    <span className="font-medium text-amber-600">{cloneResult.clonedEmployee?.employment_status}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Source Info */}
+              <div className="text-xs text-primary-500">
+                Cloned from: <span className="font-medium">{cloneResult.sourceEmployee?.first_name} {cloneResult.sourceEmployee?.last_name}</span>
+                {' '}({cloneResult.sourceEmployee?.employee_number})
+              </div>
+
+              {/* Activation Link */}
+              <div className="bg-primary-50 rounded-lg p-3 border border-primary-100">
+                <label className="block text-xs font-medium text-primary-600 mb-2">
+                  ESS Activation Link
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={cloneResult.invitation?.activationLink || ''}
+                    className="flex-1 text-xs font-mono bg-white px-2 py-1.5 rounded border border-primary-200 truncate"
+                  />
+                  <button
+                    onClick={handleCopyActivationLink}
+                    className={`p-1.5 rounded ${copySuccess ? 'bg-green-100 text-green-700' : 'bg-primary-100 text-primary-600 hover:bg-primary-200'}`}
+                    title="Copy to clipboard"
+                  >
+                    <ClipboardDocumentIcon className="h-4 w-4" />
+                  </button>
+                </div>
+                {copySuccess && (
+                  <p className="text-xs text-green-600 mt-1">Copied to clipboard!</p>
+                )}
+                <p className="text-[10px] text-primary-400 mt-2">
+                  Expires: {cloneResult.invitation?.expiresAt ? new Date(cloneResult.invitation.expiresAt).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2">
+              <button
+                onClick={handleOpenActivationLink}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700"
+              >
+                <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                Open Activation Page
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleImpersonateClone}
+                  className="flex items-center justify-center gap-1 px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm"
+                >
+                  <UserIcon className="h-4 w-4" />
+                  Impersonate Clone
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCloneResult(false);
+                    setCloneResult(null);
+                  }}
+                  className="px-3 py-2 border border-primary-300 text-primary-700 rounded-lg hover:bg-primary-50 text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-center text-primary-400 mt-4">
+              Test clones use fake email addresses and won't affect real employee data.
+            </p>
           </div>
         </div>
       )}
