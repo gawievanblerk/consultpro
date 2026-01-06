@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import api from '../utils/api';
 import { useHelp } from '../context/HelpContext';
 import { HelpButton } from '../components/HelpModal';
@@ -46,7 +46,12 @@ ChartJS.register(
 
 function Dashboard() {
   const { showHelp } = useHelp();
-  const { isConsultant } = useAuth();
+  const { isConsultant, isEmployee } = useAuth();
+
+  // Redirect employees to their onboarding wizard
+  if (isEmployee) {
+    return <Navigate to="/dashboard/my-onboarding-wizard" replace />;
+  }
   const [stats, setStats] = useState(null);
   const [showWizard, setShowWizard] = useState(true);
   const [recentTasks, setRecentTasks] = useState([]);
