@@ -262,36 +262,37 @@ router.get('/employees', async (req, res) => {
  */
 router.get('/new-hires', async (req, res) => {
   try {
-    // Use req.tenant_id (set by auth middleware) or fall back to user.org
-    const tenantId = req.tenant_id || req.user?.org;
     const { company_id } = req.query;
 
-    console.log('[New Hires] tenant_id:', tenantId, 'company_id:', company_id, 'user:', req.user?.email);
+    console.log('[New Hires] company_id:', company_id, 'user:', req.user?.email);
 
-    let query = `
-      SELECT
-        e.id, e.id as employee_id,
-        e.first_name, e.last_name, e.email, e.employee_number,
-        e.job_title, e.department, e.hire_date, e.employment_status,
-        c.legal_name as company_name,
-        c.id as company_id,
-        eo.id as onboarding_id
-      FROM employees e
-      JOIN companies c ON e.company_id = c.id
-      JOIN consultants co ON c.consultant_id = co.id
-      LEFT JOIN employee_onboarding eo ON e.id = eo.employee_id
-      WHERE co.tenant_id = $1
-        AND e.deleted_at IS NULL
-    `;
-    const params = [tenantId];
-    let paramIdx = 2;
+    // If company_id provided, filter by it; otherwise get all for the user
+    let query;
+    let params;
 
     if (company_id) {
-      query += ` AND e.company_id = $${paramIdx++}`;
-      params.push(company_id);
+      // Direct company filter - most common case
+      query = `
+        SELECT
+          e.id, e.id as employee_id,
+          e.first_name, e.last_name, e.email, e.employee_number,
+          e.job_title, e.department, e.hire_date, e.employment_status,
+          c.legal_name as company_name,
+          c.id as company_id,
+          eo.id as onboarding_id
+        FROM employees e
+        JOIN companies c ON e.company_id = c.id
+        LEFT JOIN employee_onboarding eo ON e.id = eo.employee_id
+        WHERE e.company_id = $1
+          AND e.deleted_at IS NULL
+        ORDER BY e.hire_date DESC NULLS LAST, e.created_at DESC
+      `;
+      params = [company_id];
+    } else {
+      // No company filter - return empty (require company selection)
+      console.log('[New Hires] No company_id provided, returning empty');
+      return res.json({ success: true, data: [] });
     }
-
-    query += ' ORDER BY e.hire_date DESC, e.created_at DESC';
 
     const allResult = await pool.query(query, params);
     console.log('[New Hires] Total employees found:', allResult.rows.length);
