@@ -577,6 +577,9 @@ const upload = multer({
  */
 router.get('/my-onboarding', async (req, res) => {
   try {
+    // Debug: log entire user object from JWT
+    console.log('[My Onboarding] Full req.user:', JSON.stringify(req.user, null, 2));
+
     const userId = req.user?.id || req.user?.sub;
     // Check for employee_id from impersonation JWT
     const impersonatedEmployeeId = req.user?.employee_id;
