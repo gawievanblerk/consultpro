@@ -381,20 +381,23 @@ router.get('/employees/:employeeId', async (req, res) => {
 router.post('/employees/:employeeId/start', async (req, res) => {
   const client = await pool.connect();
   try {
-    const tenantId = req.user.tenant_id;
-    const userId = req.user.id;
+    const tenantId = req.tenant_id || req.user?.org;
+    const userId = req.user?.id;
     const { employeeId } = req.params;
     const { workflow_id } = req.body;
 
+    console.log('[Start Onboarding] employeeId:', employeeId, 'tenantId:', tenantId);
+
     await client.query('BEGIN');
 
-    // Get employee details
+    // Get employee details (employees don't have tenant_id, use company->consultant->tenant)
     const employeeResult = await client.query(`
-      SELECT e.*, c.id as company_id
+      SELECT e.*, c.id as company_id, co.tenant_id
       FROM employees e
       JOIN companies c ON e.company_id = c.id
-      WHERE e.id = $1 AND e.tenant_id = $2 AND e.deleted_at IS NULL
-    `, [employeeId, tenantId]);
+      JOIN consultants co ON c.consultant_id = co.id
+      WHERE e.id = $1 AND e.deleted_at IS NULL
+    `, [employeeId]);
 
     if (employeeResult.rows.length === 0) {
       await client.query('ROLLBACK');
@@ -402,6 +405,9 @@ router.post('/employees/:employeeId/start', async (req, res) => {
     }
 
     const employee = employeeResult.rows[0];
+    // Use tenant_id from the employee's consultant
+    const effectiveTenantId = employee.tenant_id || tenantId;
+    console.log('[Start Onboarding] Using tenant_id:', effectiveTenantId);
 
     // Check if onboarding already exists
     const existingResult = await client.query(
@@ -419,7 +425,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
       SELECT * FROM onboarding_workflows
       WHERE tenant_id = $1 AND deleted_at IS NULL AND is_active = true
     `;
-    const workflowParams = [tenantId];
+    const workflowParams = [effectiveTenantId];
 
     if (workflow_id) {
       workflowQuery += ' AND id = $2';
@@ -448,7 +454,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
         current_phase, overall_status, started_at
       ) VALUES ($1, $2, $3, $4, 1, 'in_progress', NOW())
       RETURNING *
-    `, [tenantId, employee.company_id, employeeId, workflow.id]);
+    `, [effectiveTenantId, employee.company_id, employeeId, workflow.id]);
 
     const onboarding = onboardingResult.rows[0];
 
@@ -490,7 +496,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
           due_date
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       `, [
-        tenantId, employee.company_id, employeeId, onboarding.id,
+        effectiveTenantId, employee.company_id, employeeId, onboarding.id,
         doc.document_type, doc.document_title, doc.document_category, doc.phase, doc.sort_order,
         doc.requires_signature, doc.requires_acknowledgment, doc.requires_upload, doc.is_required,
         doc.due_date
@@ -513,7 +519,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error starting onboarding:', error);
-    res.status(500).json({ success: false, error: 'Failed to start onboarding' });
+    res.status(500).json({ success: false, error: `Failed to start onboarding: ${error.message}` });
   } finally {
     client.release();
   }
