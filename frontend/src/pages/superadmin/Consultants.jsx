@@ -16,7 +16,8 @@ import {
   IdentificationIcon,
   DocumentDuplicateIcon,
   ClipboardDocumentIcon,
-  BeakerIcon
+  BeakerIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import api from '../../utils/api';
 import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
@@ -48,6 +49,7 @@ function Consultants() {
   const [showCloneResult, setShowCloneResult] = useState(false);
   const [cloneResult, setCloneResult] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(null); // employee id being deleted
 
   const {
     selectedIds,
@@ -289,6 +291,40 @@ function Consultants() {
       // Clone might not have ESS access yet - need to activate first
       const errorMsg = err.response?.data?.error || 'Failed to impersonate clone';
       alert(`${errorMsg}\n\nNote: The clone needs to complete ESS activation first.`);
+    }
+  };
+
+  const handleDeleteTestClone = async (employeeId, employeeName) => {
+    if (!confirm(`Are you sure you want to delete test clone "${employeeName}"?\n\nThis will permanently remove the clone and all associated data.`)) {
+      return;
+    }
+
+    setDeleteLoading(employeeId);
+    try {
+      const response = await api.delete(
+        `/api/superadmin/test-clones/${employeeId}`,
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        // Refresh the employee list directly
+        if (expandedCompany) {
+          const refreshResponse = await api.get(
+            `/api/superadmin/companies/${expandedCompany}/employees`,
+            getAuthHeaders()
+          );
+          if (refreshResponse.data.success) {
+            setCompanyEmployees(refreshResponse.data.data);
+          }
+        }
+        alert(`Test clone "${employeeName}" deleted successfully.`);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to delete test clone';
+      alert(errorMsg);
+      console.error('Delete test clone failed:', err);
+    } finally {
+      setDeleteLoading(null);
     }
   };
 
@@ -646,6 +682,21 @@ function Consultants() {
                                                       ESS
                                                       <ArrowTopRightOnSquareIcon className="h-2.5 w-2.5" />
                                                     </button>
+                                                    {emp.is_test_clone && (
+                                                      <button
+                                                        onClick={() => handleDeleteTestClone(emp.id, `${emp.first_name} ${emp.last_name}`)}
+                                                        disabled={deleteLoading === emp.id}
+                                                        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium disabled:opacity-50"
+                                                        title="Delete test clone"
+                                                      >
+                                                        {deleteLoading === emp.id ? (
+                                                          <span className="animate-spin h-3 w-3 border border-red-700 border-t-transparent rounded-full" />
+                                                        ) : (
+                                                          <TrashIcon className="h-3 w-3" />
+                                                        )}
+                                                        Delete
+                                                      </button>
+                                                    )}
                                                   </div>
                                                 </div>
                                               ))}
