@@ -60,7 +60,8 @@ const MIGRATIONS = {
   '012_payroll_system': 'Payroll processing system',
   '013_employee_management_system': 'Employee lifecycle management (EMS)',
   '014_company_preferences': 'Company selector preferences',
-  '015_statutory_remittances': 'Statutory remittance tracking (PAYE, Pension, NHF)'
+  '015_statutory_remittances': 'Statutory remittance tracking (PAYE, Pension, NHF)',
+  '016_onboarding_workflow': 'BFI onboarding workflow with hard gates, medical info, probation check-ins'
 };
 
 // GET /run-migrations - List available migrations
@@ -1007,6 +1008,13 @@ app.use('/api/performance', require('./routes/performance'));
 app.use('/api/exit', require('./routes/exit'));
 app.use('/api/disciplinary', require('./routes/disciplinary'));
 app.use('/api/onboarding-checklist', require('./routes/onboardingChecklist'));
+
+// ============================================================================
+// BFI Onboarding Workflow Routes (Phased Onboarding with Hard Gates)
+// ============================================================================
+app.use('/api/onboarding-workflow', require('./routes/onboardingWorkflow'));
+app.use('/api/medical', require('./routes/medicalInfo'));
+app.use('/api/probation-checkins', require('./routes/probationCheckins'));
 
 // ============================================================================
 // Error Handlers

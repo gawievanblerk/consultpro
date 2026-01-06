@@ -183,9 +183,18 @@ function Employees() {
     e.preventDefault();
     setSaving(true);
     try {
+      // For new employees, use selected company; for edits, use existing company
+      const companyId = editingEmployee?.company_id || selectedCompany?.id;
+
+      if (!companyId) {
+        toast.error('Please select a company first');
+        setSaving(false);
+        return;
+      }
+
       const payload = {
         ...formData,
-        companyId: user.organizationId
+        companyId
       };
 
       if (editingEmployee) {

@@ -145,7 +145,7 @@ router.post('/', [
   body('lastName').notEmpty().trim(),
   body('email').optional().isEmail(),
   body('employmentType').optional().isIn(['full_time', 'part_time', 'contract', 'intern']),
-  body('employmentStatus').optional().isIn(['active', 'on_leave', 'suspended', 'terminated'])
+  body('employmentStatus').optional().isIn(['preboarding', 'active', 'probation', 'on_leave', 'suspended', 'terminated'])
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -313,7 +313,7 @@ router.get('/:id', [
  */
 router.put('/:id', [
   param('id').isUUID(),
-  body('employmentStatus').optional().isIn(['active', 'on_leave', 'suspended', 'terminated'])
+  body('employmentStatus').optional().isIn(['preboarding', 'active', 'probation', 'on_leave', 'suspended', 'terminated'])
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
