@@ -274,7 +274,9 @@ export default function OnboardingWorkflowAdmin() {
               {employees.filter(e => e.overall_status !== 'completed').map((employee) => (
                 <tr key={employee.employee_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{employee.employee_name}</div>
+                    <div className="font-medium text-gray-900">
+                      {employee.first_name} {employee.last_name}
+                    </div>
                     <div className="text-sm text-gray-500">{employee.job_title}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -468,7 +470,7 @@ export default function OnboardingWorkflowAdmin() {
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b flex items-center justify-between sticky top-0 bg-white">
               <div>
-                <h3 className="text-lg font-semibold">{selectedEmployee.employee_name}</h3>
+                <h3 className="text-lg font-semibold">{selectedEmployee.first_name} {selectedEmployee.last_name}</h3>
                 <p className="text-sm text-gray-500">{selectedEmployee.job_title} | {selectedEmployee.department}</p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
