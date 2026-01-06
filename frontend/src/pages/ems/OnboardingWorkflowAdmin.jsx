@@ -486,19 +486,19 @@ export default function OnboardingWorkflowAdmin() {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm text-gray-500">Current Phase</div>
                   <div className="font-semibold text-gray-900">
-                    {PHASE_LABELS[employeeOnboarding.onboarding?.current_phase] || 'Not Started'}
+                    {PHASE_LABELS[employeeOnboarding?.current_phase] || 'Not Started'}
                   </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm text-gray-500">Profile Completion</div>
                   <div className="font-semibold text-gray-900">
-                    {employeeOnboarding.profile_completion || 0}%
+                    {employeeOnboarding?.profile_completion_percentage || 0}%
                   </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm text-gray-500">Employee File</div>
                   <div className="font-semibold text-gray-900">
-                    {employeeOnboarding.onboarding?.employee_file_complete ? (
+                    {employeeOnboarding?.employee_file_complete ? (
                       <span className="text-green-600">Complete</span>
                     ) : (
                       <span className="text-orange-600">Pending</span>
