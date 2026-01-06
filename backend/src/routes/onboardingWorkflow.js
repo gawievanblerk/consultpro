@@ -262,10 +262,11 @@ router.get('/employees', async (req, res) => {
  */
 router.get('/new-hires', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    // Use req.tenant_id (set by auth middleware) or fall back to user.org
+    const tenantId = req.tenant_id || req.user?.org;
     const { company_id } = req.query;
 
-    console.log('[New Hires] tenant_id:', tenantId, 'company_id:', company_id);
+    console.log('[New Hires] tenant_id:', tenantId, 'company_id:', company_id, 'user:', req.user?.email);
 
     let query = `
       SELECT
