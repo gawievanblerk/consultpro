@@ -257,6 +257,49 @@ router.get('/employees', async (req, res) => {
 });
 
 /**
+ * GET /api/onboarding-workflow/new-hires
+ * List employees who need onboarding (no onboarding record yet or preboarding status)
+ */
+router.get('/new-hires', async (req, res) => {
+  try {
+    const tenantId = req.user.tenant_id;
+    const { company_id } = req.query;
+
+    let query = `
+      SELECT
+        e.id, e.id as employee_id,
+        e.first_name, e.last_name, e.email, e.employee_number,
+        e.job_title, e.department, e.hire_date, e.employment_status,
+        c.legal_name as company_name,
+        c.id as company_id
+      FROM employees e
+      JOIN companies c ON e.company_id = c.id
+      JOIN consultants co ON c.consultant_id = co.id
+      LEFT JOIN employee_onboarding eo ON e.id = eo.employee_id
+      WHERE co.tenant_id = $1
+        AND e.deleted_at IS NULL
+        AND (eo.id IS NULL OR e.employment_status = 'preboarding')
+    `;
+    const params = [tenantId];
+    let paramIdx = 2;
+
+    if (company_id) {
+      query += ` AND e.company_id = $${paramIdx++}`;
+      params.push(company_id);
+    }
+
+    query += ' ORDER BY e.hire_date DESC, e.created_at DESC';
+
+    const result = await pool.query(query, params);
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Error fetching new hires:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch new hires' });
+  }
+});
+
+/**
  * GET /api/onboarding-workflow/employees/:employeeId
  * Get detailed onboarding status for an employee
  */

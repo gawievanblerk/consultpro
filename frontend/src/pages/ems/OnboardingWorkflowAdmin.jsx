@@ -40,20 +40,15 @@ export default function OnboardingWorkflowAdmin() {
       setLoading(true);
       const params = isCompanyMode && selectedCompany?.id ? { company_id: selectedCompany.id } : {};
 
-      const [employeesRes, workflowsRes] = await Promise.all([
+      const [employeesRes, newHiresRes, workflowsRes] = await Promise.all([
         api.get('/api/onboarding-workflow/employees', { params }),
+        api.get('/api/onboarding-workflow/new-hires', { params }),
         api.get('/api/onboarding-workflow/workflows', { params })
       ]);
 
-      const allEmployees = employeesRes.data.data || [];
-      setEmployees(allEmployees);
+      setEmployees(employeesRes.data.data || []);
+      setNewHires(newHiresRes.data.data || []);
       setWorkflows(workflowsRes.data.data || []);
-
-      // Filter for employees needing onboarding (no onboarding record or preboarding status)
-      const needsOnboarding = allEmployees.filter(e =>
-        !e.onboarding_id || e.employment_status === 'preboarding'
-      );
-      setNewHires(needsOnboarding);
 
     } catch (err) {
       console.error('Failed to fetch data:', err);

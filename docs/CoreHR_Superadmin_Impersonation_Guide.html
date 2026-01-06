@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoreHR Superadmin Impersonation Guide</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            color: #1a1a2e;
+            background: #fff;
+            font-size: 11pt;
+        }
+
+        .page {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 50px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #0d2865;
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .logo-core {
+            color: #1a1a2e;
+        }
+
+        .logo-hr {
+            color: #d4a039;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #0d2865;
+            margin-top: 15px;
+        }
+
+        .header .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .section {
+            margin-bottom: 35px;
+        }
+
+        .section h2 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0d2865;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .section h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 20px 0 10px 0;
+        }
+
+        p {
+            margin-bottom: 12px;
+            color: #4b5563;
+        }
+
+        .info-box {
+            background: #f0f4ff;
+            border-left: 4px solid #0d2865;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .info-box h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #0d2865;
+            margin-bottom: 8px;
+        }
+
+        .info-box p {
+            margin: 0;
+            font-size: 12px;
+        }
+
+        .credentials-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 11px;
+        }
+
+        .credentials-table th {
+            background: #0d2865;
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .credentials-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .credentials-table tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        .credentials-table code {
+            background: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 10px;
+        }
+
+        .step {
+            display: flex;
+            margin-bottom: 20px;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            width: 32px;
+            height: 32px;
+            background: #0d2865;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+            margin-right: 15px;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 5px;
+        }
+
+        .step-content p {
+            font-size: 12px;
+            margin: 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-orange {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-blue {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-green {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 10px;
+        }
+
+        .comparison-table th {
+            background: #f3f4f6;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .comparison-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+
+        .comparison-table .feature-col {
+            font-weight: 500;
+            background: #f9fafb;
+            width: 25%;
+        }
+
+        .check {
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .cross {
+            color: #ef4444;
+        }
+
+        .banner-demo {
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-size: 11px;
+        }
+
+        .banner-orange {
+            background: #fbbf24;
+            color: #78350f;
+        }
+
+        .banner-blue {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .banner-green {
+            background: #10b981;
+            color: white;
+        }
+
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 10px;
+        }
+
+        .url-box {
+            background: #1a1a2e;
+            color: #10b981;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+
+        @media print {
+            body {
+                font-size: 10pt;
+            }
+            .page {
+                padding: 20px 30px;
+            }
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="header">
+            <div class="logo">
+                <span class="logo-core">CORE</span><span class="logo-hr">HR</span>
+            </div>
+            <h1>Superadmin Impersonation Guide</h1>
+            <p class="subtitle">Multi-Level User Access Demonstration</p>
+        </div>
+
+        <div class="section">
+            <h2>1. Overview</h2>
+            <p>
+                CoreHR provides a hierarchical impersonation feature that allows superadmins to log in as any user
+                in the system without knowing their password. This is essential for customer support, debugging,
+                and demonstrating the platform's multi-tenant capabilities.
+            </p>
+
+            <div class="info-box">
+                <h4>Impersonation Hierarchy</h4>
+                <p>
+                    <strong>Superadmin</strong> &rarr; <strong>HR Consultant</strong> &rarr; <strong>Company Admin</strong> &rarr; <strong>ESS Employee</strong>
+                </p>
+            </div>
+
+            <p>
+                Each level provides a progressively more restricted view of the platform, allowing you to
+                demonstrate how different user types experience CoreHR.
+            </p>
+        </div>
+
+        <div class="section">
+            <h2>2. Access URLs</h2>
+
+            <table class="credentials-table">
+                <thead>
+                    <tr>
+                        <th>Portal</th>
+                        <th>URL</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Superadmin Portal</strong></td>
+                        <td><code>https://corehr.africa/superadmin/login</code></td>
+                        <td>Platform administration & impersonation</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Consultant Portal</strong></td>
+                        <td><code>https://corehr.africa/login</code></td>
+                        <td>HR consultant dashboard</td>
+                    </tr>
+                    <tr>
+                        <td><strong>ESS Portal</strong></td>
+                        <td><code>https://corehr.africa/ess/login</code></td>
+                        <td>Employee self-service</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>3. Login Credentials</h2>
+
+            <table class="credentials-table">
+                <thead>
+                    <tr>
+                        <th>User Type</th>
+                        <th>Email</th>
+                        <th>Password</th>
+                        <th>Access Method</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="badge badge-orange">Superadmin</span></td>
+                        <td><code>superadmin@corehr.africa</code></td>
+                        <td><code>[Contact Admin]</code></td>
+                        <td>Direct login at /superadmin/login</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-orange">Consultant</span></td>
+                        <td>Various</td>
+                        <td>N/A</td>
+                        <td>Impersonate from Superadmin</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-blue">Company Admin</span></td>
+                        <td>Various</td>
+                        <td>N/A</td>
+                        <td>Impersonate from Consultant view</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-green">ESS Employee</span></td>
+                        <td>Various</td>
+                        <td>N/A</td>
+                        <td>Impersonate from Company view</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>4. Impersonation Process</h2>
+
+            <h3>Step-by-Step Instructions</h3>
+
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>Login to Superadmin Portal</h4>
+                    <p>Navigate to <code>https://corehr.africa/superadmin/login</code> and enter your superadmin credentials.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>Navigate to Consultants Page</h4>
+                    <p>Click on "HR Consultants" in the sidebar to view all registered consultants.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>Expand Consultant Row</h4>
+                    <p>Click the arrow (&#9656;) next to a consultant to expand and view their client companies.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h4>Choose Impersonation Level</h4>
+                    <p>
+                        <strong>Option A:</strong> Click "Impersonate" button to login as the consultant.<br>
+                        <strong>Option B:</strong> Click "Impersonate Admin" on a company to login as company admin.<br>
+                        <strong>Option C:</strong> Expand a company, then click "ESS" on an employee to login as that employee.
+                    </p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <h4>View Impersonation Banner</h4>
+                    <p>A colored banner appears at the top showing who you're impersonating and who initiated the session.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">6</div>
+                <div class="step-content">
+                    <h4>End Impersonation</h4>
+                    <p>Click "End Session" in the banner to log out and close the impersonation window.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>5. Impersonation Banners</h2>
+            <p>Each user type displays a distinct colored banner for easy identification:</p>
+
+            <div class="banner-demo banner-orange">
+                <strong>CONSULTANT</strong> &nbsp;|&nbsp; Impersonating: <strong>John Smith</strong> (john@hrconsulting.com) &nbsp;|&nbsp; By: Superadmin
+            </div>
+
+            <div class="banner-demo banner-blue">
+                <strong>COMPANY ADMIN</strong> &nbsp;|&nbsp; Impersonating: <strong>Sarah Johnson</strong> (sarah@acmecorp.com) &nbsp;|&nbsp; By: Superadmin
+            </div>
+
+            <div class="banner-demo banner-green">
+                <strong>ESS USER</strong> &nbsp;|&nbsp; Impersonating: <strong>Mike Wilson</strong> (mike.wilson@acmecorp.com) &nbsp;|&nbsp; By: Superadmin
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>6. Dashboard Feature Comparison</h2>
+
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th class="feature-col">Feature</th>
+                        <th><span class="badge badge-orange">Consultant</span></th>
+                        <th><span class="badge badge-blue">Company Admin</span></th>
+                        <th><span class="badge badge-green">ESS Employee</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="feature-col">Dashboard Overview</td>
+                        <td><span class="check">&#10003;</span> All clients</td>
+                        <td><span class="check">&#10003;</span> Company only</td>
+                        <td><span class="check">&#10003;</span> Personal</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">CRM (Clients, Contacts)</td>
+                        <td><span class="check">&#10003;</span> Full access</td>
+                        <td><span class="cross">&#10007;</span></td>
+                        <td><span class="cross">&#10007;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">Business Development</td>
+                        <td><span class="check">&#10003;</span> Full access</td>
+                        <td><span class="cross">&#10007;</span></td>
+                        <td><span class="cross">&#10007;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">HR Outsourcing (Staff Pool)</td>
+                        <td><span class="check">&#10003;</span> Full access</td>
+                        <td><span class="cross">&#10007;</span></td>
+                        <td><span class="cross">&#10007;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">Companies Management</td>
+                        <td><span class="check">&#10003;</span> All companies</td>
+                        <td><span class="cross">&#10007;</span></td>
+                        <td><span class="cross">&#10007;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">Employees</td>
+                        <td><span class="check">&#10003;</span> All employees</td>
+                        <td><span class="check">&#10003;</span> Company staff</td>
+                        <td><span class="cross">&#10007;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">Leave Management</td>
+                        <td><span class="check">&#10003;</span> All requests</td>
+                        <td><span class="check">&#10003;</span> Company requests</td>
+                        <td><span class="check">&#10003;</span> My leave only</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">Payroll</td>
+                        <td><span class="check">&#10003;</span> Full access</td>
+                        <td><span class="check">&#10003;</span> Company payroll</td>
+                        <td><span class="cross">&#10007;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">My Payslips</td>
+                        <td><span class="cross">&#10007;</span></td>
+                        <td><span class="cross">&#10007;</span></td>
+                        <td><span class="check">&#10003;</span> Personal payslips</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">Compliance & Training</td>
+                        <td><span class="check">&#10003;</span> Admin view</td>
+                        <td><span class="check">&#10003;</span> Company view</td>
+                        <td><span class="check">&#10003;</span> My training</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">Employee Lifecycle</td>
+                        <td><span class="check">&#10003;</span> Full access</td>
+                        <td><span class="check">&#10003;</span> Company staff</td>
+                        <td><span class="check">&#10003;</span> My onboarding</td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">Finance (Invoices)</td>
+                        <td><span class="check">&#10003;</span> Full access</td>
+                        <td><span class="cross">&#10007;</span></td>
+                        <td><span class="cross">&#10007;</span></td>
+                    </tr>
+                    <tr>
+                        <td class="feature-col">Settings & Users</td>
+                        <td><span class="check">&#10003;</span> Admin only</td>
+                        <td><span class="check">&#10003;</span> Admin only</td>
+                        <td><span class="cross">&#10007;</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>7. Security Notes</h2>
+
+            <div class="info-box">
+                <h4>Audit Trail</h4>
+                <p>All impersonation sessions are logged with timestamp, superadmin identity, target user, and session duration.</p>
+            </div>
+
+            <ul style="margin-left: 20px; color: #4b5563; font-size: 12px;">
+                <li style="margin-bottom: 8px;">Impersonation tokens expire after 1 hour for security</li>
+                <li style="margin-bottom: 8px;">The impersonation banner cannot be hidden or dismissed</li>
+                <li style="margin-bottom: 8px;">All actions performed during impersonation are attributed to the impersonated user but logged with superadmin context</li>
+                <li style="margin-bottom: 8px;">Impersonation sessions open in a new browser tab to preserve the superadmin session</li>
+                <li style="margin-bottom: 8px;">"End Session" immediately invalidates the impersonation token</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>8. Demonstration Workflow</h2>
+            <p>Recommended sequence for demonstrating CoreHR's multi-tenant architecture:</p>
+
+            <ol style="margin-left: 20px; color: #4b5563; font-size: 12px;">
+                <li style="margin-bottom: 10px;"><strong>Start as Consultant:</strong> Show the full HR platform with CRM, Business Development, and multi-company management</li>
+                <li style="margin-bottom: 10px;"><strong>Switch to Company Admin:</strong> Demonstrate how a client's HR team sees only their company's data (employees, payroll, compliance)</li>
+                <li style="margin-bottom: 10px;"><strong>Switch to ESS Employee:</strong> Show the employee self-service experience (payslips, leave requests, onboarding, training)</li>
+                <li style="margin-bottom: 10px;"><strong>Return to Superadmin:</strong> End all sessions and show the audit log of impersonation activities</li>
+            </ol>
+        </div>
+
+        <div class="footer">
+            <p><strong>CoreHR</strong> &mdash; Modern HR Management Platform</p>
+            <p>https://corehr.africa &nbsp;|&nbsp; Powered by Rozitech</p>
+            <p style="margin-top: 10px;">Document Version 1.0 &nbsp;|&nbsp; January 2026</p>
+        </div>
+    </div>
+</body>
+</html>
