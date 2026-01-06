@@ -326,9 +326,9 @@ router.get('/new-hires', async (req, res) => {
       console.log(`  - ${r.first_name} ${r.last_name}: onboarding_id=${r.onboarding_id}, status=${r.employment_status}`);
     });
 
-    // Filter for new hires (no onboarding record OR preboarding status)
-    const newHires = allResult.rows.filter(e => !e.onboarding_id || e.employment_status === 'preboarding');
-    console.log('[New Hires] Filtered new hires:', newHires.length);
+    // Filter for new hires (no onboarding record yet)
+    const newHires = allResult.rows.filter(e => !e.onboarding_id);
+    console.log('[New Hires] Filtered new hires (no onboarding):', newHires.length);
 
     res.json({ success: true, data: newHires });
   } catch (error) {
@@ -505,7 +505,12 @@ router.post('/employees/:employeeId/start', async (req, res) => {
 
     if (existingResult.rows.length > 0) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ success: false, error: 'Onboarding already started for this employee' });
+      console.log('[Start Onboarding] Already exists for employee:', employeeId, 'onboarding_id:', existingResult.rows[0].id);
+      return res.status(400).json({
+        success: false,
+        error: 'Onboarding already started for this employee',
+        onboarding_id: existingResult.rows[0].id
+      });
     }
 
     // Get workflow (use specified or default)
