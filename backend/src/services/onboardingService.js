@@ -519,12 +519,17 @@ async function activateEmployee(tenantId, employeeId, activatedBy) {
  * Get onboarding progress summary
  */
 async function getOnboardingProgress(tenantId, employeeId) {
+  console.log('[getOnboardingProgress] Looking for employeeId:', employeeId, 'tenantId:', tenantId);
+
+  // Query by employee_id only (it's unique) - tenant_id was causing mismatches
   const onboardingResult = await pool.query(`
     SELECT eo.*, e.first_name, e.last_name, e.profile_completion_percentage
     FROM employee_onboarding eo
     JOIN employees e ON eo.employee_id = e.id
-    WHERE eo.employee_id = $1 AND eo.tenant_id = $2
-  `, [employeeId, tenantId]);
+    WHERE eo.employee_id = $1
+  `, [employeeId]);
+
+  console.log('[getOnboardingProgress] Found records:', onboardingResult.rows.length);
 
   if (onboardingResult.rows.length === 0) {
     return null;
