@@ -1468,7 +1468,7 @@ router.delete('/test-clones/:id', [
     });
   } catch (error) {
     console.error('Delete test clone error:', error);
-    res.status(500).json({ success: false, error: 'Failed to delete test clone' });
+    res.status(500).json({ success: false, error: `Failed to delete test clone: ${error.message}` });
   }
 });
 
