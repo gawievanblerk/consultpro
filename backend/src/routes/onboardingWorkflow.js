@@ -401,6 +401,68 @@ router.get('/employees/:employeeId', async (req, res) => {
 });
 
 /**
+ * GET /api/onboarding-workflow/employees/:employeeId/status
+ * Alias for getting employee onboarding status (same as /:employeeId)
+ */
+router.get('/employees/:employeeId/status', async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+
+    // Get onboarding record - filter by employee_id and company
+    const onboardingResult = await pool.query(`
+      SELECT
+        eo.*,
+        e.first_name, e.last_name, e.email, e.employee_number,
+        e.job_title, e.department, e.hire_date, e.employment_status,
+        e.profile_completion_percentage,
+        c.legal_name as company_name,
+        w.name as workflow_name,
+        w.phase_config
+      FROM employee_onboarding eo
+      JOIN employees e ON eo.employee_id = e.id
+      JOIN companies c ON eo.company_id = c.id
+      LEFT JOIN onboarding_workflows w ON eo.workflow_id = w.id
+      WHERE eo.employee_id = $1
+    `, [employeeId]);
+
+    if (onboardingResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Onboarding record not found' });
+    }
+
+    const onboarding = onboardingResult.rows[0];
+
+    // Get all documents for this onboarding
+    const documentsResult = await pool.query(`
+      SELECT *
+      FROM onboarding_documents
+      WHERE onboarding_id = $1
+      ORDER BY phase, sort_order, document_type
+    `, [onboarding.id]);
+
+    // Group documents by phase
+    const documentsByPhase = {};
+    documentsResult.rows.forEach(doc => {
+      if (!documentsByPhase[doc.phase]) {
+        documentsByPhase[doc.phase] = [];
+      }
+      documentsByPhase[doc.phase].push(doc);
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...onboarding,
+        documents: documentsResult.rows,
+        documentsByPhase
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching employee onboarding status:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch onboarding status' });
+  }
+});
+
+/**
  * POST /api/onboarding-workflow/employees/:employeeId/start
  * Start onboarding for an employee
  */
