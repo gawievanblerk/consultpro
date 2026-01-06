@@ -360,7 +360,7 @@ export default function OnboardingWorkflowAdmin() {
                     <button
                       onClick={() => handleStartOnboarding(employee.id || employee.employee_id)}
                       disabled={processing === (employee.id || employee.employee_id)}
-                      className="px-4 py-2 bg-accent text-white text-sm font-medium rounded-lg hover:bg-accent/90 disabled:opacity-50 shadow-sm"
+                      className="px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 shadow-sm"
                     >
                       {processing === (employee.id || employee.employee_id) ? 'Starting...' : 'Start Onboarding'}
                     </button>
