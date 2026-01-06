@@ -141,7 +141,7 @@ export default function MyPayslips() {
                     downloadPayslip(payslip.id);
                   }}
                   disabled={downloading === payslip.id}
-                  className="mt-4 w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm"
+                  className="mt-4 w-full px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 disabled:opacity-50 text-sm"
                 >
                   {downloading === payslip.id ? 'Downloading...' : 'Download PDF'}
                 </button>
@@ -275,7 +275,7 @@ export default function MyPayslips() {
                 <button
                   onClick={() => downloadPayslip(selectedPayslip.id)}
                   disabled={downloading === selectedPayslip.id}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                  className="px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 disabled:opacity-50"
                 >
                   {downloading === selectedPayslip.id ? 'Downloading...' : 'Download PDF'}
                 </button>

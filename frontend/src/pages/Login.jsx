@@ -65,18 +65,18 @@ function Login() {
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div>
             <img
-              src="/logo.svg"
+              src="/corehr-logo-light.svg"
               alt="CoreHR"
-              className="h-14 brightness-0 invert"
+              className="h-12"
             />
           </div>
 
           <div className="max-w-md">
             <h1 className="text-4xl font-semibold text-white leading-tight tracking-tight mb-6">
-              Modern consulting management, simplified.
+              Modern HR management, simplified.
             </h1>
             <p className="text-primary-300 text-lg leading-relaxed">
-              Streamline your HR operations, manage client relationships, and grow your business with our comprehensive platform.
+              Streamline your HR operations, manage employees, and run payroll with our comprehensive platform.
             </p>
           </div>
 
@@ -96,9 +96,9 @@ function Login() {
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-10">
             <img
-              src="/logo.svg"
+              src="/corehr-logo.svg"
               alt="CoreHR"
-              className="h-12 mx-auto"
+              className="h-10 mx-auto"
             />
           </div>
 
@@ -193,7 +193,7 @@ function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-4 py-3 bg-primary-50/50 border border-primary-200 rounded-lg text-primary-900 placeholder-primary-400 transition-all duration-200 focus:outline-none focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                    placeholder="admin@teamace.ng"
+                    placeholder="admin@corehr.africa"
                   />
                 </div>
 
@@ -240,22 +240,6 @@ function Login() {
                   )}
                 </button>
               </form>
-
-              {/* Demo credentials */}
-              <div className="mt-10 pt-8 border-t border-primary-100">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-accent-50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <svg className="w-4 h-4 text-accent-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-primary-700 mb-1">Demo Credentials</p>
-                    <p className="text-sm text-primary-500">Email: admin@teamace.ng</p>
-                    <p className="text-sm text-primary-500">Password: Demo123!</p>
-                  </div>
-                </div>
-              </div>
             </>
           )}
 

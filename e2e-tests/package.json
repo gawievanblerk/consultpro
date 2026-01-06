@@ -1,0 +1,19 @@
+{
+  "name": "corehr-e2e-tests",
+  "version": "1.0.0",
+  "description": "End-to-end tests for CoreHR platform",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:ui": "npx playwright test --ui",
+    "test:debug": "npx playwright test --debug",
+    "test:report": "npx playwright show-report reports",
+    "test:superadmin": "npx playwright test 01-superadmin"
+  },
+  "keywords": ["e2e", "playwright", "corehr", "testing"],
+  "author": "Rozitech",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.57.0"
+  }
+}

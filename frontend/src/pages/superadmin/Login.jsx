@@ -38,14 +38,12 @@ function SuperAdminLogin() {
         <div className="absolute inset-0 bg-gradient-to-br from-danger-600/20 via-primary-800/50 to-transparent" />
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 bg-danger-500 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <span className="text-white text-xl font-semibold">CoreHR Admin</span>
-            </div>
+            <img
+              src="/corehr-logo-light.svg"
+              alt="CoreHR"
+              className="h-10"
+            />
+            <span className="mt-2 block text-white/80 text-lg font-medium">Platform Administration</span>
           </div>
 
           <div className="max-w-md">
@@ -72,14 +70,12 @@ function SuperAdminLogin() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-10">
-            <div className="flex items-center justify-center gap-3">
-              <div className="h-10 w-10 bg-danger-500 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <span className="text-primary-900 text-xl font-semibold">CoreHR Admin</span>
-            </div>
+            <img
+              src="/corehr-logo.svg"
+              alt="CoreHR"
+              className="h-10 mx-auto"
+            />
+            <p className="text-primary-600 mt-2">Platform Administration</p>
           </div>
 
           <div className="mb-10">

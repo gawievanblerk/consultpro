@@ -3,6 +3,7 @@ import api from '../../utils/api';
 import Modal from '../../components/Modal';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
+import { useCompany } from '../../context/CompanyContext';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -37,6 +38,7 @@ const getStatusBadge = (status) => {
 function LeaveRequests() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
+  const { selectedCompany, isCompanyMode } = useCompany();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -63,11 +65,15 @@ function LeaveRequests() {
     fetchRequests();
     fetchLeaveTypes();
     fetchStaff();
-  }, [statusFilter]);
+  }, [statusFilter, selectedCompany]);
 
   const fetchRequests = async () => {
     try {
       const params = statusFilter !== 'all' ? { status: statusFilter } : {};
+      // Filter by selected company when in Company Mode
+      if (isCompanyMode && selectedCompany?.id) {
+        params.company_id = selectedCompany.id;
+      }
       const response = await api.get('/api/leave-requests', { params });
       if (response.data.success) {
         setRequests(response.data.data);

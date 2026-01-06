@@ -5,6 +5,7 @@ import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import { HelpProvider } from './context/HelpContext';
 import { CurrencyProvider } from './context/CurrencyContext';
+import { CompanyProvider } from './context/CompanyContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -16,6 +17,16 @@ import Dashboard from './pages/Dashboard';
 import Landing from './pages/public/Landing';
 import Pricing from './pages/public/Pricing';
 import SignUp from './pages/public/SignUp';
+
+// ESS (Employee Self-Service) Portal pages
+import ESSLanding from './pages/ess/ESSLanding';
+import ESSLogin from './pages/ess/ESSLogin';
+
+// Helper to detect ESS subdomain
+const isESSPortal = () => {
+  const hostname = window.location.hostname;
+  return hostname.startsWith('ess.') || hostname === 'ess.corehr.africa';
+};
 import Clients from './pages/crm/Clients';
 import ClientDetail from './pages/crm/ClientDetail';
 import Contacts from './pages/crm/Contacts';
@@ -25,6 +36,7 @@ import Pipeline from './pages/bd/Pipeline';
 import Staff from './pages/hr/Staff';
 import Deployments from './pages/hr/Deployments';
 import Employees from './pages/employees/Employees';
+import Companies from './pages/companies/Companies';
 import LeaveRequests from './pages/leave/LeaveRequests';
 import LeaveBalances from './pages/leave/LeaveBalances';
 import Invoices from './pages/finance/Invoices';
@@ -32,9 +44,11 @@ import Payments from './pages/finance/Payments';
 import PAYECalculator from './pages/finance/PAYECalculator';
 import PayrollRuns from './pages/payroll/PayrollRuns';
 import PayrollRunDetail from './pages/payroll/PayrollRunDetail';
+import StatutoryRemittances from './pages/payroll/StatutoryRemittances';
 import MyPayslips from './pages/ess/MyPayslips';
 import Tasks from './pages/Tasks';
 import Users from './pages/settings/Users';
+import Preferences from './pages/settings/Preferences';
 
 // Compliance & Training pages (Admin)
 import Policies from './pages/compliance/Policies';
@@ -60,6 +74,16 @@ import ConsultantOnboard from './pages/onboard/ConsultantOnboard';
 import CompanyOnboard from './pages/onboard/CompanyOnboard';
 import ESSActivate from './pages/onboard/ESSActivate';
 
+// EMS pages (Employee Management System)
+import ProbationManagement from './pages/ems/ProbationManagement';
+import PerformanceReviews from './pages/ems/PerformanceReviews';
+import ExitManagement from './pages/ems/ExitManagement';
+import Disciplinary from './pages/ems/Disciplinary';
+import OnboardingManagement from './pages/ems/OnboardingManagement';
+import OnboardingWorkflowAdmin from './pages/ems/OnboardingWorkflowAdmin';
+import MyOnboarding from './pages/ess/MyOnboarding';
+import MyOnboardingWizard from './pages/ess/MyOnboardingWizard';
+
 // Protected route wrapper
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -73,7 +97,28 @@ function ProtectedRoute({ children }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    // Redirect to ESS login if on ESS portal
+    const loginPath = isESSPortal() ? '/ess/login' : '/login';
+    return <Navigate to={loginPath} replace />;
+  }
+
+  return children;
+}
+
+// ESS Protected route wrapper (for employee-only routes)
+function ESSProtectedRoute({ children }) {
+  const { isAuthenticated, loading, user } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-900"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/ess/login" replace />;
   }
 
   return children;
@@ -86,15 +131,20 @@ function App() {
         <ConfirmProvider>
           <HelpProvider>
             <CurrencyProvider>
-              <BrowserRouter>
-              <Routes>
-          {/* Public marketing routes */}
-          <Route path="/" element={<Landing />} />
+              <CompanyProvider>
+                <BrowserRouter>
+                <Routes>
+          {/* ESS Portal routes */}
+          <Route path="/ess" element={<ESSLanding />} />
+          <Route path="/ess/login" element={<ESSLogin />} />
+
+          {/* Public marketing routes - redirect to ESS if on ESS subdomain */}
+          <Route path="/" element={isESSPortal() ? <Navigate to="/ess" replace /> : <Landing />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/signup" element={<SignUp />} />
 
           {/* Auth routes */}
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={isESSPortal() ? <Navigate to="/ess/login" replace /> : <Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/accept-invite" element={<AcceptInvite />} />
@@ -138,6 +188,9 @@ function App() {
             {/* Employees Module (Company Admin) */}
             <Route path="employees" element={<Employees />} />
 
+            {/* Companies Module (Consultant) */}
+            <Route path="companies" element={<Companies />} />
+
             {/* Leave Management Module */}
             <Route path="leave-requests" element={<LeaveRequests />} />
             <Route path="leave-balances" element={<LeaveBalances />} />
@@ -150,6 +203,7 @@ function App() {
             {/* Payroll Module */}
             <Route path="payroll" element={<PayrollRuns />} />
             <Route path="payroll/:id" element={<PayrollRunDetail />} />
+            <Route path="remittances" element={<StatutoryRemittances />} />
             <Route path="my-payslips" element={<MyPayslips />} />
 
             {/* Collaboration Module */}
@@ -167,13 +221,25 @@ function App() {
             <Route path="take-training/:assignmentId" element={<TakeTraining />} />
             <Route path="my-certificates" element={<MyCertificates />} />
 
+            {/* Employee Management System (EMS) */}
+            <Route path="onboarding-workflow" element={<OnboardingWorkflowAdmin />} />
+            <Route path="onboarding-admin" element={<OnboardingManagement />} />
+            <Route path="probation" element={<ProbationManagement />} />
+            <Route path="performance" element={<PerformanceReviews />} />
+            <Route path="exit-management" element={<ExitManagement />} />
+            <Route path="disciplinary" element={<Disciplinary />} />
+            <Route path="my-onboarding" element={<MyOnboarding />} />
+            <Route path="my-onboarding-wizard" element={<MyOnboardingWizard />} />
+
             {/* Settings/Admin */}
             <Route path="users" element={<Users />} />
+            <Route path="preferences" element={<Preferences />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-              </BrowserRouter>
+                </Routes>
+                </BrowserRouter>
+              </CompanyProvider>
             </CurrencyProvider>
           </HelpProvider>
         </ConfirmProvider>

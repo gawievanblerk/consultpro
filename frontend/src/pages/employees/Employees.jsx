@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Modal from '../../components/Modal';
+import EmployeeImportModal from '../../components/EmployeeImportModal';
 import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
 import { useToast } from '../../context/ToastContext';
 import { useConfirm } from '../../context/ConfirmContext';
 import { useAuth } from '../../context/AuthContext';
+import { useCompany } from '../../context/CompanyContext';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
   UserIcon,
   TrashIcon,
   EnvelopeIcon,
-  FunnelIcon
+  FunnelIcon,
+  ArrowUpTrayIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
 
 const statusColors = {
@@ -33,12 +37,14 @@ const statusLabels = {
 function Employees() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
-  const { user } = useAuth();
+  const { user, isConsultant } = useAuth();
+  const { selectedCompany, isCompanyMode } = useCompany();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
@@ -82,13 +88,17 @@ function Employees() {
 
   useEffect(() => {
     fetchEmployees();
-  }, [statusFilter]);
+  }, [statusFilter, selectedCompany]);
 
   const fetchEmployees = async () => {
     try {
       const params = {};
       if (statusFilter !== 'all') {
         params.status = statusFilter;
+      }
+      // Filter by selected company when in Company Mode
+      if (isCompanyMode && selectedCompany?.id) {
+        params.company_id = selectedCompany.id;
       }
       const response = await api.get('/api/employees', { params });
       if (response.data.success) {
@@ -173,9 +183,18 @@ function Employees() {
     e.preventDefault();
     setSaving(true);
     try {
+      // For new employees, use selected company; for edits, use existing company
+      const companyId = editingEmployee?.company_id || selectedCompany?.id;
+
+      if (!companyId) {
+        toast.error('Please select a company first');
+        setSaving(false);
+        return;
+      }
+
       const payload = {
         ...formData,
-        companyId: user.organizationId
+        companyId
       };
 
       if (editingEmployee) {
@@ -234,6 +253,44 @@ function Employees() {
     }
   };
 
+  const handleBulkEssInvite = async () => {
+    const eligibleEmployees = employees.filter(emp =>
+      selectedIds.has(emp.id) && emp.email && !emp.ess_activated_at
+    );
+
+    if (eligibleEmployees.length === 0) {
+      toast.error('No eligible employees selected. Employees must have an email and not already have ESS access.');
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: 'Send ESS Invitations',
+      message: `Send ESS portal invitations to ${eligibleEmployees.length} employee(s)?${selectedCount > eligibleEmployees.length ? ` (${selectedCount - eligibleEmployees.length} will be skipped - no email or already activated)` : ''}`,
+      confirmText: 'Send Invitations',
+      variant: 'primary'
+    });
+    if (!confirmed) return;
+
+    try {
+      const response = await api.post('/api/employees/ess/bulk-invite', {
+        employee_ids: Array.from(selectedIds)
+      });
+
+      if (response.data.success) {
+        const { sent, skipped, failed } = response.data.data;
+        let message = `${sent} invitation(s) sent`;
+        if (skipped > 0) message += `, ${skipped} skipped`;
+        if (failed > 0) message += `, ${failed} failed`;
+        toast.success(message);
+        clearSelection();
+        fetchEmployees();
+      }
+    } catch (error) {
+      console.error('Failed to send bulk ESS invites:', error);
+      toast.error(error.response?.data?.error || 'Failed to send invitations');
+    }
+  };
+
   const handleSendEssInvite = async (employee) => {
     if (!employee.email) {
       toast.error('Employee does not have an email address');
@@ -272,10 +329,16 @@ function Employees() {
           <h1 className="text-2xl font-bold text-gray-900">Employees</h1>
           <p className="mt-1 text-sm text-gray-500">Manage your company employees</p>
         </div>
-        <button onClick={() => handleOpenModal()} className="btn-primary">
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Add Employee
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setImportModalOpen(true)} className="btn-secondary">
+            <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
+            Import Employees
+          </button>
+          <button onClick={() => handleOpenModal()} className="btn-primary">
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Add Employee
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -416,6 +479,14 @@ function Employees() {
         selectedCount={selectedCount}
         onClearSelection={clearSelection}
         onBulkDelete={handleBulkDelete}
+        customActions={[
+          {
+            label: 'Send ESS Invites',
+            icon: PaperAirplaneIcon,
+            onClick: handleBulkEssInvite,
+            className: 'bg-accent-600 hover:bg-accent-700'
+          }
+        ]}
       />
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingEmployee ? 'Edit Employee' : 'Add Employee'} size="xl">
@@ -754,6 +825,16 @@ function Employees() {
           </div>
         </form>
       </Modal>
+
+      {/* Import Modal */}
+      <EmployeeImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          fetchEmployees();
+          toast.success('Employees imported successfully');
+        }}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
+import { useCompany } from '../../context/CompanyContext';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -18,6 +19,7 @@ const STATUS_COLORS = {
 
 export default function PayrollRuns() {
   const navigate = useNavigate();
+  const { selectedCompany, isCompanyMode } = useCompany();
   const [runs, setRuns] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,11 +42,12 @@ export default function PayrollRuns() {
   useEffect(() => {
     fetchRuns();
     fetchCompanies();
-  }, []);
+  }, [selectedCompany]);
 
   const fetchRuns = async () => {
     try {
-      const response = await api.get('/api/payroll/runs');
+      const params = isCompanyMode && selectedCompany?.id ? { company_id: selectedCompany.id } : {};
+      const response = await api.get('/api/payroll/runs', { params });
       setRuns(response.data.data || []);
     } catch (err) {
       setError('Failed to fetch payroll runs');
@@ -149,7 +152,7 @@ export default function PayrollRuns() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90"
+          className="px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700"
         >
           + New Payroll Run
         </button>
@@ -215,7 +218,7 @@ export default function PayrollRuns() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => navigate(`/payroll/${run.id}`)}
+                        onClick={() => navigate(`/dashboard/payroll/${run.id}`)}
                         className="text-primary hover:text-primary/80"
                       >
                         View
@@ -361,7 +364,7 @@ export default function PayrollRuns() {
                 <button
                   type="submit"
                   disabled={processing}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                  className="px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 disabled:opacity-50"
                 >
                   {processing ? 'Creating...' : 'Create'}
                 </button>

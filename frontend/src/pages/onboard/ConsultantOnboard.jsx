@@ -151,11 +151,11 @@ function ConsultantOnboard() {
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="h-12 w-12 bg-accent-600 rounded-xl flex items-center justify-center">
-              <BuildingOffice2Icon className="h-7 w-7 text-white" />
-            </div>
-          </div>
+          <img
+            src="/corehr-logo.svg"
+            alt="CoreHR"
+            className="h-10 mx-auto mb-4"
+          />
           <h1 className="text-2xl font-semibold text-primary-900">Welcome, {invitation?.companyName}</h1>
           <p className="text-primary-500 mt-2">Complete your registration to get started</p>
         </div>

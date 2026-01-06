@@ -174,11 +174,8 @@ export default function SignUp() {
       {/* Header */}
       <header className="bg-white border-b border-primary-100">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <img src="/logo-icon.svg" alt="CoreHR" className="h-8 w-8" />
-            <span className="text-lg font-semibold text-primary-900">
-              Core<span className="text-accent-600">HR</span>
-            </span>
+          <Link to="/" className="flex items-center">
+            <img src="/corehr-logo.svg" alt="CoreHR" className="h-9 w-auto" />
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-primary-500">

@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// Production API URL - hardcoded for reliability
+const API_URL = 'https://api.corehr.africa';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -9,9 +12,20 @@ const api = axios.create({
 
 // Add token to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const requestUrl = config.url || '';
+
+  // Use superadmin token for superadmin routes
+  if (requestUrl.includes('/superadmin/')) {
+    const superadminToken = localStorage.getItem('superadmin_token');
+    if (superadminToken) {
+      config.headers.Authorization = `Bearer ${superadminToken}`;
+    }
+  } else {
+    // Use regular token for other routes
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
   return config;
 });

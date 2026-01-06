@@ -660,7 +660,7 @@ router.post('/:id/onboard', async (req, res) => {
     console.error('Onboard client error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to onboard client'
+      error: error.message || 'Failed to onboard client'
     });
   } finally {
     client.release();

@@ -119,7 +119,7 @@ export default function PayrollRunDetail() {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">Payroll run not found</p>
-        <button onClick={() => navigate('/payroll')} className="mt-4 text-primary">
+        <button onClick={() => navigate('/dashboard/payroll')} className="mt-4 text-primary">
           Back to Payroll Runs
         </button>
       </div>
@@ -134,7 +134,7 @@ export default function PayrollRunDetail() {
       <div className="flex justify-between items-start">
         <div>
           <button
-            onClick={() => navigate('/payroll')}
+            onClick={() => navigate('/dashboard/payroll')}
             className="text-sm text-gray-500 hover:text-gray-700 mb-2"
           >
             &larr; Back to Payroll Runs
@@ -199,7 +199,7 @@ export default function PayrollRunDetail() {
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="text-sm text-gray-500">Total Deductions</div>
           <div className="text-2xl font-bold text-red-600">
-            {formatCurrency((run.total_paye || 0) + (run.total_pension_employee || 0) + (run.total_nhf || 0))}
+            {formatCurrency(Number(run.total_paye || 0) + Number(run.total_pension_employee || 0) + Number(run.total_nhf || 0))}
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
@@ -231,7 +231,7 @@ export default function PayrollRunDetail() {
           <div className="border rounded-lg p-3">
             <div className="text-xs text-gray-500">NSITF + ITF (Employer)</div>
             <div className="text-lg font-semibold text-blue-600">
-              {formatCurrency((run.total_nsitf || 0) + (run.total_itf || 0))}
+              {formatCurrency(Number(run.total_nsitf || 0) + Number(run.total_itf || 0))}
             </div>
           </div>
         </div>

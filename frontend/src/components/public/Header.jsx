@@ -24,11 +24,8 @@ export default function PublicHeader() {
     <header className="fixed inset-x-0 top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-primary-100">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-3">
-          <img src="/logo-icon.svg" alt="CoreHR" className="h-9 w-9" />
-          <span className="text-xl font-semibold text-primary-900 tracking-tight">
-            Core<span className="text-accent-600">HR</span>
-          </span>
+        <Link to="/" className="flex items-center">
+          <img src="/corehr-logo.svg" alt="CoreHR" className="h-9 w-auto" />
         </Link>
 
         {/* Desktop Navigation */}

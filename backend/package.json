@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed.js",
+    "create-superadmin": "node scripts/create-superadmin.js",
     "test": "jest --coverage"
   },
   "keywords": [

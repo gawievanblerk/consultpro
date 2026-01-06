@@ -34,11 +34,8 @@ export default function PublicFooter() {
         <div className="grid grid-cols-2 gap-8 lg:grid-cols-5">
           {/* Brand */}
           <div className="col-span-2 lg:col-span-1">
-            <Link to="/" className="flex items-center gap-2">
-              <img src="/logo-icon-white.svg" alt="CoreHR" className="h-8 w-8" />
-              <span className="text-lg font-semibold">
-                Core<span className="text-accent-400">HR</span>
-              </span>
+            <Link to="/" className="flex items-center">
+              <img src="/corehr-logo-light.svg" alt="CoreHR" className="h-9 w-auto" />
             </Link>
             <p className="mt-4 text-sm text-primary-400 leading-relaxed">
               Modern consulting management platform for HR and staffing professionals.

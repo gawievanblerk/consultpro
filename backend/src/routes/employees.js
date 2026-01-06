@@ -145,7 +145,7 @@ router.post('/', [
   body('lastName').notEmpty().trim(),
   body('email').optional().isEmail(),
   body('employmentType').optional().isIn(['full_time', 'part_time', 'contract', 'intern']),
-  body('employmentStatus').optional().isIn(['active', 'on_leave', 'suspended', 'terminated'])
+  body('employmentStatus').optional().isIn(['preboarding', 'active', 'probation', 'on_leave', 'suspended', 'terminated'])
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -313,7 +313,7 @@ router.get('/:id', [
  */
 router.put('/:id', [
   param('id').isUUID(),
-  body('employmentStatus').optional().isIn(['active', 'on_leave', 'suspended', 'terminated'])
+  body('employmentStatus').optional().isIn(['preboarding', 'active', 'probation', 'on_leave', 'suspended', 'terminated'])
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -581,6 +581,125 @@ router.post('/:id/ess/resend', [
   } catch (error) {
     console.error('Resend ESS invite error:', error);
     res.status(500).json({ success: false, error: 'Failed to resend invitation' });
+  }
+});
+
+/**
+ * POST /api/employees/ess/bulk-invite
+ * Send ESS invitations to multiple employees
+ */
+router.post('/ess/bulk-invite', async (req, res) => {
+  try {
+    const { employee_ids } = req.body;
+
+    if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'employee_ids array is required'
+      });
+    }
+
+    const results = {
+      success: [],
+      skipped: [],
+      failed: []
+    };
+
+    for (const employeeId of employee_ids) {
+      try {
+        // Get employee and verify access
+        const employeeResult = await query(`
+          SELECT e.*, c.consultant_id
+          FROM employees e
+          JOIN companies c ON e.company_id = c.id
+          WHERE e.id = $1 AND e.deleted_at IS NULL
+        `, [employeeId]);
+
+        if (employeeResult.rows.length === 0) {
+          results.skipped.push({ id: employeeId, reason: 'Employee not found' });
+          continue;
+        }
+
+        const employee = employeeResult.rows[0];
+        const employeeName = `${employee.first_name} ${employee.last_name}`;
+
+        // Verify access
+        const canAccess = await req.canAccessEmployee(employeeId);
+        if (!canAccess) {
+          results.skipped.push({ id: employeeId, name: employeeName, reason: 'Access denied' });
+          continue;
+        }
+
+        // Skip if no email
+        if (!employee.email) {
+          results.skipped.push({ id: employeeId, name: employeeName, reason: 'No email address' });
+          continue;
+        }
+
+        // Skip if already activated
+        if (employee.ess_activated_at) {
+          results.skipped.push({ id: employeeId, name: employeeName, reason: 'ESS already activated' });
+          continue;
+        }
+
+        // Check for existing pending invitation
+        const existingInvite = await query(`
+          SELECT id FROM employee_invitations
+          WHERE employee_id = $1 AND accepted_at IS NULL AND expires_at > NOW()
+        `, [employeeId]);
+
+        if (existingInvite.rows.length > 0) {
+          results.skipped.push({ id: employeeId, name: employeeName, reason: 'Invitation already pending' });
+          continue;
+        }
+
+        // Generate token
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        // Create invitation
+        await query(`
+          INSERT INTO employee_invitations (employee_id, company_id, email, token, expires_at, sent_at, created_by)
+          VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+        `, [employeeId, employee.company_id, employee.email, token, expiresAt, req.user.id]);
+
+        // Update employee record
+        await query(`
+          UPDATE employees
+          SET ess_enabled = true, ess_invitation_sent_at = NOW(), updated_at = NOW()
+          WHERE id = $1
+        `, [employeeId]);
+
+        const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/onboard/ess?token=${token}`;
+        console.log(`ESS invitation sent to ${employee.email}:`, invitationLink);
+
+        results.success.push({
+          id: employeeId,
+          name: employeeName,
+          email: employee.email,
+          invitationLink
+        });
+
+      } catch (err) {
+        console.error(`Failed to process employee ${employeeId}:`, err);
+        results.failed.push({ id: employeeId, reason: err.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Processed ${employee_ids.length} employees`,
+      data: {
+        total: employee_ids.length,
+        sent: results.success.length,
+        skipped: results.skipped.length,
+        failed: results.failed.length,
+        results
+      }
+    });
+  } catch (error) {
+    console.error('Bulk ESS invite error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process bulk invitations' });
   }
 });
 

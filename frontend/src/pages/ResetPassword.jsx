@@ -81,18 +81,12 @@ function ResetPassword() {
       <div className="max-w-md w-full">
         {/* Logo and title */}
         <div className="text-center mb-8">
-          <div className="bg-white rounded-lg px-4 py-3 inline-block mb-4">
-            <img
-              src="/teamace-icon.png"
-              alt="TeamACE"
-              className="h-12"
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
-          </div>
-          <h1 className="text-3xl font-bold text-white">CoreHR</h1>
-          <p className="mt-2 text-primary-200">HR & Consulting Platform</p>
+          <img
+            src="/corehr-logo-light.svg"
+            alt="CoreHR"
+            className="h-10 mx-auto"
+          />
+          <p className="mt-3 text-primary-200">HR Management Platform</p>
         </div>
 
         {/* Form card */}
@@ -221,7 +215,7 @@ function ResetPassword() {
 
         {/* Footer */}
         <p className="mt-6 text-center text-sm text-primary-200">
-          Powered by Rozitech CC
+          Powered by Rozitech
         </p>
       </div>
     </div>
