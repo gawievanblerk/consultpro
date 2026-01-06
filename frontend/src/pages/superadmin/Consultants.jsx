@@ -578,7 +578,7 @@ function Consultants() {
                                         <div className="border-t border-primary-100 bg-primary-50/50 p-3">
                                           <h5 className="text-xs font-semibold text-primary-600 mb-2 flex items-center gap-1">
                                             <UsersIcon className="h-3.5 w-3.5" />
-                                            Employees with ESS Access
+                                            Employees (Clone for Testing)
                                           </h5>
                                           {employeesLoading ? (
                                             <div className="flex items-center justify-center py-4">
@@ -652,7 +652,7 @@ function Consultants() {
                                             </div>
                                           ) : (
                                             <p className="text-xs text-primary-500 italic py-2">
-                                              No employees with ESS access. Invite employees to ESS first.
+                                              No employees in this company yet.
                                             </p>
                                           )}
                                         </div>

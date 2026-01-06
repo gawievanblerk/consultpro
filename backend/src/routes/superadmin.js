@@ -844,7 +844,7 @@ router.post('/consultants/:id/impersonate', [
 
 /**
  * GET /api/superadmin/companies/:id/employees
- * Get employees with ESS access for a company (for impersonation)
+ * Get all employees for a company (for impersonation and cloning)
  */
 router.get('/companies/:id/employees', [
   authenticateSuperadmin,
@@ -853,17 +853,17 @@ router.get('/companies/:id/employees', [
   try {
     const { id } = req.params;
 
-    // Get employees with ESS access (user_id is not null) OR test clones (which might not have user_id yet)
+    // Get ALL employees - superadmin needs to see all for cloning, even those without ESS
     const result = await query(`
       SELECT
         e.id, e.first_name, e.last_name, e.email, e.job_title,
         e.user_id, e.ess_enabled, e.is_test_clone, e.cloned_from_id,
+        e.employment_status,
         c.legal_name as company_name
       FROM employees e
       JOIN companies c ON e.company_id = c.id
       WHERE e.company_id = $1
         AND e.deleted_at IS NULL
-        AND (e.user_id IS NOT NULL OR e.is_test_clone = true)
       ORDER BY e.is_test_clone DESC, e.first_name, e.last_name
       LIMIT 50
     `, [id]);
