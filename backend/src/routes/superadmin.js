@@ -1463,7 +1463,9 @@ router.delete('/test-clones/:id', [
     // ESS invitation
     await query('DELETE FROM employee_invitations WHERE employee_id = $1', [id]).catch(() => {});
 
-    // User account if exists
+    // User account - delete by employee_id reference (the FK is users.employee_id -> employees.id)
+    await query('DELETE FROM users WHERE employee_id = $1', [id]).catch(() => {});
+    // Also delete by user_id if set on employee record
     if (clone.user_id) {
       await query('DELETE FROM users WHERE id = $1', [clone.user_id]).catch(() => {});
     }
