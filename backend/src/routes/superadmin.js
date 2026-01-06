@@ -1181,8 +1181,8 @@ router.post('/employees/:id/clone', [
     // Get next test employee number
     const seqResult = await query(`
       SELECT COUNT(*) as count FROM employees
-      WHERE is_test_clone = true AND tenant_id = $1
-    `, [tenantId]);
+      WHERE is_test_clone = true AND company_id = $1
+    `, [companyId]);
     const seqNum = parseInt(seqResult.rows[0].count) + 1;
     const testEmployeeNumber = `TEST-${new Date().getFullYear()}-${String(seqNum).padStart(4, '0')}`;
 
@@ -1193,31 +1193,31 @@ router.post('/employees/:id/clone', [
     try {
       const cloneResult = await query(`
         INSERT INTO employees (
-          tenant_id, company_id, employee_number,
+          company_id, employee_number,
           first_name, last_name, email,
           job_title, department, employment_type,
           hire_date, employment_status,
           is_test_clone, cloned_from_id,
           ess_enabled, phone, gender, marital_status,
-          date_of_birth, address, city, state, country
+          date_of_birth, address_line1, city, state_of_residence, country
         ) VALUES (
-          $1, $2, $3,
-          $4, $5, $6,
-          $7, $8, $9,
-          $10, 'preboarding',
-          true, $11,
-          true, $12, $13, $14,
-          $15, $16, $17, $18, $19
+          $1, $2,
+          $3, $4, $5,
+          $6, $7, $8,
+          $9, 'preboarding',
+          true, $10,
+          true, $11, $12, $13,
+          $14, $15, $16, $17, $18
         )
         RETURNING *
       `, [
-        tenantId, companyId, testEmployeeNumber,
+        companyId, testEmployeeNumber,
         source.first_name || 'Test', (source.last_name || 'Clone') + ' (Test)', testEmail,
         source.job_title, source.department, source.employment_type || 'full_time',
         source.hire_date || new Date(),
         id,
         source.phone, source.gender, source.marital_status,
-        source.date_of_birth, source.address, source.city, source.state, source.country
+        source.date_of_birth, source.address_line1 || source.address, source.city, source.state_of_residence || source.state, source.country
       ]);
       clonedEmployee = cloneResult.rows[0];
       console.log('[Clone] Employee cloned successfully:', clonedEmployee.id);
@@ -1247,11 +1247,11 @@ router.post('/employees/:id/clone', [
     console.log('[Clone] Creating ESS invitation...');
     try {
       await query(`
-        INSERT INTO ess_invitations (
-          tenant_id, company_id, employee_id,
-          token, expires_at, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6)
-      `, [tenantId, companyId, clonedEmployee.id, inviteToken, expiresAt, null]);
+        INSERT INTO employee_invitations (
+          employee_id, company_id, email,
+          token, expires_at, sent_at, created_by
+        ) VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+      `, [clonedEmployee.id, companyId, testEmail, inviteToken, expiresAt, null]);
       console.log('[Clone] ESS invitation created');
     } catch (inviteError) {
       console.error('[Clone] Failed to create ESS invitation:', inviteError.message);
@@ -1430,7 +1430,7 @@ router.delete('/test-clones/:id', [
     await query('DELETE FROM employee_medical_info WHERE employee_id = $1', [id]);
 
     // 5. Delete ESS invitation
-    await query('DELETE FROM ess_invitations WHERE employee_id = $1', [id]);
+    await query('DELETE FROM employee_invitations WHERE employee_id = $1', [id]);
 
     // 6. Delete user account if exists
     if (clone.user_id) {
