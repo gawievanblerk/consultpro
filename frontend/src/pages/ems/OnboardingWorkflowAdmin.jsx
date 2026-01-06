@@ -38,13 +38,17 @@ export default function OnboardingWorkflowAdmin() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const params = isCompanyMode && selectedCompany?.id ? { company_id: selectedCompany.id } : {};
+      // Always send company_id if a company is selected
+      const params = selectedCompany?.id ? { company_id: selectedCompany.id } : {};
+      console.log('[OnboardingWorkflow] Fetching with params:', params);
 
       const [employeesRes, newHiresRes, workflowsRes] = await Promise.all([
         api.get('/api/onboarding-workflow/employees', { params }),
         api.get('/api/onboarding-workflow/new-hires', { params }),
         api.get('/api/onboarding-workflow/workflows', { params })
       ]);
+
+      console.log('[OnboardingWorkflow] New hires response:', newHiresRes.data);
 
       setEmployees(employeesRes.data.data || []);
       setNewHires(newHiresRes.data.data || []);
