@@ -1463,15 +1463,23 @@ router.delete('/test-clones/:id', [
     // ESS invitation
     await query('DELETE FROM employee_invitations WHERE employee_id = $1', [id]).catch(() => {});
 
-    // User account - delete by employee_id reference (the FK is users.employee_id -> employees.id)
-    await query('DELETE FROM users WHERE employee_id = $1', [id]).catch(() => {});
-    // Also delete by user_id if set on employee record
-    if (clone.user_id) {
-      await query('DELETE FROM users WHERE id = $1', [clone.user_id]).catch(() => {});
-    }
+    // User account - break the FK by setting employee_id to NULL
+    // (Deleting user is complex due to many tables referencing users)
+    const userUpdateResult = await query('UPDATE users SET employee_id = NULL WHERE employee_id = $1 RETURNING id', [id]);
+    console.log(`Unlinked ${userUpdateResult.rowCount} user(s) from employee ${id}`);
 
-    // Finally delete the employee (hard delete for test clones)
+    // Now we can safely delete the employee
+    console.log(`Attempting to delete employee ${id}`);
     await query('DELETE FROM employees WHERE id = $1', [id]);
+
+    // Optionally try to delete the orphaned user account (may fail if user has other records)
+    if (userUpdateResult.rows.length > 0) {
+      for (const row of userUpdateResult.rows) {
+        await query('DELETE FROM users WHERE id = $1', [row.id]).catch(err => {
+          console.log(`Could not delete user ${row.id}: ${err.message} (user left orphaned)`);
+        });
+      }
+    }
 
     // Log the action
     await logSuperadminAction(
