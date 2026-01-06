@@ -1148,13 +1148,14 @@ router.post('/employees/:id/clone', [
 ], async (req, res) => {
   try {
     const { id } = req.params;
-    const jwt = require('jsonwebtoken');
+
+    console.log('[Clone] Starting clone for employee:', id);
 
     // Get source employee with company and consultant info
     const sourceResult = await query(`
       SELECT
         e.*,
-        c.id as company_id, c.legal_name as company_name, c.consultant_id,
+        c.id as comp_id, c.legal_name as company_name, c.consultant_id,
         co.company_name as consultant_name, co.tenant_id
       FROM employees e
       JOIN companies c ON e.company_id = c.id
@@ -1168,11 +1169,14 @@ router.post('/employees/:id/clone', [
 
     const source = sourceResult.rows[0];
     const tenantId = source.tenant_id;
-    const companyId = source.company_id;
+    const companyId = source.comp_id || source.company_id;
+
+    console.log('[Clone] Source employee:', source.first_name, source.last_name, 'Company:', companyId, 'Tenant:', tenantId);
 
     // Generate test email and employee number
     const timestamp = Date.now();
-    const testEmail = `test.${source.first_name.toLowerCase()}.${timestamp}@test.corehr.local`;
+    const firstName = source.first_name || 'test';
+    const testEmail = `test.${firstName.toLowerCase()}.${timestamp}@test.corehr.local`;
 
     // Get next test employee number
     const seqResult = await query(`
@@ -1183,36 +1187,44 @@ router.post('/employees/:id/clone', [
     const testEmployeeNumber = `TEST-${new Date().getFullYear()}-${String(seqNum).padStart(4, '0')}`;
 
     // Create cloned employee
-    const cloneResult = await query(`
-      INSERT INTO employees (
-        tenant_id, company_id, employee_number,
-        first_name, last_name, email,
-        job_title, department, employment_type,
-        hire_date, employment_status,
-        is_test_clone, cloned_from_id,
-        ess_enabled, phone, gender, marital_status,
-        date_of_birth, address, city, state, country
-      ) VALUES (
-        $1, $2, $3,
-        $4, $5, $6,
-        $7, $8, $9,
-        $10, 'preboarding',
-        true, $11,
-        true, $12, $13, $14,
-        $15, $16, $17, $18, $19
-      )
-      RETURNING *
-    `, [
-      tenantId, companyId, testEmployeeNumber,
-      source.first_name, source.last_name + ' (Test)', testEmail,
-      source.job_title, source.department, source.employment_type || 'full_time',
-      source.hire_date || new Date(),
-      id,
-      source.phone, source.gender, source.marital_status,
-      source.date_of_birth, source.address, source.city, source.state, source.country
-    ]);
+    console.log('[Clone] Creating clone with employee number:', testEmployeeNumber);
 
-    const clonedEmployee = cloneResult.rows[0];
+    let clonedEmployee;
+    try {
+      const cloneResult = await query(`
+        INSERT INTO employees (
+          tenant_id, company_id, employee_number,
+          first_name, last_name, email,
+          job_title, department, employment_type,
+          hire_date, employment_status,
+          is_test_clone, cloned_from_id,
+          ess_enabled, phone, gender, marital_status,
+          date_of_birth, address, city, state, country
+        ) VALUES (
+          $1, $2, $3,
+          $4, $5, $6,
+          $7, $8, $9,
+          $10, 'preboarding',
+          true, $11,
+          true, $12, $13, $14,
+          $15, $16, $17, $18, $19
+        )
+        RETURNING *
+      `, [
+        tenantId, companyId, testEmployeeNumber,
+        source.first_name || 'Test', (source.last_name || 'Clone') + ' (Test)', testEmail,
+        source.job_title, source.department, source.employment_type || 'full_time',
+        source.hire_date || new Date(),
+        id,
+        source.phone, source.gender, source.marital_status,
+        source.date_of_birth, source.address, source.city, source.state, source.country
+      ]);
+      clonedEmployee = cloneResult.rows[0];
+      console.log('[Clone] Employee cloned successfully:', clonedEmployee.id);
+    } catch (insertError) {
+      console.error('[Clone] Failed to insert employee:', insertError.message);
+      return res.status(500).json({ success: false, error: `Failed to create clone: ${insertError.message}` });
+    }
 
     // Initialize onboarding workflow for the clone
     try {
@@ -1232,12 +1244,19 @@ router.post('/employees/:id/clone', [
     const inviteToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    await query(`
-      INSERT INTO ess_invitations (
-        tenant_id, company_id, employee_id,
-        token, expires_at, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-    `, [tenantId, companyId, clonedEmployee.id, inviteToken, expiresAt, null]);
+    console.log('[Clone] Creating ESS invitation...');
+    try {
+      await query(`
+        INSERT INTO ess_invitations (
+          tenant_id, company_id, employee_id,
+          token, expires_at, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+      `, [tenantId, companyId, clonedEmployee.id, inviteToken, expiresAt, null]);
+      console.log('[Clone] ESS invitation created');
+    } catch (inviteError) {
+      console.error('[Clone] Failed to create ESS invitation:', inviteError.message);
+      return res.status(500).json({ success: false, error: `Clone created but invitation failed: ${inviteError.message}` });
+    }
 
     const activationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${inviteToken}`;
 
