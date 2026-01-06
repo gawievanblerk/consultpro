@@ -439,13 +439,62 @@ router.post('/employees/:employeeId/start', async (req, res) => {
 
     const workflowResult = await client.query(workflowQuery, workflowParams);
 
-    if (workflowResult.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ success: false, error: 'No onboarding workflow found' });
-    }
+    // Use workflow from DB or default config
+    let workflow = workflowResult.rows[0];
+    let phaseConfig;
 
-    const workflow = workflowResult.rows[0];
-    const phaseConfig = workflow.phase_config;
+    if (!workflow) {
+      console.log('[Start Onboarding] No workflow found, using default config');
+      // Default phase configuration
+      phaseConfig = {
+        phase1: {
+          name: 'Document Signing',
+          due_days: 3,
+          hard_gate: true,
+          documents: [
+            { type: 'offer_letter', title: 'Offer Letter', requires_signature: true },
+            { type: 'employment_contract', title: 'Employment Contract', requires_signature: true },
+            { type: 'nda', title: 'Non-Disclosure Agreement', requires_signature: true },
+            { type: 'code_of_conduct', title: 'Code of Conduct', requires_acknowledgment: true }
+          ]
+        },
+        phase2: {
+          name: 'Role Clarity',
+          due_days: 5,
+          hard_gate: false,
+          documents: [
+            { type: 'job_description', title: 'Job Description', requires_acknowledgment: true },
+            { type: 'org_chart', title: 'Organization Chart', requires_acknowledgment: true }
+          ]
+        },
+        phase3: {
+          name: 'Employee File',
+          due_days: 7,
+          hard_gate: true,
+          documents: [
+            { type: 'passport_photo', title: 'Passport Photograph', requires_upload: true },
+            { type: 'government_id', title: 'Government ID', requires_upload: true },
+            { type: 'educational_cert', title: 'Educational Certificates', requires_upload: true },
+            { type: 'bank_details', title: 'Bank Account Details', requires_upload: true }
+          ]
+        },
+        phase4: {
+          name: 'Policy Acknowledgments',
+          due_days: 10,
+          hard_gate: false,
+          documents: []
+        },
+        phase5: {
+          name: 'Complete',
+          due_days: 14,
+          hard_gate: false,
+          documents: []
+        }
+      };
+      workflow = { id: null };
+    } else {
+      phaseConfig = workflow.phase_config;
+    }
 
     // Create onboarding record
     const onboardingResult = await client.query(`
