@@ -17,7 +17,8 @@ import {
   DocumentDuplicateIcon,
   ClipboardDocumentIcon,
   BeakerIcon,
-  TrashIcon
+  TrashIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline';
 import api from '../../utils/api';
 import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
@@ -325,6 +326,29 @@ function Consultants() {
       console.error('Delete test clone failed:', err);
     } finally {
       setDeleteLoading(null);
+    }
+  };
+
+  const handleGetActivationLink = async (employeeId, employeeName) => {
+    try {
+      const response = await api.post(
+        `/api/superadmin/test-clones/${employeeId}/regenerate-invitation`,
+        {},
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        const { activationLink } = response.data.data.invitation;
+
+        // Copy to clipboard
+        await navigator.clipboard.writeText(activationLink);
+
+        alert(`Activation link copied to clipboard!\n\nLink: ${activationLink}\n\nOpen this link in a new browser/incognito window to test the ESS onboarding flow.`);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to get activation link';
+      alert(errorMsg);
+      console.error('Get activation link failed:', err);
     }
   };
 
@@ -683,19 +707,29 @@ function Consultants() {
                                                       <ArrowTopRightOnSquareIcon className="h-2.5 w-2.5" />
                                                     </button>
                                                     {emp.is_test_clone && (
-                                                      <button
-                                                        onClick={() => handleDeleteTestClone(emp.id, `${emp.first_name} ${emp.last_name}`)}
-                                                        disabled={deleteLoading === emp.id}
-                                                        className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium disabled:opacity-50"
-                                                        title="Delete test clone"
-                                                      >
-                                                        {deleteLoading === emp.id ? (
-                                                          <span className="animate-spin h-3 w-3 border border-red-700 border-t-transparent rounded-full" />
-                                                        ) : (
-                                                          <TrashIcon className="h-3 w-3" />
-                                                        )}
-                                                        Delete
-                                                      </button>
+                                                      <>
+                                                        <button
+                                                          onClick={() => handleGetActivationLink(emp.id, `${emp.first_name} ${emp.last_name}`)}
+                                                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-purple-100 text-purple-700 rounded hover:bg-purple-200 font-medium"
+                                                          title="Get ESS activation link"
+                                                        >
+                                                          <LinkIcon className="h-3 w-3" />
+                                                          Get Link
+                                                        </button>
+                                                        <button
+                                                          onClick={() => handleDeleteTestClone(emp.id, `${emp.first_name} ${emp.last_name}`)}
+                                                          disabled={deleteLoading === emp.id}
+                                                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium disabled:opacity-50"
+                                                          title="Delete test clone"
+                                                        >
+                                                          {deleteLoading === emp.id ? (
+                                                            <span className="animate-spin h-3 w-3 border border-red-700 border-t-transparent rounded-full" />
+                                                          ) : (
+                                                            <TrashIcon className="h-3 w-3" />
+                                                          )}
+                                                          Delete
+                                                        </button>
+                                                      </>
                                                     )}
                                                   </div>
                                                 </div>

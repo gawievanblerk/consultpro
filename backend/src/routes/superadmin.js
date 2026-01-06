@@ -1383,6 +1383,71 @@ router.get('/test-clones', authenticateSuperadmin, async (req, res) => {
 });
 
 /**
+ * POST /api/superadmin/test-clones/:id/regenerate-invitation
+ * Regenerate ESS invitation for a test clone
+ */
+router.post('/test-clones/:id/regenerate-invitation', [
+  authenticateSuperadmin,
+  param('id').isUUID()
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get test clone employee
+    const empResult = await query(`
+      SELECT e.*, c.legal_name as company_name
+      FROM employees e
+      JOIN companies c ON e.company_id = c.id
+      WHERE e.id = $1 AND e.is_test_clone = true AND e.deleted_at IS NULL
+    `, [id]);
+
+    if (empResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Test clone not found' });
+    }
+
+    const employee = empResult.rows[0];
+
+    // Delete old invitation if exists
+    await query('DELETE FROM ess_invitations WHERE employee_id = $1', [id]);
+
+    // Create new invitation
+    const inviteToken = require('crypto').randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await query(`
+      INSERT INTO ess_invitations (employee_id, company_id, token, expires_at, created_by)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [id, employee.company_id, inviteToken, expiresAt, req.superadmin.id]);
+
+    const activationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${inviteToken}`;
+
+    console.log('[Test Clone] Regenerated invitation for:', employee.email);
+    console.log('[Test Clone] Activation link:', activationLink);
+
+    res.json({
+      success: true,
+      data: {
+        employee: {
+          id: employee.id,
+          employee_number: employee.employee_number,
+          first_name: employee.first_name,
+          last_name: employee.last_name,
+          email: employee.email
+        },
+        invitation: {
+          token: inviteToken,
+          activationLink,
+          expiresAt
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Regenerate invitation error:', error);
+    res.status(500).json({ success: false, error: 'Failed to regenerate invitation' });
+  }
+});
+
+/**
  * DELETE /api/superadmin/test-clones/:id
  * Delete a test clone and all associated data
  */
