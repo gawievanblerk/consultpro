@@ -35,7 +35,7 @@ const DEFAULT_CHECKLIST_ITEMS = [
 // GET /api/onboarding-checklist/checklists - List onboarding checklists
 router.get('/checklists', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { company_id, employee_id, status } = req.query;
 
     let query = `
@@ -95,7 +95,7 @@ router.get('/checklists', async (req, res) => {
 // GET /api/onboarding-checklist/checklists/:id - Get single checklist
 router.get('/checklists/:id', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { id } = req.params;
 
     const result = await pool.query(`
@@ -133,7 +133,7 @@ router.get('/checklists/:id', async (req, res) => {
 // POST /api/onboarding-checklist/checklists - Create onboarding checklist for employee
 router.post('/checklists', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { company_id, employee_id, items } = req.body;
 
@@ -162,7 +162,7 @@ router.post('/checklists', async (req, res) => {
 // PUT /api/onboarding-checklist/checklists/:id/item - Update single item in checklist
 router.put('/checklists/:id/item', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { id } = req.params;
     const { itemIndex, completed, notes } = req.body;
@@ -226,7 +226,7 @@ router.put('/checklists/:id/item', async (req, res) => {
 // PUT /api/onboarding-checklist/checklists/:id - Update entire checklist
 router.put('/checklists/:id', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { id } = req.params;
     const { items, status } = req.body;
@@ -260,7 +260,7 @@ router.put('/checklists/:id', async (req, res) => {
 // GET /api/onboarding-checklist/policy-acknowledgements - List policy acknowledgements
 router.get('/policy-acknowledgements', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { company_id, employee_id, policy_id, status } = req.query;
 
     let query = `
@@ -310,7 +310,7 @@ router.get('/policy-acknowledgements', async (req, res) => {
 // POST /api/onboarding-checklist/policy-acknowledgements - Create pending acknowledgements for employee
 router.post('/policy-acknowledgements', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { company_id, employee_id, policy_ids } = req.body;
 
     if (!policy_ids || policy_ids.length === 0) {
@@ -366,7 +366,7 @@ router.post('/policy-acknowledgements', async (req, res) => {
 // POST /api/onboarding-checklist/policy-acknowledgements/:id/acknowledge - Employee acknowledges policy
 router.post('/policy-acknowledgements/:id/acknowledge', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { id } = req.params;
     const { signature_data } = req.body;
     const ipAddress = req.ip || req.connection.remoteAddress;
@@ -401,7 +401,7 @@ router.post('/policy-acknowledgements/:id/acknowledge', async (req, res) => {
 // GET /api/onboarding-checklist/my-checklist - Employee's own onboarding checklist
 router.get('/my-checklist', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const employeeId = req.user.employee_id;
 
     if (!employeeId) {
@@ -435,7 +435,7 @@ router.get('/my-checklist', async (req, res) => {
 // GET /api/onboarding-checklist/my-policies - Employee's pending policy acknowledgements
 router.get('/my-policies', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const employeeId = req.user.employee_id;
 
     if (!employeeId) {
@@ -465,7 +465,7 @@ router.get('/my-policies', async (req, res) => {
 // POST /api/onboarding-checklist/my-checklist/:itemIndex/complete - Employee completes own checklist item
 router.post('/my-checklist/:itemIndex/complete', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const employeeId = req.user.employee_id;
     const userId = req.user.id;
     const { itemIndex } = req.params;
@@ -577,23 +577,31 @@ const upload = multer({
  */
 router.get('/my-onboarding', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?.sub;
 
-    // Get employee ID from user
-    const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
-      [userId, tenantId]
-    );
+    console.log('[My Onboarding] userId:', userId, 'user:', req.user?.email);
+
+    // Get employee ID from user (employees don't have tenant_id column)
+    const employeeResult = await pool.query(`
+      SELECT e.id, e.company_id, co.tenant_id
+      FROM employees e
+      JOIN companies c ON e.company_id = c.id
+      JOIN consultants co ON c.consultant_id = co.id
+      WHERE e.user_id = $1 AND e.deleted_at IS NULL
+    `, [userId]);
 
     if (employeeResult.rows.length === 0) {
+      console.log('[My Onboarding] No employee found for user:', userId);
       return res.status(404).json({ success: false, error: 'Employee record not found' });
     }
 
     const employeeId = employeeResult.rows[0].id;
+    const tenantId = employeeResult.rows[0].tenant_id;
+    console.log('[My Onboarding] Found employee:', employeeId, 'tenant:', tenantId);
 
     // Get onboarding progress using service
     const progress = await onboardingService.getOnboardingProgress(tenantId, employeeId);
+    console.log('[My Onboarding] Progress:', progress ? 'found' : 'not found');
 
     if (!progress) {
       return res.json({
@@ -616,14 +624,14 @@ router.get('/my-onboarding', async (req, res) => {
  */
 router.get('/my-documents', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { phase } = req.query;
 
     // Get employee ID
     const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
-      [userId, tenantId]
+      'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+      [userId]
     );
 
     if (employeeResult.rows.length === 0) {
@@ -685,14 +693,14 @@ router.get('/my-documents', async (req, res) => {
  */
 router.post('/my-documents/:docId/upload', upload.single('file'), async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { docId } = req.params;
 
     // Get employee ID
     const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
-      [userId, tenantId]
+      'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+      [userId]
     );
 
     if (employeeResult.rows.length === 0) {
@@ -752,7 +760,7 @@ router.post('/my-documents/:docId/upload', upload.single('file'), async (req, re
  */
 router.post('/my-documents/:docId/sign', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { docId } = req.params;
     const { signature_data } = req.body;
@@ -765,8 +773,8 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
 
     // Get employee ID
     const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
-      [userId, tenantId]
+      'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+      [userId]
     );
 
     if (employeeResult.rows.length === 0) {
@@ -822,7 +830,7 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
  */
 router.post('/my-documents/:docId/acknowledge', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { docId } = req.params;
     const ipAddress = req.ip || req.connection.remoteAddress;
@@ -830,8 +838,8 @@ router.post('/my-documents/:docId/acknowledge', async (req, res) => {
 
     // Get employee ID
     const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
-      [userId, tenantId]
+      'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+      [userId]
     );
 
     if (employeeResult.rows.length === 0) {
@@ -880,13 +888,13 @@ router.post('/my-documents/:docId/acknowledge', async (req, res) => {
  */
 router.get('/my-profile-completion', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
 
     // Get employee ID
     const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND tenant_id = $2',
-      [userId, tenantId]
+      'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+      [userId]
     );
 
     if (employeeResult.rows.length === 0) {
@@ -967,7 +975,7 @@ router.get('/my-profile-completion', async (req, res) => {
  */
 router.get('/my-document/:docId/content', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { docId } = req.params;
 
