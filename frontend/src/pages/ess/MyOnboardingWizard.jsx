@@ -66,8 +66,10 @@ export default function MyOnboardingWizard() {
       setProfileCompletion(profileRes.data.data);
 
       // Set active phase based on current onboarding phase
+      // current_phase is an integer in DB, convert to 'phase1' format
       if (onboardingRes.data.data?.onboarding?.current_phase) {
-        setActivePhase(onboardingRes.data.data.onboarding.current_phase);
+        const phase = onboardingRes.data.data.onboarding.current_phase;
+        setActivePhase(typeof phase === 'number' ? `phase${phase}` : phase);
       }
     } catch (err) {
       setError('Failed to fetch onboarding data');
