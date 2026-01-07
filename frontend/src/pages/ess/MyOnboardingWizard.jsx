@@ -391,9 +391,9 @@ export default function MyOnboardingWizard() {
             </div>
           ) : (
             documents.byPhase[activePhase].map((doc) => (
-              <div key={doc.id} className="px-6 py-4 flex items-center hover:bg-gray-50">
-                <div className="mr-4">{getStatusIcon(doc.status)}</div>
-                <div className="flex-1">
+              <div key={doc.id} className="px-6 py-4 flex items-start hover:bg-gray-50">
+                <div className="mr-4 mt-1">{getStatusIcon(doc.status)}</div>
+                <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900">
                     {doc.document_title || doc.document_name || doc.policy_name || 'Document'}
                   </div>
@@ -445,12 +445,12 @@ export default function MyOnboardingWizard() {
                     </div>
                   )}
                 </div>
-                <div className="ml-4 flex items-center space-x-2">
+                <div className="ml-4 flex items-center space-x-2 flex-shrink-0">
                   {/* View button */}
                   {(doc.requires_signature || doc.requires_acknowledgment || doc.policy_id) && doc.status === 'pending' && (
                     <button
                       onClick={() => handleViewDocument(doc)}
-                      className="px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                      className="px-4 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 min-w-[60px]"
                     >
                       View
                     </button>
