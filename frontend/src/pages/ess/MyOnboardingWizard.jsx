@@ -391,15 +391,48 @@ export default function MyOnboardingWizard() {
             </div>
           ) : (
             documents.byPhase[activePhase].map((doc) => (
-              <div key={doc.id} className="px-6 py-4 flex items-center">
+              <div key={doc.id} className="px-6 py-4 flex items-center hover:bg-gray-50">
                 <div className="mr-4">{getStatusIcon(doc.status)}</div>
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">{doc.document_name}</div>
-                  <div className="text-sm text-gray-500">
-                    {doc.requires_signature && 'Requires signature'}
-                    {doc.requires_acknowledgment && !doc.requires_signature && 'Requires acknowledgment'}
-                    {doc.requires_upload && 'Requires upload'}
-                    {doc.is_required && <span className="ml-2 text-red-600">(Required)</span>}
+                  <div className="font-medium text-gray-900">
+                    {doc.document_title || doc.document_name || doc.policy_name || 'Document'}
+                  </div>
+                  <div className="text-sm text-gray-500 flex items-center flex-wrap gap-2">
+                    {doc.requires_signature && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                        Sign
+                      </span>
+                    )}
+                    {doc.requires_acknowledgment && !doc.requires_signature && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        Acknowledge
+                      </span>
+                    )}
+                    {doc.requires_upload && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                        Upload
+                      </span>
+                    )}
+                    {doc.is_required && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                        Required
+                      </span>
+                    )}
+                    {doc.status === 'signed' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Signed
+                      </span>
+                    )}
+                    {doc.status === 'acknowledged' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Acknowledged
+                      </span>
+                    )}
+                    {doc.status === 'verified' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Verified
+                      </span>
+                    )}
                   </div>
                   {doc.status === 'rejected' && doc.rejection_reason && (
                     <div className="text-sm text-red-600 mt-1">
@@ -471,7 +504,7 @@ export default function MyOnboardingWizard() {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b">
               <h3 className="text-lg font-semibold">Sign Document</h3>
-              <p className="text-sm text-gray-500">{selectedDocument.document_name}</p>
+              <p className="text-sm text-gray-500">{selectedDocument.document_title || selectedDocument.document_name}</p>
             </div>
 
             {/* Document content preview */}
