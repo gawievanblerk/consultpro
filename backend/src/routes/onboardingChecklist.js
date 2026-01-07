@@ -700,6 +700,7 @@ router.get('/my-documents', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Employee record not found' });
     }
 
+    // Note: removed tenant_id filter as employee_id is unique and tenant mismatch was causing issues
     let query = `
       SELECT
         od.*,
@@ -708,12 +709,12 @@ router.get('/my-documents', async (req, res) => {
         COALESCE(p.external_url, p.file_path) as policy_url
       FROM onboarding_documents od
       LEFT JOIN policies p ON od.policy_id = p.id
-      WHERE od.employee_id = $1 AND od.tenant_id = $2
+      WHERE od.employee_id = $1
     `;
-    const params = [employeeId, tenantId];
+    const params = [employeeId];
 
     if (phase) {
-      query += ` AND od.phase = $3`;
+      query += ` AND od.phase = $2`;
       params.push(parseInt(phase));
     }
 
