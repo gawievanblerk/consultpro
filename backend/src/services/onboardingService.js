@@ -521,6 +521,20 @@ async function activateEmployee(tenantId, employeeId, activatedBy) {
 async function getOnboardingProgress(tenantId, employeeId) {
   console.log('[getOnboardingProgress] Looking for employeeId:', employeeId, 'tenantId:', tenantId);
 
+  // Debug: Check if ANY onboarding records exist for this employee
+  const debugCheck = await pool.query(
+    'SELECT id, employee_id, overall_status, created_at FROM employee_onboarding WHERE employee_id = $1',
+    [employeeId]
+  );
+  console.log('[getOnboardingProgress] Debug - Direct employee_onboarding check:', debugCheck.rows);
+
+  // Also check if employee exists
+  const employeeCheck = await pool.query(
+    'SELECT id, first_name, last_name, email FROM employees WHERE id = $1',
+    [employeeId]
+  );
+  console.log('[getOnboardingProgress] Debug - Employee record:', employeeCheck.rows);
+
   // Query by employee_id only (it's unique) - tenant_id was causing mismatches
   const onboardingResult = await pool.query(`
     SELECT eo.*, e.first_name, e.last_name, e.profile_completion_percentage

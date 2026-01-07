@@ -82,6 +82,7 @@ const navigation = [
     { name: 'Training', href: '/dashboard/training-modules', icon: AcademicCapIcon },
   ]},
   { name: 'My Compliance', userTypes: ['employee'], children: [
+    { name: 'My Onboarding', href: '/dashboard/my-onboarding-wizard', icon: RocketLaunchIcon },
     { name: 'Policy Library', href: '/dashboard/policy-library', icon: BookOpenIcon },
     { name: 'My Training', href: '/dashboard/my-training', icon: AcademicCapIcon },
     { name: 'My Certificates', href: '/dashboard/my-certificates', icon: TrophyIcon },
@@ -94,7 +95,6 @@ const navigation = [
     { name: 'Disciplinary', href: '/dashboard/disciplinary', icon: ShieldExclamationIcon },
     { name: 'Exit Management', href: '/dashboard/exit-management', icon: UserMinusIcon },
   ]},
-  { name: 'My Onboarding', href: '/dashboard/my-onboarding-wizard', icon: RocketLaunchIcon, userTypes: ['employee'] },
   { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon, userTypes: ['consultant', 'staff', 'company_admin'] },
   { name: 'Settings', roles: ['admin'], userTypes: ['consultant', 'company_admin'], children: [
     { name: 'Users', href: '/dashboard/users', icon: UserCircleIcon },

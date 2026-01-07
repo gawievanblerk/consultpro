@@ -583,8 +583,9 @@ router.get('/my-onboarding', async (req, res) => {
     const userId = req.user?.id || req.user?.sub;
     // Check for employee_id from impersonation JWT
     const impersonatedEmployeeId = req.user?.employee_id;
+    const isImpersonation = req.user?.isImpersonation || false;
 
-    console.log('[My Onboarding] userId:', userId, 'employee_id:', impersonatedEmployeeId, 'user:', req.user?.email);
+    console.log('[My Onboarding] userId:', userId, 'employee_id:', impersonatedEmployeeId, 'isImpersonation:', isImpersonation, 'user:', req.user?.email);
 
     let employeeId, tenantId;
 
@@ -629,6 +630,20 @@ router.get('/my-onboarding', async (req, res) => {
     console.log('[My Onboarding] Progress:', progress ? 'found' : 'not found');
 
     if (!progress) {
+      // Debug: Show all onboarding records for the company to help identify mismatches
+      const companyId = employeeResult.rows[0]?.company_id;
+      if (companyId) {
+        const allOnboarding = await pool.query(`
+          SELECT eo.employee_id, e.first_name, e.last_name, e.email, eo.overall_status, eo.created_at
+          FROM employee_onboarding eo
+          JOIN employees e ON eo.employee_id = e.id
+          WHERE eo.company_id = $1
+          ORDER BY eo.created_at DESC
+          LIMIT 10
+        `, [companyId]);
+        console.log('[My Onboarding] DEBUG - All onboarding records for company:', companyId, allOnboarding.rows);
+      }
+
       return res.json({
         success: true,
         data: null,
