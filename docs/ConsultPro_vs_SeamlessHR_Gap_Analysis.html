@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ConsultPro vs Seamless HR - ESS Gap Analysis</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #1a1a2e;
+            background: #ffffff;
+            font-size: 11px;
+        }
+
+        .container {
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 15mm;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #0d2865 0%, #1a3a7a 100%);
+            color: white;
+            padding: 30px 40px;
+            margin: -15mm -15mm 30px -15mm;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: rgba(65, 216, 209, 0.1);
+            border-radius: 50%;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: 60%;
+            width: 200px;
+            height: 200px;
+            background: rgba(65, 216, 209, 0.08);
+            border-radius: 50%;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .company-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #41d8d1;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .doc-date {
+            font-size: 11px;
+            color: rgba(255,255,255,0.8);
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: rgba(255,255,255,0.9);
+            font-weight: 400;
+        }
+
+        .accent-bar {
+            width: 60px;
+            height: 4px;
+            background: #41d8d1;
+            margin-top: 15px;
+            border-radius: 2px;
+        }
+
+        /* Executive Summary */
+        .executive-summary {
+            background: linear-gradient(135deg, #f8f9fc 0%, #eef1f7 100%);
+            border-left: 4px solid #41d8d1;
+            padding: 25px 30px;
+            margin-bottom: 30px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .executive-summary h2 {
+            color: #0d2865;
+            font-size: 16px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            flex: 1;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            display: block;
+        }
+
+        .stat-number.green { color: #10b981; }
+        .stat-number.yellow { color: #f59e0b; }
+        .stat-number.red { color: #ef4444; }
+
+        .stat-label {
+            font-size: 10px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 5px;
+        }
+
+        /* Section Headers */
+        h2 {
+            color: #0d2865;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 30px 0 15px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        h3 {
+            color: #1a3a7a;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 20px 0 10px 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            font-size: 10px;
+        }
+
+        th {
+            background: #0d2865;
+            color: white;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        th:first-child {
+            border-radius: 6px 0 0 0;
+        }
+
+        th:last-child {
+            border-radius: 0 6px 0 0;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        tr:hover {
+            background: #f3f4f6;
+        }
+
+        .category-row {
+            background: #eef1f7 !important;
+            font-weight: 600;
+            color: #0d2865;
+        }
+
+        .category-row td {
+            padding: 8px 12px;
+            border-bottom: 2px solid #0d2865;
+        }
+
+        /* Status indicators */
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .status-match {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-partial {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-gap {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .check { color: #10b981; }
+        .warning { color: #f59e0b; }
+        .cross { color: #ef4444; }
+
+        /* Priority sections */
+        .priority-section {
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+
+        .priority-high {
+            border-left: 4px solid #ef4444;
+            padding-left: 20px;
+        }
+
+        .priority-medium {
+            border-left: 4px solid #f59e0b;
+            padding-left: 20px;
+        }
+
+        .priority-low {
+            border-left: 4px solid #10b981;
+            padding-left: 20px;
+        }
+
+        .priority-label {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .priority-label.high {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .priority-label.medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .priority-label.low {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        /* Gap items */
+        .gap-item {
+            background: #f9fafb;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .gap-item h4 {
+            color: #0d2865;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .gap-item p {
+            color: #6b7280;
+            font-size: 10px;
+            margin: 0;
+        }
+
+        .gap-item ul {
+            margin: 5px 0 0 15px;
+            color: #6b7280;
+            font-size: 10px;
+        }
+
+        /* Strengths */
+        .strengths-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .strength-card {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #a7f3d0;
+        }
+
+        .strength-card h4 {
+            color: #065f46;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .strength-card p {
+            color: #047857;
+            font-size: 10px;
+            margin: 0;
+        }
+
+        /* Roadmap */
+        .roadmap {
+            margin: 20px 0;
+        }
+
+        .phase {
+            display: flex;
+            margin: 15px 0;
+            page-break-inside: avoid;
+        }
+
+        .phase-marker {
+            width: 40px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .phase-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #0d2865;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .phase-line {
+            width: 2px;
+            flex: 1;
+            background: #e5e7eb;
+            margin-top: 5px;
+        }
+
+        .phase-content {
+            flex: 1;
+            background: #f9fafb;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-left: 15px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .phase-title {
+            color: #0d2865;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .phase-items {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .phase-items li {
+            padding: 4px 0;
+            font-size: 10px;
+            color: #4b5563;
+            padding-left: 15px;
+            position: relative;
+        }
+
+        .phase-items li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: #41d8d1;
+            font-weight: bold;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            color: #9ca3af;
+            font-size: 9px;
+        }
+
+        .footer-brand {
+            color: #0d2865;
+            font-weight: 600;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .container {
+                padding: 0;
+            }
+
+            .header {
+                margin: 0 0 30px 0;
+                -webkit-print-color-adjust: exact;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+        }
+
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <span class="company-name">Rozitech Consulting</span>
+                    <span class="doc-date">January 2026</span>
+                </div>
+                <h1>ConsultPro vs Seamless HR</h1>
+                <p class="subtitle">Employee Self-Service (ESS) Module Gap Analysis</p>
+                <div class="accent-bar"></div>
+            </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="executive-summary">
+            <h2>Executive Summary</h2>
+            <p>This document provides a comprehensive comparison between ConsultPro's existing Employee Self-Service (ESS) capabilities and Seamless HR's ESS module. The analysis identifies feature gaps, highlights existing strengths, and recommends a phased implementation roadmap to achieve feature parity.</p>
+
+            <div class="summary-stats">
+                <div class="stat-box">
+                    <span class="stat-number green">27</span>
+                    <span class="stat-label">Features Matched</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number yellow">6</span>
+                    <span class="stat-label">Partial Implementation</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number red">33</span>
+                    <span class="stat-label">Gaps Identified</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number" style="color: #0d2865;">50%</span>
+                    <span class="stat-label">Gap Percentage</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Comparison -->
+        <h2>Feature Comparison Matrix</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 40%;">Feature</th>
+                    <th style="width: 15%; text-align: center;">Seamless HR</th>
+                    <th style="width: 15%; text-align: center;">ConsultPro</th>
+                    <th style="width: 30%;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Login & Access -->
+                <tr class="category-row">
+                    <td colspan="4">LOGIN & ACCESS</td>
+                </tr>
+                <tr>
+                    <td>Employee login with email/password</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Return from leave auto-logout/re-access</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Mobile app (Android/iOS)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Multi-tenant support</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+
+                <!-- Profile Management -->
+                <tr class="category-row">
+                    <td colspan="4">PROFILE MANAGEMENT</td>
+                </tr>
+                <tr>
+                    <td>Profile completeness tracker (%)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Profile picture upload</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Personal information (basic)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Medical history</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Family/dependents management</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Next of kin/emergency contacts</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="warning">◐</span></td>
+                    <td><span class="status status-partial">Partial</span></td>
+                </tr>
+                <tr>
+                    <td>Bank account details</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Pension (PFA) account</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>CV/Experience builder</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Admin workflow for profile changes</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>"Nudge admin" reminder feature</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Document Management -->
+                <tr class="category-row">
+                    <td colspan="4">DOCUMENT MANAGEMENT</td>
+                </tr>
+                <tr>
+                    <td>E-documents with folders</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="warning">◐</span></td>
+                    <td><span class="status status-partial">Partial</span></td>
+                </tr>
+                <tr>
+                    <td>Folder categories (degrees, certs, etc.)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Document approval workflow</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Scan & upload originals</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+
+                <!-- Leave Management -->
+                <tr class="category-row">
+                    <td colspan="4">LEAVE MANAGEMENT</td>
+                </tr>
+                <tr>
+                    <td>Apply for leave</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Leave types (annual, sick, maternity)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Leave balance visibility</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Relief officer selection</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Splitable leave (block calendar)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Leave calendar planning</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>View colleagues on leave</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Half-day leave</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Holiday calendar</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+
+                <!-- Payroll -->
+                <tr class="category-row">
+                    <td colspan="4">PAYROLL & COMPENSATION</td>
+                </tr>
+                <tr>
+                    <td>Payslip viewing</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Payslip PDF download</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Earnings breakdown</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Deductions breakdown</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Tax calculation (PAYE)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Pension contributions</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Multi-currency with exchange rates</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Income overview dashboard</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="warning">◐</span></td>
+                    <td><span class="status status-partial">Partial</span></td>
+                </tr>
+                <tr>
+                    <td>Salary advance requests</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Time & Attendance -->
+                <tr class="category-row">
+                    <td colspan="4">TIME & ATTENDANCE</td>
+                </tr>
+                <tr>
+                    <td>Clock in/out (web)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Clock in/out (mobile)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Biometric integration</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Attendance records</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Performance -->
+                <tr class="category-row">
+                    <td colspan="4">PERFORMANCE MANAGEMENT</td>
+                </tr>
+                <tr>
+                    <td>Set objectives (OKR/BSC)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="warning">◐</span></td>
+                    <td><span class="status status-partial">Partial</span></td>
+                </tr>
+                <tr>
+                    <td>Initiate appraisals</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Performance reviews</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Employee acknowledgement</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Exceptional achievements display</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Learning -->
+                <tr class="category-row">
+                    <td colspan="4">COMPETENCY & LEARNING</td>
+                </tr>
+                <tr>
+                    <td>Competency assessment</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Knowledge gap identification</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>LMS - Training modules</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>LMS - Lessons & quizzes</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>LMS - Progress tracking</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>LMS - Certificates</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Certificate social sharing</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Directory -->
+                <tr class="category-row">
+                    <td colspan="4">EMPLOYEE DIRECTORY</td>
+                </tr>
+                <tr>
+                    <td>View colleagues</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Department/role info</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Contact details visibility</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Birthday reminders</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Work anniversary reminders</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Organization -->
+                <tr class="category-row">
+                    <td colspan="4">ORGANIZATION</td>
+                </tr>
+                <tr>
+                    <td>Organogram (personal view)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Organogram (company view)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Company documents/handbook</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Policy library</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Policy acknowledgements</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+
+                <!-- Requests -->
+                <tr class="category-row">
+                    <td colspan="4">REQUESTS & WORKFLOWS</td>
+                </tr>
+                <tr>
+                    <td>Requisitions (service/expense)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Redeployment requests</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Grievance -->
+                <tr class="category-row">
+                    <td colspan="4">GRIEVANCE & WHISTLEBLOWING</td>
+                </tr>
+                <tr>
+                    <td>Anonymous whistleblowing</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Grievance escalation (identified)</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>File attachment support</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Exit -->
+                <tr class="category-row">
+                    <td colspan="4">EXIT MANAGEMENT</td>
+                </tr>
+                <tr>
+                    <td>Resignation submission</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Financial status visibility</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Notice period calculation</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Manage exclusivities/handover</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Employment history</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Recruitment -->
+                <tr class="category-row">
+                    <td colspan="4">RECRUITMENT</td>
+                </tr>
+                <tr>
+                    <td>Internal job postings</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Track applied jobs</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Referral link sharing</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Surveys -->
+                <tr class="category-row">
+                    <td colspan="4">SURVEYS & FEEDBACK</td>
+                </tr>
+                <tr>
+                    <td>Anonymous surveys</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+                <tr>
+                    <td>Multiple response types</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="cross">✗</span></td>
+                    <td><span class="status status-gap">Gap</span></td>
+                </tr>
+
+                <!-- Onboarding -->
+                <tr class="category-row">
+                    <td colspan="4">ONBOARDING</td>
+                </tr>
+                <tr>
+                    <td>Onboarding checklist</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>Document submission</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+                <tr>
+                    <td>ESS activation flow</td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td style="text-align: center;"><span class="check">✓</span></td>
+                    <td><span class="status status-match">Match</span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="page-break"></div>
+
+        <!-- Priority Gaps -->
+        <h2>Priority Gap Analysis</h2>
+
+        <div class="priority-section priority-high">
+            <span class="priority-label high">High Priority</span>
+            <p style="font-size: 11px; color: #6b7280; margin-bottom: 15px;">Core ESS functionality required for competitive parity</p>
+
+            <div class="gap-item">
+                <h4>1. Time & Attendance System</h4>
+                <ul>
+                    <li>Web-based clock in/out functionality</li>
+                    <li>Attendance records and reports</li>
+                    <li>API capability for biometric device integration</li>
+                </ul>
+            </div>
+
+            <div class="gap-item">
+                <h4>2. Leave Calendar & Relief Officer</h4>
+                <ul>
+                    <li>Splitable leave calendar for annual planning</li>
+                    <li>Relief officer selection during leave request</li>
+                    <li>Team leave visibility dashboard</li>
+                </ul>
+            </div>
+
+            <div class="gap-item">
+                <h4>3. Profile Completeness System</h4>
+                <ul>
+                    <li>Profile completeness percentage tracker</li>
+                    <li>Profile picture upload capability</li>
+                    <li>Medical history and dependents management</li>
+                </ul>
+            </div>
+
+            <div class="gap-item">
+                <h4>4. Salary Advance Requests</h4>
+                <ul>
+                    <li>Request percentage of salary before payday</li>
+                    <li>Multi-level approval workflow</li>
+                    <li>Integration with payroll deductions</li>
+                </ul>
+            </div>
+
+            <div class="gap-item">
+                <h4>5. Exit Management</h4>
+                <ul>
+                    <li>Digital resignation submission</li>
+                    <li>Notice period and financial calculations</li>
+                    <li>Handover notes and task management</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="priority-section priority-medium">
+            <span class="priority-label medium">Medium Priority</span>
+            <p style="font-size: 11px; color: #6b7280; margin-bottom: 15px;">Enhanced functionality for improved user experience</p>
+
+            <div class="gap-item">
+                <h4>6. Employee Directory</h4>
+                <p>Searchable colleague database with birthday and work anniversary reminders</p>
+            </div>
+
+            <div class="gap-item">
+                <h4>7. Organogram Visualization</h4>
+                <p>Personal reporting structure view and company-wide organizational chart</p>
+            </div>
+
+            <div class="gap-item">
+                <h4>8. Grievance & Whistleblowing</h4>
+                <p>Anonymous complaint submission with file attachments and disciplinary workflow integration</p>
+            </div>
+
+            <div class="gap-item">
+                <h4>9. Requisition System</h4>
+                <p>Service and expense request workflows with multi-level approvals</p>
+            </div>
+
+            <div class="gap-item">
+                <h4>10. Competency Management</h4>
+                <p>Skills assessment framework with knowledge gap identification and training recommendations</p>
+            </div>
+        </div>
+
+        <div class="priority-section priority-low">
+            <span class="priority-label low">Lower Priority</span>
+            <p style="font-size: 11px; color: #6b7280; margin-bottom: 15px;">Nice-to-have features for comprehensive platform</p>
+
+            <div class="gap-item">
+                <h4>Additional Features</h4>
+                <ul>
+                    <li>Multi-currency payroll with exchange rate display</li>
+                    <li>Anonymous employee survey system</li>
+                    <li>Internal job board with referral links</li>
+                    <li>Certificate social media sharing</li>
+                    <li>Return from leave auto-access workflow</li>
+                    <li>Native mobile applications (Android/iOS)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Strengths -->
+        <h2>ConsultPro Existing Strengths</h2>
+
+        <div class="strengths-grid">
+            <div class="strength-card">
+                <h4>Nigeria Tax Compliance</h4>
+                <p>Full PAYE progressive tax bands, Pension (8%+10%), NHF (2.5%), VAT, WHT</p>
+            </div>
+            <div class="strength-card">
+                <h4>Multi-tenant Architecture</h4>
+                <p>Schema-based tenant isolation for enterprise SaaS deployment</p>
+            </div>
+            <div class="strength-card">
+                <h4>Comprehensive LMS</h4>
+                <p>Training modules with lessons, quizzes, progress tracking, and certificates</p>
+            </div>
+            <div class="strength-card">
+                <h4>22-Item Onboarding</h4>
+                <p>Comprehensive checklist covering HR, documents, policies, IT, and orientation</p>
+            </div>
+            <div class="strength-card">
+                <h4>Policy Acknowledgements</h4>
+                <p>Digital policy sign-off workflow with audit trail</p>
+            </div>
+            <div class="strength-card">
+                <h4>Working Days Calculation</h4>
+                <p>Holiday-aware leave calculation with half-day support</p>
+            </div>
+        </div>
+
+        <!-- Roadmap -->
+        <h2>Recommended Implementation Roadmap</h2>
+
+        <div class="roadmap">
+            <div class="phase">
+                <div class="phase-marker">
+                    <div class="phase-dot">1</div>
+                    <div class="phase-line"></div>
+                </div>
+                <div class="phase-content">
+                    <div class="phase-title">Phase 1: Core ESS Enhancement</div>
+                    <ul class="phase-items">
+                        <li>Time & Attendance module (web clock in/out)</li>
+                        <li>Profile completeness tracker with picture upload</li>
+                        <li>Leave calendar with relief officer selection</li>
+                        <li>Employee directory with colleague search</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="phase">
+                <div class="phase-marker">
+                    <div class="phase-dot">2</div>
+                    <div class="phase-line"></div>
+                </div>
+                <div class="phase-content">
+                    <div class="phase-title">Phase 2: Financial Self-Service</div>
+                    <ul class="phase-items">
+                        <li>Salary advance request module</li>
+                        <li>Exit management with financial visibility</li>
+                        <li>Requisition and expense claims system</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="phase">
+                <div class="phase-marker">
+                    <div class="phase-dot">3</div>
+                    <div class="phase-line"></div>
+                </div>
+                <div class="phase-content">
+                    <div class="phase-title">Phase 3: Organization & Culture</div>
+                    <ul class="phase-items">
+                        <li>Organogram visualization</li>
+                        <li>Birthday and anniversary notifications</li>
+                        <li>Anonymous whistleblowing system</li>
+                        <li>Employee surveys module</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="phase">
+                <div class="phase-marker">
+                    <div class="phase-dot">4</div>
+                </div>
+                <div class="phase-content">
+                    <div class="phase-title">Phase 4: Advanced Features</div>
+                    <ul class="phase-items">
+                        <li>Competency assessment framework</li>
+                        <li>Internal job board with referrals</li>
+                        <li>Mobile app (PWA or native)</li>
+                        <li>Biometric integration APIs</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><span class="footer-brand">Rozitech Consulting</span> | ConsultPro Platform Analysis</p>
+            <p>Document generated January 2026 | Confidential</p>
+        </div>
+    </div>
+</body>
+</html>

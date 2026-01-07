@@ -16,7 +16,9 @@ import {
   IdentificationIcon,
   DocumentDuplicateIcon,
   ClipboardDocumentIcon,
-  BeakerIcon
+  BeakerIcon,
+  TrashIcon,
+  LinkIcon
 } from '@heroicons/react/24/outline';
 import api from '../../utils/api';
 import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
@@ -48,6 +50,7 @@ function Consultants() {
   const [showCloneResult, setShowCloneResult] = useState(false);
   const [cloneResult, setCloneResult] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(null); // employee id being deleted
 
   const {
     selectedIds,
@@ -289,6 +292,63 @@ function Consultants() {
       // Clone might not have ESS access yet - need to activate first
       const errorMsg = err.response?.data?.error || 'Failed to impersonate clone';
       alert(`${errorMsg}\n\nNote: The clone needs to complete ESS activation first.`);
+    }
+  };
+
+  const handleDeleteTestClone = async (employeeId, employeeName) => {
+    if (!confirm(`Are you sure you want to delete test clone "${employeeName}"?\n\nThis will permanently remove the clone and all associated data.`)) {
+      return;
+    }
+
+    setDeleteLoading(employeeId);
+    try {
+      const response = await api.delete(
+        `/api/superadmin/test-clones/${employeeId}`,
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        // Refresh the employee list directly
+        if (expandedCompany) {
+          const refreshResponse = await api.get(
+            `/api/superadmin/companies/${expandedCompany}/employees`,
+            getAuthHeaders()
+          );
+          if (refreshResponse.data.success) {
+            setCompanyEmployees(refreshResponse.data.data);
+          }
+        }
+        alert(`Test clone "${employeeName}" deleted successfully.`);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to delete test clone';
+      alert(errorMsg);
+      console.error('Delete test clone failed:', err);
+    } finally {
+      setDeleteLoading(null);
+    }
+  };
+
+  const handleGetActivationLink = async (employeeId, employeeName) => {
+    try {
+      const response = await api.post(
+        `/api/superadmin/test-clones/${employeeId}/regenerate-invitation`,
+        {},
+        getAuthHeaders()
+      );
+
+      if (response.data.success) {
+        const { activationLink } = response.data.data.invitation;
+
+        // Copy to clipboard
+        await navigator.clipboard.writeText(activationLink);
+
+        alert(`Activation link copied to clipboard!\n\nLink: ${activationLink}\n\nOpen this link in a new browser/incognito window to test the ESS onboarding flow.`);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to get activation link';
+      alert(errorMsg);
+      console.error('Get activation link failed:', err);
     }
   };
 
@@ -578,7 +638,7 @@ function Consultants() {
                                         <div className="border-t border-primary-100 bg-primary-50/50 p-3">
                                           <h5 className="text-xs font-semibold text-primary-600 mb-2 flex items-center gap-1">
                                             <UsersIcon className="h-3.5 w-3.5" />
-                                            Employees with ESS Access
+                                            Employees (Clone for Testing)
                                           </h5>
                                           {employeesLoading ? (
                                             <div className="flex items-center justify-center py-4">
@@ -646,13 +706,38 @@ function Consultants() {
                                                       ESS
                                                       <ArrowTopRightOnSquareIcon className="h-2.5 w-2.5" />
                                                     </button>
+                                                    {emp.is_test_clone && (
+                                                      <>
+                                                        <button
+                                                          onClick={() => handleGetActivationLink(emp.id, `${emp.first_name} ${emp.last_name}`)}
+                                                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-purple-100 text-purple-700 rounded hover:bg-purple-200 font-medium"
+                                                          title="Get ESS activation link"
+                                                        >
+                                                          <LinkIcon className="h-3 w-3" />
+                                                          Get Link
+                                                        </button>
+                                                        <button
+                                                          onClick={() => handleDeleteTestClone(emp.id, `${emp.first_name} ${emp.last_name}`)}
+                                                          disabled={deleteLoading === emp.id}
+                                                          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-red-100 text-red-700 rounded hover:bg-red-200 font-medium disabled:opacity-50"
+                                                          title="Delete test clone"
+                                                        >
+                                                          {deleteLoading === emp.id ? (
+                                                            <span className="animate-spin h-3 w-3 border border-red-700 border-t-transparent rounded-full" />
+                                                          ) : (
+                                                            <TrashIcon className="h-3 w-3" />
+                                                          )}
+                                                          Delete
+                                                        </button>
+                                                      </>
+                                                    )}
                                                   </div>
                                                 </div>
                                               ))}
                                             </div>
                                           ) : (
                                             <p className="text-xs text-primary-500 italic py-2">
-                                              No employees with ESS access. Invite employees to ESS first.
+                                              No employees in this company yet.
                                             </p>
                                           )}
                                         </div>

@@ -97,13 +97,14 @@ async function initializeOnboarding(tenantId, companyId, employeeId, workflowId 
     const phaseConfig = workflow?.phase_config || DEFAULT_PHASE_CONFIG;
 
     // Create employee_onboarding record
+    // Note: current_phase is INTEGER (1-5), not string
     const onboardingResult = await client.query(`
       INSERT INTO employee_onboarding (
         tenant_id, company_id, employee_id, workflow_id,
         current_phase, overall_status, phase_statuses, started_at
-      ) VALUES ($1, $2, $3, $4, 'phase1', 'in_progress', $5, NOW())
+      ) VALUES ($1, $2, $3, $4, 1, 'in_progress', $5, NOW())
       ON CONFLICT (employee_id) DO UPDATE SET
-        current_phase = 'phase1',
+        current_phase = 1,
         overall_status = 'in_progress',
         started_at = COALESCE(employee_onboarding.started_at, NOW())
       RETURNING *
@@ -518,12 +519,17 @@ async function activateEmployee(tenantId, employeeId, activatedBy) {
  * Get onboarding progress summary
  */
 async function getOnboardingProgress(tenantId, employeeId) {
+  console.log('[getOnboardingProgress] Looking for employeeId:', employeeId, 'tenantId:', tenantId);
+
+  // Query by employee_id only (it's unique) - tenant_id was causing mismatches
   const onboardingResult = await pool.query(`
     SELECT eo.*, e.first_name, e.last_name, e.profile_completion_percentage
     FROM employee_onboarding eo
     JOIN employees e ON eo.employee_id = e.id
-    WHERE eo.employee_id = $1 AND eo.tenant_id = $2
-  `, [employeeId, tenantId]);
+    WHERE eo.employee_id = $1
+  `, [employeeId]);
+
+  console.log('[getOnboardingProgress] Found records:', onboardingResult.rows.length);
 
   if (onboardingResult.rows.length === 0) {
     return null;

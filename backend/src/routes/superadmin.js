@@ -844,7 +844,7 @@ router.post('/consultants/:id/impersonate', [
 
 /**
  * GET /api/superadmin/companies/:id/employees
- * Get employees with ESS access for a company (for impersonation)
+ * Get all employees for a company (for impersonation and cloning)
  */
 router.get('/companies/:id/employees', [
   authenticateSuperadmin,
@@ -853,17 +853,17 @@ router.get('/companies/:id/employees', [
   try {
     const { id } = req.params;
 
-    // Get employees with ESS access (user_id is not null) OR test clones (which might not have user_id yet)
+    // Get ALL employees - superadmin needs to see all for cloning, even those without ESS
     const result = await query(`
       SELECT
         e.id, e.first_name, e.last_name, e.email, e.job_title,
         e.user_id, e.ess_enabled, e.is_test_clone, e.cloned_from_id,
+        e.employment_status,
         c.legal_name as company_name
       FROM employees e
       JOIN companies c ON e.company_id = c.id
       WHERE e.company_id = $1
         AND e.deleted_at IS NULL
-        AND (e.user_id IS NOT NULL OR e.is_test_clone = true)
       ORDER BY e.is_test_clone DESC, e.first_name, e.last_name
       LIMIT 50
     `, [id]);
@@ -1148,13 +1148,14 @@ router.post('/employees/:id/clone', [
 ], async (req, res) => {
   try {
     const { id } = req.params;
-    const jwt = require('jsonwebtoken');
+
+    console.log('[Clone] Starting clone for employee:', id);
 
     // Get source employee with company and consultant info
     const sourceResult = await query(`
       SELECT
         e.*,
-        c.id as company_id, c.legal_name as company_name, c.consultant_id,
+        c.id as comp_id, c.legal_name as company_name, c.consultant_id,
         co.company_name as consultant_name, co.tenant_id
       FROM employees e
       JOIN companies c ON e.company_id = c.id
@@ -1168,51 +1169,62 @@ router.post('/employees/:id/clone', [
 
     const source = sourceResult.rows[0];
     const tenantId = source.tenant_id;
-    const companyId = source.company_id;
+    const companyId = source.comp_id || source.company_id;
+
+    console.log('[Clone] Source employee:', source.first_name, source.last_name, 'Company:', companyId, 'Tenant:', tenantId);
 
     // Generate test email and employee number
     const timestamp = Date.now();
-    const testEmail = `test.${source.first_name.toLowerCase()}.${timestamp}@test.corehr.local`;
+    const firstName = source.first_name || 'test';
+    const testEmail = `test.${firstName.toLowerCase()}.${timestamp}@test.corehr.local`;
 
     // Get next test employee number
     const seqResult = await query(`
       SELECT COUNT(*) as count FROM employees
-      WHERE is_test_clone = true AND tenant_id = $1
-    `, [tenantId]);
+      WHERE is_test_clone = true AND company_id = $1
+    `, [companyId]);
     const seqNum = parseInt(seqResult.rows[0].count) + 1;
     const testEmployeeNumber = `TEST-${new Date().getFullYear()}-${String(seqNum).padStart(4, '0')}`;
 
     // Create cloned employee
-    const cloneResult = await query(`
-      INSERT INTO employees (
-        tenant_id, company_id, employee_number,
-        first_name, last_name, email,
-        job_title, department, employment_type,
-        hire_date, employment_status,
-        is_test_clone, cloned_from_id,
-        ess_enabled, phone, gender, marital_status,
-        date_of_birth, address, city, state, country
-      ) VALUES (
-        $1, $2, $3,
-        $4, $5, $6,
-        $7, $8, $9,
-        $10, 'preboarding',
-        true, $11,
-        true, $12, $13, $14,
-        $15, $16, $17, $18, $19
-      )
-      RETURNING *
-    `, [
-      tenantId, companyId, testEmployeeNumber,
-      source.first_name, source.last_name + ' (Test)', testEmail,
-      source.job_title, source.department, source.employment_type || 'full_time',
-      source.hire_date || new Date(),
-      id,
-      source.phone, source.gender, source.marital_status,
-      source.date_of_birth, source.address, source.city, source.state, source.country
-    ]);
+    console.log('[Clone] Creating clone with employee number:', testEmployeeNumber);
 
-    const clonedEmployee = cloneResult.rows[0];
+    let clonedEmployee;
+    try {
+      const cloneResult = await query(`
+        INSERT INTO employees (
+          company_id, employee_number,
+          first_name, last_name, email,
+          job_title, department, employment_type,
+          hire_date, employment_status,
+          is_test_clone, cloned_from_id,
+          ess_enabled, phone, gender, marital_status,
+          date_of_birth, address_line1, city, state_of_residence, country
+        ) VALUES (
+          $1, $2,
+          $3, $4, $5,
+          $6, $7, $8,
+          $9, 'preboarding',
+          true, $10,
+          true, $11, $12, $13,
+          $14, $15, $16, $17, $18
+        )
+        RETURNING *
+      `, [
+        companyId, testEmployeeNumber,
+        source.first_name || 'Test', (source.last_name || 'Clone') + ' (Test)', testEmail,
+        source.job_title, source.department, source.employment_type || 'full_time',
+        source.hire_date || new Date(),
+        id,
+        source.phone, source.gender, source.marital_status,
+        source.date_of_birth, source.address_line1 || source.address, source.city, source.state_of_residence || source.state, source.country
+      ]);
+      clonedEmployee = cloneResult.rows[0];
+      console.log('[Clone] Employee cloned successfully:', clonedEmployee.id);
+    } catch (insertError) {
+      console.error('[Clone] Failed to insert employee:', insertError.message);
+      return res.status(500).json({ success: false, error: `Failed to create clone: ${insertError.message}` });
+    }
 
     // Initialize onboarding workflow for the clone
     try {
@@ -1232,12 +1244,19 @@ router.post('/employees/:id/clone', [
     const inviteToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    await query(`
-      INSERT INTO ess_invitations (
-        tenant_id, company_id, employee_id,
-        token, expires_at, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-    `, [tenantId, companyId, clonedEmployee.id, inviteToken, expiresAt, null]);
+    console.log('[Clone] Creating ESS invitation...');
+    try {
+      await query(`
+        INSERT INTO employee_invitations (
+          employee_id, company_id, email,
+          token, expires_at, sent_at, created_by
+        ) VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+      `, [clonedEmployee.id, companyId, testEmail, inviteToken, expiresAt, null]);
+      console.log('[Clone] ESS invitation created');
+    } catch (inviteError) {
+      console.error('[Clone] Failed to create ESS invitation:', inviteError.message);
+      return res.status(500).json({ success: false, error: `Clone created but invitation failed: ${inviteError.message}` });
+    }
 
     const activationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${inviteToken}`;
 
@@ -1293,7 +1312,7 @@ router.post('/employees/:id/clone', [
     });
   } catch (error) {
     console.error('Clone employee error:', error);
-    res.status(500).json({ success: false, error: 'Failed to clone employee' });
+    res.status(500).json({ success: false, error: `Clone failed: ${error.message}` });
   }
 });
 
@@ -1364,6 +1383,71 @@ router.get('/test-clones', authenticateSuperadmin, async (req, res) => {
 });
 
 /**
+ * POST /api/superadmin/test-clones/:id/regenerate-invitation
+ * Regenerate ESS invitation for a test clone
+ */
+router.post('/test-clones/:id/regenerate-invitation', [
+  authenticateSuperadmin,
+  param('id').isUUID()
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get test clone employee
+    const empResult = await query(`
+      SELECT e.*, c.legal_name as company_name
+      FROM employees e
+      JOIN companies c ON e.company_id = c.id
+      WHERE e.id = $1 AND e.is_test_clone = true AND e.deleted_at IS NULL
+    `, [id]);
+
+    if (empResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Test clone not found' });
+    }
+
+    const employee = empResult.rows[0];
+
+    // Delete old invitation if exists
+    await query('DELETE FROM ess_invitations WHERE employee_id = $1', [id]);
+
+    // Create new invitation
+    const inviteToken = require('crypto').randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    await query(`
+      INSERT INTO ess_invitations (employee_id, company_id, token, expires_at, created_by)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [id, employee.company_id, inviteToken, expiresAt, req.superadmin.id]);
+
+    const activationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${inviteToken}`;
+
+    console.log('[Test Clone] Regenerated invitation for:', employee.email);
+    console.log('[Test Clone] Activation link:', activationLink);
+
+    res.json({
+      success: true,
+      data: {
+        employee: {
+          id: employee.id,
+          employee_number: employee.employee_number,
+          first_name: employee.first_name,
+          last_name: employee.last_name,
+          email: employee.email
+        },
+        invitation: {
+          token: inviteToken,
+          activationLink,
+          expiresAt
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Regenerate invitation error:', error);
+    res.status(500).json({ success: false, error: 'Failed to regenerate invitation' });
+  }
+});
+
+/**
  * DELETE /api/superadmin/test-clones/:id
  * Delete a test clone and all associated data
  */
@@ -1397,29 +1481,70 @@ router.delete('/test-clones/:id', [
     }
 
     // Delete associated data in order (respecting foreign keys)
+    // Use try-catch for each to handle tables that might not exist
 
-    // 1. Delete onboarding documents
-    await query('DELETE FROM onboarding_documents WHERE employee_id = $1', [id]);
+    // Onboarding related
+    await query('DELETE FROM onboarding_documents WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_onboarding WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM probation_checkin_tasks WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_medical_info WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 2. Delete employee onboarding record
-    await query('DELETE FROM employee_onboarding WHERE employee_id = $1', [id]);
+    // EMS related (migration 013)
+    await query('DELETE FROM employee_documents WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_dependents WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_emergency_contacts WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_education WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_work_history WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_disciplinary WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_grievances WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_grievances WHERE against_employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_assets WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_transitions WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_performance_reviews WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_performance_reviews WHERE reviewer_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_training WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_certifications WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_skills WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM employee_exit_interviews WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 3. Delete probation checkin tasks
-    await query('DELETE FROM probation_checkin_tasks WHERE employee_id = $1', [id]);
+    // Payroll related (migration 012)
+    await query('DELETE FROM payroll_deductions WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM payroll_earnings WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM payroll_records WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 4. Delete medical info
-    await query('DELETE FROM employee_medical_info WHERE employee_id = $1', [id]);
+    // Statutory remittances (migration 015)
+    await query('DELETE FROM statutory_remittance_items WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 5. Delete ESS invitation
-    await query('DELETE FROM ess_invitations WHERE employee_id = $1', [id]);
+    // Leave management (migration 006)
+    await query('DELETE FROM leave_requests WHERE employee_id = $1', [id]).catch(() => {});
+    await query('DELETE FROM leave_balances WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 6. Delete user account if exists
-    if (clone.user_id) {
-      await query('DELETE FROM users WHERE id = $1', [clone.user_id]);
-    }
+    // Training progress
+    await query('DELETE FROM training_progress WHERE employee_id = $1', [id]).catch(() => {});
 
-    // 7. Finally delete the employee (hard delete for test clones)
+    // Employee positions (migration 005)
+    await query('DELETE FROM employee_positions WHERE employee_id = $1', [id]).catch(() => {});
+
+    // ESS invitation
+    await query('DELETE FROM employee_invitations WHERE employee_id = $1', [id]).catch(() => {});
+
+    // User account - break the FK by setting employee_id to NULL
+    // (Deleting user is complex due to many tables referencing users)
+    const userUpdateResult = await query('UPDATE users SET employee_id = NULL WHERE employee_id = $1 RETURNING id', [id]);
+    console.log(`Unlinked ${userUpdateResult.rowCount} user(s) from employee ${id}`);
+
+    // Now we can safely delete the employee
+    console.log(`Attempting to delete employee ${id}`);
     await query('DELETE FROM employees WHERE id = $1', [id]);
+
+    // Optionally try to delete the orphaned user account (may fail if user has other records)
+    if (userUpdateResult.rows.length > 0) {
+      for (const row of userUpdateResult.rows) {
+        await query('DELETE FROM users WHERE id = $1', [row.id]).catch(err => {
+          console.log(`Could not delete user ${row.id}: ${err.message} (user left orphaned)`);
+        });
+      }
+    }
 
     // Log the action
     await logSuperadminAction(
@@ -1449,7 +1574,7 @@ router.delete('/test-clones/:id', [
     });
   } catch (error) {
     console.error('Delete test clone error:', error);
-    res.status(500).json({ success: false, error: 'Failed to delete test clone' });
+    res.status(500).json({ success: false, error: `Failed to delete test clone: ${error.message}` });
   }
 });
 

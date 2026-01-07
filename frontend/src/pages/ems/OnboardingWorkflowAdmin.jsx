@@ -38,22 +38,21 @@ export default function OnboardingWorkflowAdmin() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const params = isCompanyMode && selectedCompany?.id ? { company_id: selectedCompany.id } : {};
+      // Always send company_id if a company is selected
+      const params = selectedCompany?.id ? { company_id: selectedCompany.id } : {};
+      console.log('[OnboardingWorkflow] Fetching with params:', params);
 
-      const [employeesRes, workflowsRes] = await Promise.all([
+      const [employeesRes, newHiresRes, workflowsRes] = await Promise.all([
         api.get('/api/onboarding-workflow/employees', { params }),
+        api.get('/api/onboarding-workflow/new-hires', { params }),
         api.get('/api/onboarding-workflow/workflows', { params })
       ]);
 
-      const allEmployees = employeesRes.data.data || [];
-      setEmployees(allEmployees);
-      setWorkflows(workflowsRes.data.data || []);
+      console.log('[OnboardingWorkflow] New hires response:', newHiresRes.data);
 
-      // Filter for employees needing onboarding (no onboarding record or preboarding status)
-      const needsOnboarding = allEmployees.filter(e =>
-        !e.onboarding_id || e.employment_status === 'preboarding'
-      );
-      setNewHires(needsOnboarding);
+      setEmployees(employeesRes.data.data || []);
+      setNewHires(newHiresRes.data.data || []);
+      setWorkflows(workflowsRes.data.data || []);
 
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -275,7 +274,9 @@ export default function OnboardingWorkflowAdmin() {
               {employees.filter(e => e.overall_status !== 'completed').map((employee) => (
                 <tr key={employee.employee_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{employee.employee_name}</div>
+                    <div className="font-medium text-gray-900">
+                      {employee.first_name} {employee.last_name}
+                    </div>
                     <div className="text-sm text-gray-500">{employee.job_title}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -361,7 +362,7 @@ export default function OnboardingWorkflowAdmin() {
                     <button
                       onClick={() => handleStartOnboarding(employee.id || employee.employee_id)}
                       disabled={processing === (employee.id || employee.employee_id)}
-                      className="px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary/90 disabled:opacity-50"
+                      className="px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 disabled:opacity-50 shadow-sm"
                     >
                       {processing === (employee.id || employee.employee_id) ? 'Starting...' : 'Start Onboarding'}
                     </button>
@@ -469,7 +470,7 @@ export default function OnboardingWorkflowAdmin() {
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b flex items-center justify-between sticky top-0 bg-white">
               <div>
-                <h3 className="text-lg font-semibold">{selectedEmployee.employee_name}</h3>
+                <h3 className="text-lg font-semibold">{selectedEmployee.first_name} {selectedEmployee.last_name}</h3>
                 <p className="text-sm text-gray-500">{selectedEmployee.job_title} | {selectedEmployee.department}</p>
               </div>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -485,19 +486,19 @@ export default function OnboardingWorkflowAdmin() {
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm text-gray-500">Current Phase</div>
                   <div className="font-semibold text-gray-900">
-                    {PHASE_LABELS[employeeOnboarding.onboarding?.current_phase] || 'Not Started'}
+                    {PHASE_LABELS[employeeOnboarding?.current_phase] || 'Not Started'}
                   </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm text-gray-500">Profile Completion</div>
                   <div className="font-semibold text-gray-900">
-                    {employeeOnboarding.profile_completion || 0}%
+                    {employeeOnboarding?.profile_completion_percentage || 0}%
                   </div>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="text-sm text-gray-500">Employee File</div>
                   <div className="font-semibold text-gray-900">
-                    {employeeOnboarding.onboarding?.employee_file_complete ? (
+                    {employeeOnboarding?.employee_file_complete ? (
                       <span className="text-green-600">Complete</span>
                     ) : (
                       <span className="text-orange-600">Pending</span>

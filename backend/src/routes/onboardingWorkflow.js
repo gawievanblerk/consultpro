@@ -47,7 +47,7 @@ router.use(authenticateToken);
  */
 router.get('/workflows', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { company_id, active_only } = req.query;
 
     let query = `
@@ -84,7 +84,7 @@ router.get('/workflows', async (req, res) => {
  */
 router.get('/workflows/:id', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { id } = req.params;
 
     const result = await pool.query(`
@@ -111,7 +111,7 @@ router.get('/workflows/:id', async (req, res) => {
  */
 router.post('/workflows', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { name, description, company_id, phase_config, is_default } = req.body;
 
@@ -147,7 +147,7 @@ router.post('/workflows', async (req, res) => {
  */
 router.put('/workflows/:id', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { id } = req.params;
     const { name, description, phase_config, is_default, is_active } = req.body;
 
@@ -200,31 +200,55 @@ router.put('/workflows/:id', async (req, res) => {
  */
 router.get('/employees', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { company_id, status, phase } = req.query;
 
-    let query = `
-      SELECT
-        eo.*,
-        e.first_name, e.last_name, e.email, e.employee_number,
-        e.job_title, e.department, e.hire_date, e.employment_status,
-        e.profile_completion_percentage,
-        c.legal_name as company_name,
-        w.name as workflow_name,
-        (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id) as total_documents,
-        (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id AND od.status IN ('signed', 'acknowledged', 'verified')) as completed_documents
-      FROM employee_onboarding eo
-      JOIN employees e ON eo.employee_id = e.id
-      JOIN companies c ON eo.company_id = c.id
-      LEFT JOIN onboarding_workflows w ON eo.workflow_id = w.id
-      WHERE eo.tenant_id = $1
-    `;
-    const params = [tenantId];
-    let paramIdx = 2;
+    console.log('[Employees] tenantId:', tenantId, 'company_id:', company_id, 'user:', req.user?.email);
+
+    let query;
+    let params;
+    let paramIdx;
 
     if (company_id) {
-      query += ` AND eo.company_id = $${paramIdx++}`;
-      params.push(company_id);
+      // Use company_id as primary filter when provided
+      query = `
+        SELECT
+          eo.*,
+          e.first_name, e.last_name, e.email, e.employee_number,
+          e.job_title, e.department, e.hire_date, e.employment_status,
+          e.profile_completion_percentage,
+          c.legal_name as company_name,
+          w.name as workflow_name,
+          (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id) as total_documents,
+          (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id AND od.status IN ('signed', 'acknowledged', 'verified')) as completed_documents
+        FROM employee_onboarding eo
+        JOIN employees e ON eo.employee_id = e.id
+        JOIN companies c ON eo.company_id = c.id
+        LEFT JOIN onboarding_workflows w ON eo.workflow_id = w.id
+        WHERE eo.company_id = $1
+      `;
+      params = [company_id];
+      paramIdx = 2;
+    } else {
+      // Fallback to tenant_id filter
+      query = `
+        SELECT
+          eo.*,
+          e.first_name, e.last_name, e.email, e.employee_number,
+          e.job_title, e.department, e.hire_date, e.employment_status,
+          e.profile_completion_percentage,
+          c.legal_name as company_name,
+          w.name as workflow_name,
+          (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id) as total_documents,
+          (SELECT COUNT(*) FROM onboarding_documents od WHERE od.onboarding_id = eo.id AND od.status IN ('signed', 'acknowledged', 'verified')) as completed_documents
+        FROM employee_onboarding eo
+        JOIN employees e ON eo.employee_id = e.id
+        JOIN companies c ON eo.company_id = c.id
+        LEFT JOIN onboarding_workflows w ON eo.workflow_id = w.id
+        WHERE eo.tenant_id = $1
+      `;
+      params = [tenantId];
+      paramIdx = 2;
     }
 
     if (status) {
@@ -239,7 +263,9 @@ router.get('/employees', async (req, res) => {
 
     query += ' ORDER BY eo.created_at DESC';
 
+    console.log('[Employees] Query params:', params);
     const result = await pool.query(query, params);
+    console.log('[Employees] Found', result.rows.length, 'employees in onboarding');
 
     // Calculate progress percentage
     const employees = result.rows.map(row => ({
@@ -257,12 +283,67 @@ router.get('/employees', async (req, res) => {
 });
 
 /**
+ * GET /api/onboarding-workflow/new-hires
+ * List employees who need onboarding (no onboarding record yet or preboarding status)
+ */
+router.get('/new-hires', async (req, res) => {
+  try {
+    const { company_id } = req.query;
+
+    console.log('[New Hires] company_id:', company_id, 'user:', req.user?.email);
+
+    // If company_id provided, filter by it; otherwise get all for the user
+    let query;
+    let params;
+
+    if (company_id) {
+      // Direct company filter - most common case
+      query = `
+        SELECT
+          e.id, e.id as employee_id,
+          e.first_name, e.last_name, e.email, e.employee_number,
+          e.job_title, e.department, e.hire_date, e.employment_status,
+          c.legal_name as company_name,
+          c.id as company_id,
+          eo.id as onboarding_id
+        FROM employees e
+        JOIN companies c ON e.company_id = c.id
+        LEFT JOIN employee_onboarding eo ON e.id = eo.employee_id
+        WHERE e.company_id = $1
+          AND e.deleted_at IS NULL
+        ORDER BY e.hire_date DESC NULLS LAST, e.created_at DESC
+      `;
+      params = [company_id];
+    } else {
+      // No company filter - return empty (require company selection)
+      console.log('[New Hires] No company_id provided, returning empty');
+      return res.json({ success: true, data: [] });
+    }
+
+    const allResult = await pool.query(query, params);
+    console.log('[New Hires] Total employees found:', allResult.rows.length);
+    allResult.rows.forEach(r => {
+      console.log(`  - ${r.first_name} ${r.last_name}: onboarding_id=${r.onboarding_id}, status=${r.employment_status}`);
+    });
+
+    // Filter for new hires (no onboarding record yet)
+    const newHires = allResult.rows.filter(e => !e.onboarding_id);
+    console.log('[New Hires] Filtered new hires (no onboarding):', newHires.length);
+
+    res.json({ success: true, data: newHires });
+  } catch (error) {
+    console.error('Error fetching new hires:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch new hires' });
+  }
+});
+
+/**
  * GET /api/onboarding-workflow/employees/:employeeId
  * Get detailed onboarding status for an employee
  */
 router.get('/employees/:employeeId', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { employeeId } = req.params;
 
     // Get onboarding record
@@ -320,26 +401,91 @@ router.get('/employees/:employeeId', async (req, res) => {
 });
 
 /**
+ * GET /api/onboarding-workflow/employees/:employeeId/status
+ * Alias for getting employee onboarding status (same as /:employeeId)
+ */
+router.get('/employees/:employeeId/status', async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+
+    // Get onboarding record - filter by employee_id and company
+    const onboardingResult = await pool.query(`
+      SELECT
+        eo.*,
+        e.first_name, e.last_name, e.email, e.employee_number,
+        e.job_title, e.department, e.hire_date, e.employment_status,
+        e.profile_completion_percentage,
+        c.legal_name as company_name,
+        w.name as workflow_name,
+        w.phase_config
+      FROM employee_onboarding eo
+      JOIN employees e ON eo.employee_id = e.id
+      JOIN companies c ON eo.company_id = c.id
+      LEFT JOIN onboarding_workflows w ON eo.workflow_id = w.id
+      WHERE eo.employee_id = $1
+    `, [employeeId]);
+
+    if (onboardingResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Onboarding record not found' });
+    }
+
+    const onboarding = onboardingResult.rows[0];
+
+    // Get all documents for this onboarding
+    const documentsResult = await pool.query(`
+      SELECT *
+      FROM onboarding_documents
+      WHERE onboarding_id = $1
+      ORDER BY phase, sort_order, document_type
+    `, [onboarding.id]);
+
+    // Group documents by phase
+    const documentsByPhase = {};
+    documentsResult.rows.forEach(doc => {
+      if (!documentsByPhase[doc.phase]) {
+        documentsByPhase[doc.phase] = [];
+      }
+      documentsByPhase[doc.phase].push(doc);
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...onboarding,
+        documents: documentsResult.rows,
+        documentsByPhase
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching employee onboarding status:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch onboarding status' });
+  }
+});
+
+/**
  * POST /api/onboarding-workflow/employees/:employeeId/start
  * Start onboarding for an employee
  */
 router.post('/employees/:employeeId/start', async (req, res) => {
   const client = await pool.connect();
   try {
-    const tenantId = req.user.tenant_id;
-    const userId = req.user.id;
+    const tenantId = req.tenant_id || req.user?.org;
+    const userId = req.user?.id;
     const { employeeId } = req.params;
     const { workflow_id } = req.body;
 
+    console.log('[Start Onboarding] employeeId:', employeeId, 'tenantId:', tenantId);
+
     await client.query('BEGIN');
 
-    // Get employee details
+    // Get employee details (employees don't have tenant_id, use company->consultant->tenant)
     const employeeResult = await client.query(`
-      SELECT e.*, c.id as company_id
+      SELECT e.*, c.id as company_id, co.tenant_id
       FROM employees e
       JOIN companies c ON e.company_id = c.id
-      WHERE e.id = $1 AND e.tenant_id = $2 AND e.deleted_at IS NULL
-    `, [employeeId, tenantId]);
+      JOIN consultants co ON c.consultant_id = co.id
+      WHERE e.id = $1 AND e.deleted_at IS NULL
+    `, [employeeId]);
 
     if (employeeResult.rows.length === 0) {
       await client.query('ROLLBACK');
@@ -347,6 +493,9 @@ router.post('/employees/:employeeId/start', async (req, res) => {
     }
 
     const employee = employeeResult.rows[0];
+    // Use tenant_id from the employee's consultant
+    const effectiveTenantId = employee.tenant_id || tenantId;
+    console.log('[Start Onboarding] Using tenant_id:', effectiveTenantId);
 
     // Check if onboarding already exists
     const existingResult = await client.query(
@@ -356,7 +505,12 @@ router.post('/employees/:employeeId/start', async (req, res) => {
 
     if (existingResult.rows.length > 0) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ success: false, error: 'Onboarding already started for this employee' });
+      console.log('[Start Onboarding] Already exists for employee:', employeeId, 'onboarding_id:', existingResult.rows[0].id);
+      return res.status(400).json({
+        success: false,
+        error: 'Onboarding already started for this employee',
+        onboarding_id: existingResult.rows[0].id
+      });
     }
 
     // Get workflow (use specified or default)
@@ -364,7 +518,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
       SELECT * FROM onboarding_workflows
       WHERE tenant_id = $1 AND deleted_at IS NULL AND is_active = true
     `;
-    const workflowParams = [tenantId];
+    const workflowParams = [effectiveTenantId];
 
     if (workflow_id) {
       workflowQuery += ' AND id = $2';
@@ -378,13 +532,62 @@ router.post('/employees/:employeeId/start', async (req, res) => {
 
     const workflowResult = await client.query(workflowQuery, workflowParams);
 
-    if (workflowResult.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ success: false, error: 'No onboarding workflow found' });
-    }
+    // Use workflow from DB or default config
+    let workflow = workflowResult.rows[0];
+    let phaseConfig;
 
-    const workflow = workflowResult.rows[0];
-    const phaseConfig = workflow.phase_config;
+    if (!workflow) {
+      console.log('[Start Onboarding] No workflow found, using default config');
+      // Default phase configuration
+      phaseConfig = {
+        phase1: {
+          name: 'Document Signing',
+          due_days: 3,
+          hard_gate: true,
+          documents: [
+            { type: 'offer_letter', title: 'Offer Letter', requires_signature: true },
+            { type: 'employment_contract', title: 'Employment Contract', requires_signature: true },
+            { type: 'nda', title: 'Non-Disclosure Agreement', requires_signature: true },
+            { type: 'code_of_conduct', title: 'Code of Conduct', requires_acknowledgment: true }
+          ]
+        },
+        phase2: {
+          name: 'Role Clarity',
+          due_days: 5,
+          hard_gate: false,
+          documents: [
+            { type: 'job_description', title: 'Job Description', requires_acknowledgment: true },
+            { type: 'org_chart', title: 'Organization Chart', requires_acknowledgment: true }
+          ]
+        },
+        phase3: {
+          name: 'Employee File',
+          due_days: 7,
+          hard_gate: true,
+          documents: [
+            { type: 'passport_photo', title: 'Passport Photograph', requires_upload: true },
+            { type: 'government_id', title: 'Government ID', requires_upload: true },
+            { type: 'educational_cert', title: 'Educational Certificates', requires_upload: true },
+            { type: 'bank_details', title: 'Bank Account Details', requires_upload: true }
+          ]
+        },
+        phase4: {
+          name: 'Policy Acknowledgments',
+          due_days: 10,
+          hard_gate: false,
+          documents: []
+        },
+        phase5: {
+          name: 'Complete',
+          due_days: 14,
+          hard_gate: false,
+          documents: []
+        }
+      };
+      workflow = { id: null };
+    } else {
+      phaseConfig = workflow.phase_config;
+    }
 
     // Create onboarding record
     const onboardingResult = await client.query(`
@@ -393,7 +596,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
         current_phase, overall_status, started_at
       ) VALUES ($1, $2, $3, $4, 1, 'in_progress', NOW())
       RETURNING *
-    `, [tenantId, employee.company_id, employeeId, workflow.id]);
+    `, [effectiveTenantId, employee.company_id, employeeId, workflow.id]);
 
     const onboarding = onboardingResult.rows[0];
 
@@ -435,7 +638,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
           due_date
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       `, [
-        tenantId, employee.company_id, employeeId, onboarding.id,
+        effectiveTenantId, employee.company_id, employeeId, onboarding.id,
         doc.document_type, doc.document_title, doc.document_category, doc.phase, doc.sort_order,
         doc.requires_signature, doc.requires_acknowledgment, doc.requires_upload, doc.is_required,
         doc.due_date
@@ -458,7 +661,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error starting onboarding:', error);
-    res.status(500).json({ success: false, error: 'Failed to start onboarding' });
+    res.status(500).json({ success: false, error: `Failed to start onboarding: ${error.message}` });
   } finally {
     client.release();
   }
@@ -471,7 +674,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
 router.post('/employees/:employeeId/activate', async (req, res) => {
   const client = await pool.connect();
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { employeeId } = req.params;
 
@@ -633,7 +836,7 @@ router.post('/employees/:employeeId/activate', async (req, res) => {
  */
 router.get('/employees/:employeeId/documents', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { employeeId } = req.params;
     const { phase, status } = req.query;
 
@@ -672,7 +875,7 @@ router.get('/employees/:employeeId/documents', async (req, res) => {
  */
 router.post('/employees/:employeeId/documents/:docId/upload', upload.single('file'), async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { employeeId, docId } = req.params;
 
     if (!req.file) {
@@ -729,7 +932,7 @@ router.post('/employees/:employeeId/documents/:docId/upload', upload.single('fil
  */
 router.post('/employees/:employeeId/documents/:docId/sign', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const { employeeId, docId } = req.params;
     const { signature_data, acknowledgment } = req.body;
 
@@ -802,7 +1005,7 @@ router.post('/employees/:employeeId/documents/:docId/sign', async (req, res) => 
  */
 router.put('/employees/:employeeId/documents/:docId/verify', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { employeeId, docId } = req.params;
 
@@ -836,7 +1039,7 @@ router.put('/employees/:employeeId/documents/:docId/verify', async (req, res) =>
  */
 router.put('/employees/:employeeId/documents/:docId/reject', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { employeeId, docId } = req.params;
     const { reason } = req.body;
@@ -873,7 +1076,7 @@ router.put('/employees/:employeeId/documents/:docId/reject', async (req, res) =>
  */
 router.put('/employees/:employeeId/file-complete', async (req, res) => {
   try {
-    const tenantId = req.user.tenant_id;
+    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { employeeId } = req.params;
 

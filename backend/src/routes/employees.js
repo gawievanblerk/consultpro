@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const { body, param, validationResult } = require('express-validator');
 const { query, pool } = require('../utils/db');
+const { sendESSInviteEmail } = require('../utils/email');
 const {
   authenticateHierarchy,
   requireCompanyAccess,
@@ -450,7 +451,7 @@ router.post('/:id/ess/invite', [
 
     // Get employee and verify access
     const employeeResult = await query(`
-      SELECT e.*, c.consultant_id
+      SELECT e.*, c.consultant_id, c.legal_name as company_name
       FROM employees e
       JOIN companies c ON e.company_id = c.id
       WHERE e.id = $1 AND e.deleted_at IS NULL
@@ -484,25 +485,28 @@ router.post('/:id/ess/invite', [
     // Check for existing pending invitation
     const existingInvite = await query(`
       SELECT id FROM employee_invitations
-      WHERE employee_id = $1 AND accepted_at IS NULL AND expires_at > NOW()
+      WHERE employee_id = $1 AND accepted_at IS NULL
     `, [id]);
-
-    if (existingInvite.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'An invitation is already pending for this employee'
-      });
-    }
 
     // Generate token
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    // Create invitation
-    await query(`
-      INSERT INTO employee_invitations (employee_id, company_id, email, token, expires_at, sent_at, created_by)
-      VALUES ($1, $2, $3, $4, $5, NOW(), $6)
-    `, [id, employee.company_id, employee.email, token, expiresAt, req.user.id]);
+    if (existingInvite.rows.length > 0) {
+      // Update existing invitation with new token (resend)
+      await query(`
+        UPDATE employee_invitations
+        SET token = $2, expires_at = $3, sent_at = NOW(), resend_count = COALESCE(resend_count, 0) + 1, last_resent_at = NOW()
+        WHERE id = $1
+      `, [existingInvite.rows[0].id, token, expiresAt]);
+      console.log('Updated existing invitation for employee:', id);
+    } else {
+      // Create new invitation
+      await query(`
+        INSERT INTO employee_invitations (employee_id, company_id, email, token, expires_at, sent_at, created_by)
+        VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+      `, [id, employee.company_id, employee.email, token, expiresAt, req.user.id]);
+    }
 
     // Update employee
     await query(`
@@ -510,9 +514,17 @@ router.post('/:id/ess/invite', [
       WHERE id = $1
     `, [id]);
 
-    // TODO: Send email
-    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/ess/activate?token=${token}`;
-    console.log('ESS invitation link:', invitationLink);
+    // Send invitation email
+    const invitationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${token}`;
+    const employeeName = `${employee.first_name} ${employee.last_name}`.trim();
+
+    try {
+      await sendESSInviteEmail(employee.email, token, employeeName, employee.company_name);
+      console.log('ESS invitation email sent to:', employee.email);
+    } catch (emailError) {
+      console.error('Failed to send ESS invitation email:', emailError);
+      // Continue even if email fails - invitation is still created
+    }
 
     res.status(201).json({
       success: true,
@@ -540,11 +552,12 @@ router.post('/:id/ess/resend', [
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
-    // Get existing invitation
+    // Get existing invitation with employee and company info
     const inviteResult = await query(`
-      SELECT ei.*, e.email as employee_email
+      SELECT ei.*, e.email as employee_email, e.first_name, e.last_name, c.legal_name as company_name
       FROM employee_invitations ei
       JOIN employees e ON ei.employee_id = e.id
+      JOIN companies c ON e.company_id = c.id
       WHERE ei.employee_id = $1 AND ei.accepted_at IS NULL
       ORDER BY ei.created_at DESC
       LIMIT 1
@@ -569,9 +582,16 @@ router.post('/:id/ess/resend', [
       WHERE id = $1
     `, [invitation.id, token, expiresAt]);
 
-    // TODO: Send email
-    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/ess/activate?token=${token}`;
-    console.log('Resent ESS invitation link:', invitationLink);
+    // Send invitation email
+    const invitationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${token}`;
+    const employeeName = `${invitation.first_name} ${invitation.last_name}`.trim();
+
+    try {
+      await sendESSInviteEmail(invitation.employee_email, token, employeeName, invitation.company_name);
+      console.log('ESS invitation email resent to:', invitation.employee_email);
+    } catch (emailError) {
+      console.error('Failed to resend ESS invitation email:', emailError);
+    }
 
     res.json({
       success: true,
@@ -609,7 +629,7 @@ router.post('/ess/bulk-invite', async (req, res) => {
       try {
         // Get employee and verify access
         const employeeResult = await query(`
-          SELECT e.*, c.consultant_id
+          SELECT e.*, c.consultant_id, c.legal_name as company_name
           FROM employees e
           JOIN companies c ON e.company_id = c.id
           WHERE e.id = $1 AND e.deleted_at IS NULL
@@ -645,23 +665,27 @@ router.post('/ess/bulk-invite', async (req, res) => {
         // Check for existing pending invitation
         const existingInvite = await query(`
           SELECT id FROM employee_invitations
-          WHERE employee_id = $1 AND accepted_at IS NULL AND expires_at > NOW()
+          WHERE employee_id = $1 AND accepted_at IS NULL
         `, [employeeId]);
-
-        if (existingInvite.rows.length > 0) {
-          results.skipped.push({ id: employeeId, name: employeeName, reason: 'Invitation already pending' });
-          continue;
-        }
 
         // Generate token
         const token = crypto.randomBytes(32).toString('hex');
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-        // Create invitation
-        await query(`
-          INSERT INTO employee_invitations (employee_id, company_id, email, token, expires_at, sent_at, created_by)
-          VALUES ($1, $2, $3, $4, $5, NOW(), $6)
-        `, [employeeId, employee.company_id, employee.email, token, expiresAt, req.user.id]);
+        if (existingInvite.rows.length > 0) {
+          // Update existing invitation with new token (resend)
+          await query(`
+            UPDATE employee_invitations
+            SET token = $2, expires_at = $3, sent_at = NOW(), resend_count = COALESCE(resend_count, 0) + 1, last_resent_at = NOW()
+            WHERE id = $1
+          `, [existingInvite.rows[0].id, token, expiresAt]);
+        } else {
+          // Create new invitation
+          await query(`
+            INSERT INTO employee_invitations (employee_id, company_id, email, token, expires_at, sent_at, created_by)
+            VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+          `, [employeeId, employee.company_id, employee.email, token, expiresAt, req.user.id]);
+        }
 
         // Update employee record
         await query(`
@@ -670,8 +694,19 @@ router.post('/ess/bulk-invite', async (req, res) => {
           WHERE id = $1
         `, [employeeId]);
 
-        const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/onboard/ess?token=${token}`;
-        console.log(`ESS invitation sent to ${employee.email}:`, invitationLink);
+        const invitationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${token}`;
+
+        // Send email with rate limiting (Resend free tier: 2 emails/second)
+        try {
+          await sendESSInviteEmail(employee.email, token, employeeName, employee.company_name);
+          console.log(`ESS invitation email sent to ${employee.email}`);
+          // Add delay to respect Resend rate limit (600ms = ~1.6 emails/second, safely under 2/second)
+          await new Promise(resolve => setTimeout(resolve, 600));
+        } catch (emailError) {
+          console.error(`Failed to send ESS email to ${employee.email}:`, emailError);
+          // Still add delay even on error to avoid hammering the API
+          await new Promise(resolve => setTimeout(resolve, 600));
+        }
 
         results.success.push({
           id: employeeId,
