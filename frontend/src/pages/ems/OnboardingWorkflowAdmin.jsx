@@ -148,6 +148,22 @@ export default function OnboardingWorkflowAdmin() {
     }
   };
 
+  const handleRefreshDocuments = async () => {
+    if (!selectedEmployee) return;
+    if (!confirm('Refresh documents for this employee? This will create any missing onboarding documents.')) return;
+
+    setProcessing('refresh');
+    try {
+      const res = await api.post(`/api/onboarding-workflow/employees/${selectedEmployee.employee_id}/refresh-documents`);
+      alert(`Documents refreshed: ${res.data.documentsCreated || 0} created`);
+      handleViewEmployee(selectedEmployee);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to refresh documents');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   const getPhaseProgress = (phaseKey) => {
     const inPhase = employees.filter(e => e.current_phase === phaseKey);
     return inPhase.length;
@@ -580,14 +596,23 @@ export default function OnboardingWorkflowAdmin() {
 
             {/* Footer Actions */}
             <div className="px-6 py-4 border-t bg-gray-50 flex justify-between">
-              <button
-                onClick={handleMarkFileComplete}
-                disabled={processing === 'file' || employeeOnboarding.onboarding?.employee_file_complete}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
-              >
-                {processing === 'file' ? 'Processing...' :
-                 employeeOnboarding.onboarding?.employee_file_complete ? 'File Complete' : 'Mark File Complete'}
-              </button>
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleMarkFileComplete}
+                  disabled={processing === 'file' || employeeOnboarding.onboarding?.employee_file_complete}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                >
+                  {processing === 'file' ? 'Processing...' :
+                   employeeOnboarding.onboarding?.employee_file_complete ? 'File Complete' : 'Mark File Complete'}
+                </button>
+                <button
+                  onClick={handleRefreshDocuments}
+                  disabled={processing === 'refresh'}
+                  className="px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-50 disabled:opacity-50"
+                >
+                  {processing === 'refresh' ? 'Refreshing...' : 'Refresh Documents'}
+                </button>
+              </div>
               <button
                 onClick={handleActivateEmployee}
                 disabled={processing === 'activate' || !employeeOnboarding.hardGatesPassed?.passed}
