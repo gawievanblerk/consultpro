@@ -819,7 +819,8 @@ router.post('/my-documents/:docId/upload', upload.single('file'), async (req, re
 router.post('/my-documents/:docId/sign', async (req, res) => {
   try {
     const tenantId = req.tenant_id || req.user?.org;
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?.sub;
+    const impersonatedEmployeeId = req.user?.employee_id;
     const { docId } = req.params;
     const { signature_data } = req.body;
     const ipAddress = req.ip || req.connection.remoteAddress;
@@ -829,17 +830,32 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Signature is required' });
     }
 
-    // Get employee ID
-    const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
-      [userId]
-    );
+    let employeeId;
 
-    if (employeeResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    // Try employee_id from impersonation first, then user_id lookup
+    if (impersonatedEmployeeId) {
+      const verify = await pool.query(
+        'SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL',
+        [impersonatedEmployeeId]
+      );
+      if (verify.rows.length > 0) {
+        employeeId = impersonatedEmployeeId;
+      }
     }
 
-    const employeeId = employeeResult.rows[0].id;
+    if (!employeeId && userId) {
+      const employeeResult = await pool.query(
+        'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+        [userId]
+      );
+      if (employeeResult.rows.length > 0) {
+        employeeId = employeeResult.rows[0].id;
+      }
+    }
+
+    if (!employeeId) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
 
     // Verify document belongs to employee and requires signature
     const docResult = await pool.query(
@@ -889,22 +905,38 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
 router.post('/my-documents/:docId/acknowledge', async (req, res) => {
   try {
     const tenantId = req.tenant_id || req.user?.org;
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?.sub;
+    const impersonatedEmployeeId = req.user?.employee_id;
     const { docId } = req.params;
     const ipAddress = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
-    // Get employee ID
-    const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
-      [userId]
-    );
+    let employeeId;
 
-    if (employeeResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    // Try employee_id from impersonation first, then user_id lookup
+    if (impersonatedEmployeeId) {
+      const verify = await pool.query(
+        'SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL',
+        [impersonatedEmployeeId]
+      );
+      if (verify.rows.length > 0) {
+        employeeId = impersonatedEmployeeId;
+      }
     }
 
-    const employeeId = employeeResult.rows[0].id;
+    if (!employeeId && userId) {
+      const employeeResult = await pool.query(
+        'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+        [userId]
+      );
+      if (employeeResult.rows.length > 0) {
+        employeeId = employeeResult.rows[0].id;
+      }
+    }
+
+    if (!employeeId) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
 
     // Verify document belongs to employee
     const docResult = await pool.query(

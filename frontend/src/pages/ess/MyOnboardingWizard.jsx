@@ -214,7 +214,7 @@ export default function MyOnboardingWizard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
       </div>
     );
   }
@@ -257,7 +257,7 @@ export default function MyOnboardingWizard() {
       )}
 
       {/* Overall Progress */}
-      <div className="bg-gradient-to-r from-primary to-accent p-6 rounded-lg text-white">
+      <div className="bg-gradient-to-r from-primary-600 to-accent-500 p-6 rounded-lg text-white">
         <h2 className="text-lg font-semibold mb-2">Overall Progress</h2>
         <div className="flex items-center space-x-4">
           <div className="flex-1">
@@ -296,11 +296,11 @@ export default function MyOnboardingWizard() {
                 onClick={() => !isLocked && setActivePhase(phaseKey)}
                 disabled={isLocked}
                 className={`flex flex-col items-center px-4 py-2 min-w-[100px] ${
-                  isActive ? 'text-primary' : isCompleted ? 'text-green-600' : isLocked ? 'text-gray-300' : 'text-gray-500'
+                  isActive ? 'text-primary-600' : isCompleted ? 'text-green-600' : isLocked ? 'text-gray-300' : 'text-gray-500'
                 }`}
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
-                  isActive ? 'bg-primary text-white' :
+                  isActive ? 'bg-primary-600 text-white' :
                   isCompleted ? 'bg-green-100 text-green-600' :
                   isLocked ? 'bg-gray-100' : 'bg-gray-100'
                 }`}>
@@ -326,7 +326,7 @@ export default function MyOnboardingWizard() {
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b bg-gray-50">
           <div className="flex items-center">
-            <div className="text-primary mr-3">
+            <div className="text-primary-600 mr-3">
               {getPhaseIcon(PHASE_INFO[activePhase]?.icon)}
             </div>
             <div>
@@ -461,7 +461,7 @@ export default function MyOnboardingWizard() {
                     <button
                       onClick={() => handleSignDocument(doc)}
                       disabled={processing === doc.id}
-                      className="px-4 py-1.5 bg-primary text-white text-sm rounded hover:bg-primary/90 disabled:opacity-50 min-w-[110px] text-center"
+                      className="px-4 py-1.5 bg-primary-600 text-white text-sm rounded hover:bg-primary-700 disabled:opacity-50 min-w-[110px] text-center"
                     >
                       {processing === doc.id ? 'Signing...' : 'Sign'}
                     </button>
@@ -472,7 +472,7 @@ export default function MyOnboardingWizard() {
                     <button
                       onClick={() => handleAcknowledgeDocument(doc)}
                       disabled={processing === doc.id}
-                      className="px-4 py-1.5 bg-accent text-white text-sm rounded hover:bg-accent/90 disabled:opacity-50 min-w-[110px] text-center"
+                      className="px-4 py-1.5 bg-accent-500 text-white text-sm rounded hover:bg-accent-600 disabled:opacity-50 min-w-[110px] text-center"
                     >
                       {processing === doc.id ? '...' : 'Acknowledge'}
                     </button>
@@ -574,7 +574,7 @@ export default function MyOnboardingWizard() {
                     setDocumentContent(null);
                   }}
                   disabled={processing === selectedDocument?.id}
-                  className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50"
+                  className="px-4 py-2 bg-accent-500 text-white rounded-lg hover:bg-accent-600 disabled:opacity-50"
                 >
                   {processing === selectedDocument?.id ? 'Processing...' : 'I Acknowledge'}
                 </button>
