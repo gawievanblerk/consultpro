@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import api from '../../utils/api';
 
 const TEMPLATE_TYPES = [
@@ -32,6 +34,27 @@ const PLACEHOLDERS = [
   { key: '{{probation_end_date}}', description: 'Probation end date' }
 ];
 
+// Quill editor modules configuration
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+    [{ 'indent': '-1'}, { 'indent': '+1' }],
+    [{ 'align': [] }],
+    ['link'],
+    ['clean']
+  ],
+};
+
+const quillFormats = [
+  'header',
+  'bold', 'italic', 'underline', 'strike',
+  'list', 'bullet', 'indent',
+  'align',
+  'link'
+];
+
 export default function DocumentTemplates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +73,7 @@ export default function DocumentTemplates() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [filterCategory, setFilterCategory] = useState('');
+  const quillRef = useRef(null);
 
   useEffect(() => {
     fetchTemplates();
@@ -137,10 +161,12 @@ export default function DocumentTemplates() {
   };
 
   const insertPlaceholder = (placeholder) => {
-    setFormData(prev => ({
-      ...prev,
-      content: prev.content + placeholder
-    }));
+    if (quillRef.current) {
+      const editor = quillRef.current.getEditor();
+      const range = editor.getSelection(true);
+      editor.insertText(range.index, placeholder);
+      editor.setSelection(range.index + placeholder.length);
+    }
   };
 
   const categories = [...new Set(TEMPLATE_TYPES.map(t => t.category))];
@@ -337,51 +363,46 @@ export default function DocumentTemplates() {
                 </div>
 
                 {/* Placeholder Reference */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Available Placeholders (click to insert)</h4>
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">
+                    Insert Employee Data (click to add to document)
+                  </h4>
                   <div className="flex flex-wrap gap-2">
                     {PLACEHOLDERS.map(p => (
                       <button
                         key={p.key}
                         type="button"
                         onClick={() => insertPlaceholder(p.key)}
-                        className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-100"
+                        className="px-2 py-1 text-xs bg-white border border-blue-300 rounded hover:bg-blue-100 text-blue-800"
                         title={p.description}
                       >
-                        {p.key}
+                        {p.key.replace(/[{}]/g, '')}
                       </button>
                     ))}
                   </div>
+                  <p className="text-xs text-blue-700 mt-2">
+                    These placeholders will be replaced with actual employee data when the document is generated.
+                  </p>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Template Content (HTML) *
+                    Template Content *
                   </label>
-                  <textarea
-                    value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 font-mono text-sm"
-                    rows={15}
-                    placeholder={`<h2>Employment Contract</h2>
-<p>This Employment Contract is made between <strong>{{company_name}}</strong> and <strong>{{employee_name}}</strong>.</p>
-
-<h3>Position Details</h3>
-<ul>
-  <li><strong>Position:</strong> {{job_title}}</li>
-  <li><strong>Department:</strong> {{department}}</li>
-  <li><strong>Start Date:</strong> {{hire_date}}</li>
-  <li><strong>Reporting To:</strong> {{manager_name}}</li>
-</ul>
-
-<h3>Compensation</h3>
-<p>Your gross monthly salary will be <strong>{{salary}}</strong>.</p>
-
-<p>Please sign below to acknowledge acceptance of these terms.</p>`}
-                    required
-                  />
+                  <div className="border border-gray-300 rounded-lg overflow-hidden">
+                    <ReactQuill
+                      ref={quillRef}
+                      theme="snow"
+                      value={formData.content}
+                      onChange={(content) => setFormData({ ...formData, content })}
+                      modules={quillModules}
+                      formats={quillFormats}
+                      placeholder="Start typing your document template here..."
+                      style={{ minHeight: '300px' }}
+                    />
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Use HTML formatting. Placeholders like {`{{employee_name}}`} will be replaced with actual values.
+                    Use the toolbar above to format text. Click placeholder buttons to insert employee data fields.
                   </p>
                 </div>
 
@@ -455,6 +476,26 @@ export default function DocumentTemplates() {
           </div>
         </div>
       )}
+
+      {/* Custom styles for Quill editor */}
+      <style>{`
+        .ql-container {
+          min-height: 250px;
+          font-size: 14px;
+        }
+        .ql-editor {
+          min-height: 250px;
+        }
+        .ql-toolbar {
+          border-top-left-radius: 0.5rem;
+          border-top-right-radius: 0.5rem;
+          background: #f9fafb;
+        }
+        .ql-container {
+          border-bottom-left-radius: 0.5rem;
+          border-bottom-right-radius: 0.5rem;
+        }
+      `}</style>
     </div>
   );
 }
