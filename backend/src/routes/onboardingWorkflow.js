@@ -1190,6 +1190,8 @@ router.post('/employees/:employeeId/refresh-documents', async (req, res) => {
     const companyId = onboarding.company_id;
     const tenantId = onboarding.tenant_id;
 
+    console.log('[Refresh Docs] employeeId:', employeeId, 'tenantId:', tenantId, 'companyId:', companyId, 'onboardingId:', onboarding.id);
+
     // Default phase config
     const phaseConfig = {
       phase1: {
@@ -1235,10 +1237,10 @@ router.post('/employees/:employeeId/refresh-documents', async (req, res) => {
       dueDate.setDate(dueDate.getDate() + (phaseData.due_days || 5));
 
       for (const doc of phaseData.documents) {
-        // Check if document already exists
+        // Check if document already exists for this employee AND tenant
         const existingDoc = await client.query(
-          'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND document_type = $2',
-          [employeeId, doc.type]
+          'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND document_type = $2 AND tenant_id = $3',
+          [employeeId, doc.type, tenantId]
         );
 
         if (existingDoc.rows.length === 0) {
@@ -1283,8 +1285,8 @@ router.post('/employees/:employeeId/refresh-documents', async (req, res) => {
 
     for (const policy of policies.rows) {
       const existingDoc = await client.query(
-        'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND policy_id = $2',
-        [employeeId, policy.id]
+        'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND policy_id = $2 AND tenant_id = $3',
+        [employeeId, policy.id, tenantId]
       );
 
       if (existingDoc.rows.length === 0) {
