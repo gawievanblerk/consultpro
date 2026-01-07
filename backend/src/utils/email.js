@@ -268,9 +268,76 @@ const sendConsultantInviteEmail = async (email, token, companyName, tier) => {
   });
 };
 
+/**
+ * Send ESS (Employee Self-Service) invitation email
+ */
+const sendESSInviteEmail = async (email, token, employeeName, companyName) => {
+  const inviteUrl = `${getFrontendUrl()}/onboard/ess?token=${token}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #0d2865; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px 20px; background: #f9fafb; }
+        .button { display: inline-block; background: #41d8d1; color: #0d2865; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+        .highlight { background: #e0f7f6; padding: 15px; border-radius: 6px; margin: 15px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>CoreHR</h1>
+        </div>
+        <div class="content">
+          <h2>Welcome to Employee Self-Service!</h2>
+          <p>Hi${employeeName ? ' ' + employeeName : ''},</p>
+          <p>You've been invited to access the Employee Self-Service (ESS) portal for <strong>${companyName || 'your company'}</strong>.</p>
+
+          <div class="highlight">
+            <p><strong>With ESS, you can:</strong></p>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li>View and update your personal information</li>
+              <li>Access payslips and tax documents</li>
+              <li>Submit leave requests</li>
+              <li>Complete onboarding tasks</li>
+              <li>View company policies</li>
+            </ul>
+          </div>
+
+          <p>Click the button below to activate your account and set up your password:</p>
+          <p style="text-align: center;">
+            <a href="${inviteUrl}" class="button">Activate My Account</a>
+          </p>
+          <p>This invitation will expire in 7 days.</p>
+          <p style="margin-top: 30px; font-size: 12px; color: #666;">
+            Or copy and paste this link into your browser:<br>
+            <a href="${inviteUrl}">${inviteUrl}</a>
+          </p>
+        </div>
+        <div class="footer">
+          <p>Powered by Rozitech CC</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: `Activate your Employee Self-Service account - ${companyName || 'CoreHR'}`,
+    html
+  });
+};
+
 module.exports = {
   sendEmail,
   sendPasswordResetEmail,
   sendInviteEmail,
-  sendConsultantInviteEmail
+  sendConsultantInviteEmail,
+  sendESSInviteEmail
 };

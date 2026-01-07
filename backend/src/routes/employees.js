@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const { body, param, validationResult } = require('express-validator');
 const { query, pool } = require('../utils/db');
+const { sendESSInviteEmail } = require('../utils/email');
 const {
   authenticateHierarchy,
   requireCompanyAccess,
@@ -450,7 +451,7 @@ router.post('/:id/ess/invite', [
 
     // Get employee and verify access
     const employeeResult = await query(`
-      SELECT e.*, c.consultant_id
+      SELECT e.*, c.consultant_id, c.legal_name as company_name
       FROM employees e
       JOIN companies c ON e.company_id = c.id
       WHERE e.id = $1 AND e.deleted_at IS NULL
@@ -510,9 +511,17 @@ router.post('/:id/ess/invite', [
       WHERE id = $1
     `, [id]);
 
-    // TODO: Send email
-    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/ess/activate?token=${token}`;
-    console.log('ESS invitation link:', invitationLink);
+    // Send invitation email
+    const invitationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${token}`;
+    const employeeName = `${employee.first_name} ${employee.last_name}`.trim();
+
+    try {
+      await sendESSInviteEmail(employee.email, token, employeeName, employee.company_name);
+      console.log('ESS invitation email sent to:', employee.email);
+    } catch (emailError) {
+      console.error('Failed to send ESS invitation email:', emailError);
+      // Continue even if email fails - invitation is still created
+    }
 
     res.status(201).json({
       success: true,
@@ -540,11 +549,12 @@ router.post('/:id/ess/resend', [
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
-    // Get existing invitation
+    // Get existing invitation with employee and company info
     const inviteResult = await query(`
-      SELECT ei.*, e.email as employee_email
+      SELECT ei.*, e.email as employee_email, e.first_name, e.last_name, c.legal_name as company_name
       FROM employee_invitations ei
       JOIN employees e ON ei.employee_id = e.id
+      JOIN companies c ON e.company_id = c.id
       WHERE ei.employee_id = $1 AND ei.accepted_at IS NULL
       ORDER BY ei.created_at DESC
       LIMIT 1
@@ -569,9 +579,16 @@ router.post('/:id/ess/resend', [
       WHERE id = $1
     `, [invitation.id, token, expiresAt]);
 
-    // TODO: Send email
-    const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/ess/activate?token=${token}`;
-    console.log('Resent ESS invitation link:', invitationLink);
+    // Send invitation email
+    const invitationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${token}`;
+    const employeeName = `${invitation.first_name} ${invitation.last_name}`.trim();
+
+    try {
+      await sendESSInviteEmail(invitation.employee_email, token, employeeName, invitation.company_name);
+      console.log('ESS invitation email resent to:', invitation.employee_email);
+    } catch (emailError) {
+      console.error('Failed to resend ESS invitation email:', emailError);
+    }
 
     res.json({
       success: true,
@@ -609,7 +626,7 @@ router.post('/ess/bulk-invite', async (req, res) => {
       try {
         // Get employee and verify access
         const employeeResult = await query(`
-          SELECT e.*, c.consultant_id
+          SELECT e.*, c.consultant_id, c.legal_name as company_name
           FROM employees e
           JOIN companies c ON e.company_id = c.id
           WHERE e.id = $1 AND e.deleted_at IS NULL
@@ -670,8 +687,15 @@ router.post('/ess/bulk-invite', async (req, res) => {
           WHERE id = $1
         `, [employeeId]);
 
-        const invitationLink = `${process.env.FRONTEND_URL || 'http://localhost:5020'}/onboard/ess?token=${token}`;
-        console.log(`ESS invitation sent to ${employee.email}:`, invitationLink);
+        const invitationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${token}`;
+
+        // Send email
+        try {
+          await sendESSInviteEmail(employee.email, token, employeeName, employee.company_name);
+          console.log(`ESS invitation email sent to ${employee.email}`);
+        } catch (emailError) {
+          console.error(`Failed to send ESS email to ${employee.email}:`, emailError);
+        }
 
         results.success.push({
           id: employeeId,
