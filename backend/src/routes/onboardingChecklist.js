@@ -705,7 +705,7 @@ router.get('/my-documents', async (req, res) => {
         od.*,
         p.title as policy_name,
         p.description as policy_description,
-        p.file_url as policy_url,
+        COALESCE(p.external_url, p.file_path) as policy_url,
         dt.template_content,
         dt.template_type
       FROM onboarding_documents od
