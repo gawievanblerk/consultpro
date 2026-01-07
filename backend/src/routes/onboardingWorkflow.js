@@ -1174,9 +1174,9 @@ router.post('/employees/:employeeId/refresh-documents', async (req, res) => {
   try {
     const { employeeId } = req.params;
 
-    // Get existing onboarding with employee's tenant_id
+    // Get existing onboarding with tenant_id from onboarding record
     const onboardingResult = await client.query(`
-      SELECT eo.*, e.company_id, e.tenant_id
+      SELECT eo.*, e.company_id
       FROM employee_onboarding eo
       JOIN employees e ON eo.employee_id = e.id
       WHERE eo.employee_id = $1
