@@ -81,6 +81,7 @@ import ExitManagement from './pages/ems/ExitManagement';
 import Disciplinary from './pages/ems/Disciplinary';
 import OnboardingManagement from './pages/ems/OnboardingManagement';
 import OnboardingWorkflowAdmin from './pages/ems/OnboardingWorkflowAdmin';
+import DocumentTemplates from './pages/ems/DocumentTemplates';
 import MyOnboarding from './pages/ess/MyOnboarding';
 import MyOnboardingWizard from './pages/ess/MyOnboardingWizard';
 
@@ -224,6 +225,7 @@ function App() {
             {/* Employee Management System (EMS) */}
             <Route path="onboarding-workflow" element={<OnboardingWorkflowAdmin />} />
             <Route path="onboarding-admin" element={<OnboardingManagement />} />
+            <Route path="document-templates" element={<DocumentTemplates />} />
             <Route path="probation" element={<ProbationManagement />} />
             <Route path="performance" element={<PerformanceReviews />} />
             <Route path="exit-management" element={<ExitManagement />} />

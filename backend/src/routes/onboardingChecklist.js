@@ -1141,24 +1141,70 @@ router.get('/my-document/:docId/content', async (req, res) => {
       });
     }
 
-    // Return document info (templates not currently supported)
-    // Generate placeholder content based on document type
+    // Try to get template for this document type
     let content = '';
     const docType = doc.document_type;
+    const tenantId = doc.tenant_id;
 
-    // Generate content description based on document type
-    const contentDescriptions = {
-      'offer_letter': `<h2>Offer Letter</h2><p>Dear ${employee.first_name} ${employee.last_name},</p><p>We are pleased to offer you the position of <strong>${employee.job_title || 'Employee'}</strong>.</p><p>Please sign below to accept this offer.</p>`,
-      'employment_contract': `<h2>Employment Contract</h2><p>This Employment Contract is entered into between the Company and <strong>${employee.first_name} ${employee.last_name}</strong>.</p><p>Position: ${employee.job_title || 'As assigned'}</p><p>Start Date: ${employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : 'As per offer letter'}</p><p>Please review and sign to acknowledge acceptance of terms.</p>`,
-      'nda': `<h2>Non-Disclosure Agreement</h2><p>This NDA is entered into by <strong>${employee.first_name} ${employee.last_name}</strong>.</p><p>By signing this agreement, you agree to maintain confidentiality of all proprietary information.</p>`,
-      'ndpa_consent': `<h2>NDPA Notice & Consent</h2><p>In accordance with the Nigeria Data Protection Act, we require your consent to collect and process your personal data for employment purposes.</p><p>Please acknowledge that you have read and understand this notice.</p>`,
-      'code_of_conduct': `<h2>Code of Conduct</h2><p>This Code of Conduct outlines the expected behavior and ethical standards for all employees.</p><p>Please acknowledge that you have read and agree to abide by this code.</p>`,
-      'job_description': `<h2>Job Description</h2><p><strong>Position:</strong> ${employee.job_title || 'As assigned'}</p><p><strong>Department:</strong> ${employee.department || 'As assigned'}</p><p>Please acknowledge that you have reviewed and understood your role and responsibilities.</p>`,
-      'org_chart': `<h2>Organizational Chart</h2><p>Please review the organizational structure and reporting lines.</p><p>Acknowledge once you understand the team structure.</p>`,
-      'key_contacts': `<h2>Key Contacts & Escalation Map</h2><p>Please review the list of key contacts and escalation procedures.</p><p>Acknowledge once you have noted the important contacts.</p>`
-    };
+    // Check for template
+    const templateResult = await pool.query(`
+      SELECT * FROM document_templates
+      WHERE tenant_id = $1 AND template_type = $2 AND is_active = true
+      ORDER BY company_id NULLS LAST LIMIT 1
+    `, [tenantId, docType]);
 
-    content = contentDescriptions[docType] || `<h2>${doc.document_title}</h2><p>Please review and ${doc.requires_signature ? 'sign' : 'acknowledge'} this document.</p>`;
+    if (templateResult.rows.length > 0) {
+      // Use template content and replace placeholders
+      const template = templateResult.rows[0];
+      content = template.content;
+
+      // Get additional employee data for placeholders
+      const empDataResult = await pool.query(`
+        SELECT e.*, c.trading_name as company_name,
+               m.first_name || ' ' || m.last_name as manager_name
+        FROM employees e
+        LEFT JOIN companies c ON e.company_id = c.id
+        LEFT JOIN employees m ON e.reports_to = m.id
+        WHERE e.id = $1
+      `, [employeeId]);
+
+      if (empDataResult.rows.length > 0) {
+        const emp = empDataResult.rows[0];
+        const replacements = {
+          '{{employee_name}}': `${emp.first_name || ''} ${emp.last_name || ''}`.trim(),
+          '{{employee_first_name}}': emp.first_name || '',
+          '{{employee_last_name}}': emp.last_name || '',
+          '{{employee_email}}': emp.email || '',
+          '{{employee_number}}': emp.employee_number || 'N/A',
+          '{{job_title}}': emp.job_title || 'As assigned',
+          '{{department}}': emp.department || 'As assigned',
+          '{{hire_date}}': emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : 'As per offer letter',
+          '{{company_name}}': emp.company_name || 'The Company',
+          '{{salary}}': emp.basic_salary ? `NGN ${Number(emp.basic_salary).toLocaleString()}` : 'As per offer',
+          '{{manager_name}}': emp.manager_name || 'Your Line Manager',
+          '{{current_date}}': new Date().toLocaleDateString(),
+          '{{probation_end_date}}': emp.probation_end_date ? new Date(emp.probation_end_date).toLocaleDateString() : 'As per policy'
+        };
+
+        for (const [placeholder, value] of Object.entries(replacements)) {
+          content = content.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+        }
+      }
+    } else {
+      // Fallback to default content descriptions
+      const contentDescriptions = {
+        'offer_letter': `<h2>Offer Letter</h2><p>Dear ${employee.first_name} ${employee.last_name},</p><p>We are pleased to offer you the position of <strong>${employee.job_title || 'Employee'}</strong>.</p><p>Please sign below to accept this offer.</p>`,
+        'employment_contract': `<h2>Employment Contract</h2><p>This Employment Contract is entered into between the Company and <strong>${employee.first_name} ${employee.last_name}</strong>.</p><p>Position: ${employee.job_title || 'As assigned'}</p><p>Start Date: ${employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : 'As per offer letter'}</p><p>Please review and sign to acknowledge acceptance of terms.</p>`,
+        'nda': `<h2>Non-Disclosure Agreement</h2><p>This NDA is entered into by <strong>${employee.first_name} ${employee.last_name}</strong>.</p><p>By signing this agreement, you agree to maintain confidentiality of all proprietary information.</p>`,
+        'ndpa_consent': `<h2>NDPA Notice & Consent</h2><p>In accordance with the Nigeria Data Protection Act, we require your consent to collect and process your personal data for employment purposes.</p><p>Please acknowledge that you have read and understand this notice.</p>`,
+        'code_of_conduct': `<h2>Code of Conduct</h2><p>This Code of Conduct outlines the expected behavior and ethical standards for all employees.</p><p>Please acknowledge that you have read and agree to abide by this code.</p>`,
+        'job_description': `<h2>Job Description</h2><p><strong>Position:</strong> ${employee.job_title || 'As assigned'}</p><p><strong>Department:</strong> ${employee.department || 'As assigned'}</p><p>Please acknowledge that you have reviewed and understood your role and responsibilities.</p>`,
+        'org_chart': `<h2>Organizational Chart</h2><p>Please review the organizational structure and reporting lines.</p><p>Acknowledge once you understand the team structure.</p>`,
+        'key_contacts': `<h2>Key Contacts & Escalation Map</h2><p>Please review the list of key contacts and escalation procedures.</p><p>Acknowledge once you have noted the important contacts.</p>`
+      };
+
+      content = contentDescriptions[docType] || `<h2>${doc.document_title}</h2><p>Please review and ${doc.requires_signature ? 'sign' : 'acknowledge'} this document.</p>`;
+    }
 
     res.json({
       success: true,
