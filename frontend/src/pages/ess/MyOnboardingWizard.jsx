@@ -445,12 +445,12 @@ export default function MyOnboardingWizard() {
                     </div>
                   )}
                 </div>
-                <div className="ml-4 flex items-center space-x-2 flex-shrink-0">
-                  {/* View button */}
+                <div className="ml-4 flex items-center justify-end space-x-2 flex-shrink-0 w-48">
+                  {/* View button - always show for pending docs that need action */}
                   {(doc.requires_signature || doc.requires_acknowledgment || doc.policy_id) && doc.status === 'pending' && (
                     <button
                       onClick={() => handleViewDocument(doc)}
-                      className="px-4 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 min-w-[60px]"
+                      className="px-4 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
                     >
                       View
                     </button>
@@ -461,7 +461,7 @@ export default function MyOnboardingWizard() {
                     <button
                       onClick={() => handleSignDocument(doc)}
                       disabled={processing === doc.id}
-                      className="px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary/90 disabled:opacity-50"
+                      className="px-4 py-1.5 bg-primary text-white text-sm rounded hover:bg-primary/90 disabled:opacity-50"
                     >
                       {processing === doc.id ? 'Signing...' : 'Sign'}
                     </button>
@@ -472,16 +472,16 @@ export default function MyOnboardingWizard() {
                     <button
                       onClick={() => handleAcknowledgeDocument(doc)}
                       disabled={processing === doc.id}
-                      className="px-3 py-1 bg-accent text-white text-sm rounded hover:bg-accent/90 disabled:opacity-50"
+                      className="px-4 py-1.5 bg-accent text-white text-sm rounded hover:bg-accent/90 disabled:opacity-50"
                     >
-                      {processing === doc.id ? 'Processing...' : 'Acknowledge'}
+                      {processing === doc.id ? '...' : 'Acknowledge'}
                     </button>
                   )}
 
                   {/* Upload button */}
                   {doc.requires_upload && ['pending', 'rejected'].includes(doc.status) && (
-                    <label className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 cursor-pointer">
-                      {processing === doc.id ? 'Uploading...' : 'Upload'}
+                    <label className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 cursor-pointer">
+                      {processing === doc.id ? '...' : 'Upload'}
                       <input
                         type="file"
                         className="hidden"
