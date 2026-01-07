@@ -445,36 +445,28 @@ export default function MyOnboardingWizard() {
                     </div>
                   )}
                 </div>
-                <div className="ml-4 flex items-center justify-end space-x-2 flex-shrink-0 min-w-[180px]">
-                  {/* View button - always show for pending docs that need action */}
-                  {(doc.requires_signature || doc.requires_acknowledgment || doc.policy_id) && doc.status === 'pending' && (
+                <div className="ml-4 flex items-center justify-end space-x-3 flex-shrink-0">
+                  {/* Status badge */}
+                  {doc.status !== 'pending' && (
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      doc.status === 'signed' ? 'bg-green-100 text-green-800' :
+                      doc.status === 'acknowledged' ? 'bg-green-100 text-green-800' :
+                      doc.status === 'verified' ? 'bg-green-100 text-green-800' :
+                      doc.status === 'uploaded' ? 'bg-blue-100 text-blue-800' :
+                      doc.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                    </span>
+                  )}
+
+                  {/* View button - show for docs that need viewing/action */}
+                  {(doc.requires_signature || doc.requires_acknowledgment || doc.policy_id) && (
                     <button
                       onClick={() => handleViewDocument(doc)}
                       className="px-4 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
                     >
                       View
-                    </button>
-                  )}
-
-                  {/* Sign button */}
-                  {doc.requires_signature && doc.status === 'pending' && (
-                    <button
-                      onClick={() => handleSignDocument(doc)}
-                      disabled={processing === doc.id}
-                      className="px-4 py-1.5 bg-primary-600 text-white text-sm rounded hover:bg-primary-700 disabled:opacity-50 min-w-[110px] text-center"
-                    >
-                      {processing === doc.id ? 'Signing...' : 'Sign'}
-                    </button>
-                  )}
-
-                  {/* Acknowledge button */}
-                  {doc.requires_acknowledgment && !doc.requires_signature && doc.status === 'pending' && (
-                    <button
-                      onClick={() => handleAcknowledgeDocument(doc)}
-                      disabled={processing === doc.id}
-                      className="px-4 py-1.5 bg-accent-500 text-white text-sm rounded hover:bg-accent-600 disabled:opacity-50 min-w-[110px] text-center"
-                    >
-                      {processing === doc.id ? '...' : 'Acknowledge'}
                     </button>
                   )}
 
@@ -538,7 +530,22 @@ export default function MyOnboardingWizard() {
             <div className="px-6 py-4 border-b flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">{documentContent.name}</h3>
-                <p className="text-sm text-gray-500">{documentContent.type}</p>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="text-sm text-gray-500">{documentContent.type}</span>
+                  {selectedDocument?.status && (
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                      selectedDocument.status === 'signed' ? 'bg-green-100 text-green-800' :
+                      selectedDocument.status === 'acknowledged' ? 'bg-green-100 text-green-800' :
+                      selectedDocument.status === 'verified' ? 'bg-green-100 text-green-800' :
+                      selectedDocument.status === 'uploaded' ? 'bg-blue-100 text-blue-800' :
+                      selectedDocument.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      selectedDocument.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedDocument.status.charAt(0).toUpperCase() + selectedDocument.status.slice(1)}
+                    </span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -558,7 +565,7 @@ export default function MyOnboardingWizard() {
                   href={documentContent.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="text-primary-600 hover:underline"
                 >
                   Open Document in New Tab
                 </a>
@@ -566,18 +573,48 @@ export default function MyOnboardingWizard() {
                 <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: documentContent.content || 'No content available' }} />
               )}
             </div>
-            {documentContent.requiresAcknowledgment && selectedDocument?.status === 'pending' && (
-              <div className="px-6 py-4 border-t bg-gray-50 flex justify-end">
-                <button
-                  onClick={() => {
-                    handleAcknowledgeDocument(selectedDocument);
-                    setDocumentContent(null);
-                  }}
-                  disabled={processing === selectedDocument?.id}
-                  className="px-4 py-2 bg-accent-500 text-white rounded-lg hover:bg-accent-600 disabled:opacity-50"
-                >
-                  {processing === selectedDocument?.id ? 'Processing...' : 'I Acknowledge'}
-                </button>
+            {/* Action buttons based on document requirements and status */}
+            {selectedDocument?.status === 'pending' && (
+              <div className="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-3">
+                {/* Sign button - opens signature modal */}
+                {selectedDocument.requires_signature && (
+                  <button
+                    onClick={() => {
+                      setShowSignatureModal(true);
+                    }}
+                    disabled={processing === selectedDocument?.id}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    Sign Document
+                  </button>
+                )}
+                {/* Acknowledge button */}
+                {selectedDocument.requires_acknowledgment && !selectedDocument.requires_signature && (
+                  <button
+                    onClick={() => {
+                      handleAcknowledgeDocument(selectedDocument);
+                      setDocumentContent(null);
+                    }}
+                    disabled={processing === selectedDocument?.id}
+                    className="px-4 py-2 bg-accent-500 text-white rounded-lg hover:bg-accent-600 disabled:opacity-50"
+                  >
+                    {processing === selectedDocument?.id ? 'Processing...' : 'I Acknowledge'}
+                  </button>
+                )}
+              </div>
+            )}
+            {/* Show completion message for already processed documents */}
+            {selectedDocument?.status && selectedDocument.status !== 'pending' && (
+              <div className="px-6 py-4 border-t bg-gray-50">
+                <div className="flex items-center text-green-700">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium">
+                    This document has been {selectedDocument.status}
+                    {selectedDocument.acknowledged_at && ` on ${new Date(selectedDocument.acknowledged_at).toLocaleDateString()}`}
+                  </span>
+                </div>
               </div>
             )}
           </div>
