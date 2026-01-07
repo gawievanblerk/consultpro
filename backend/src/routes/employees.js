@@ -696,12 +696,16 @@ router.post('/ess/bulk-invite', async (req, res) => {
 
         const invitationLink = `${process.env.FRONTEND_URL || 'https://corehr.africa'}/onboard/ess?token=${token}`;
 
-        // Send email
+        // Send email with rate limiting (Resend free tier: 2 emails/second)
         try {
           await sendESSInviteEmail(employee.email, token, employeeName, employee.company_name);
           console.log(`ESS invitation email sent to ${employee.email}`);
+          // Add delay to respect Resend rate limit (600ms = ~1.6 emails/second, safely under 2/second)
+          await new Promise(resolve => setTimeout(resolve, 600));
         } catch (emailError) {
           console.error(`Failed to send ESS email to ${employee.email}:`, emailError);
+          // Still add delay even on error to avoid hammering the API
+          await new Promise(resolve => setTimeout(resolve, 600));
         }
 
         results.success.push({
