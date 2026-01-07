@@ -705,12 +705,9 @@ router.get('/my-documents', async (req, res) => {
         od.*,
         p.title as policy_name,
         p.description as policy_description,
-        COALESCE(p.external_url, p.file_path) as policy_url,
-        dt.template_content,
-        dt.template_type
+        COALESCE(p.external_url, p.file_path) as policy_url
       FROM onboarding_documents od
       LEFT JOIN policies p ON od.policy_id = p.id
-      LEFT JOIN document_templates dt ON od.template_id = dt.id
       WHERE od.employee_id = $1 AND od.tenant_id = $2
     `;
     const params = [employeeId, tenantId];
