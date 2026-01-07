@@ -703,7 +703,7 @@ router.get('/my-documents', async (req, res) => {
     let query = `
       SELECT
         od.*,
-        p.name as policy_name,
+        p.title as policy_name,
         p.description as policy_description,
         p.file_url as policy_url,
         dt.template_content,
@@ -987,10 +987,9 @@ router.get('/my-profile-completion', async (req, res) => {
       SELECT
         first_name, last_name, email, phone,
         date_of_birth, gender, marital_status,
-        address, city, state, country,
-        national_id, tax_id,
+        address_line1, city, state_of_residence, country,
+        nin, tax_id, bvn,
         bank_name, bank_account_number, bank_account_name,
-        emergency_contact_name, emergency_contact_phone,
         job_title, department
       FROM employees WHERE id = $1
     `, [employeeId]);
@@ -1006,22 +1005,18 @@ router.get('/my-profile-completion', async (req, res) => {
         date_of_birth: !!employee.date_of_birth,
         gender: !!employee.gender,
         marital_status: !!employee.marital_status,
-        national_id: !!employee.national_id
+        nin: !!employee.nin
       },
       address: {
-        address: !!employee.address,
+        address_line1: !!employee.address_line1,
         city: !!employee.city,
-        state: !!employee.state,
+        state_of_residence: !!employee.state_of_residence,
         country: !!employee.country
       },
       banking: {
         bank_name: !!employee.bank_name,
         bank_account_number: !!employee.bank_account_number,
         bank_account_name: !!employee.bank_account_name
-      },
-      emergency: {
-        emergency_contact_name: !!employee.emergency_contact_name,
-        emergency_contact_phone: !!employee.emergency_contact_phone
       },
       employment: {
         job_title: !!employee.job_title,

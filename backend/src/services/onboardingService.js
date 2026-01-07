@@ -292,10 +292,9 @@ async function calculateProfileCompletion(employeeId) {
     SELECT
       first_name, last_name, email, phone,
       date_of_birth, gender, marital_status,
-      address, city, state, country,
-      national_id, tax_id,
+      address_line1, city, state_of_residence, country,
+      nin, tax_id, bvn,
       bank_name, bank_account_number, bank_account_name,
-      emergency_contact_name, emergency_contact_phone,
       job_title, department, reports_to, hire_date
     FROM employees WHERE id = $1
   `, [employeeId]);
@@ -309,16 +308,13 @@ async function calculateProfileCompletion(employeeId) {
     // Personal Info (30%)
     first_name: 5, last_name: 5, email: 5,
     phone: 3, date_of_birth: 3, gender: 2,
-    marital_status: 2, national_id: 5,
+    marital_status: 2, nin: 5,
 
     // Address (15%)
-    address: 5, city: 3, state: 3, country: 4,
+    address_line1: 5, city: 3, state_of_residence: 3, country: 4,
 
     // Banking (20%)
     bank_name: 7, bank_account_number: 7, bank_account_name: 6,
-
-    // Emergency Contact (15%)
-    emergency_contact_name: 8, emergency_contact_phone: 7,
 
     // Employment (20%)
     job_title: 5, department: 5, hire_date: 5, tax_id: 5
