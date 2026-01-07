@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../utils/db');
+const authenticateToken = require('../middleware/auth');
+
+// Apply authentication to all routes
+router.use(authenticateToken);
 
 // ============================================================================
 // ONBOARDING CHECKLISTS
