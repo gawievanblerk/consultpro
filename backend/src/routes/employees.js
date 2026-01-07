@@ -485,25 +485,28 @@ router.post('/:id/ess/invite', [
     // Check for existing pending invitation
     const existingInvite = await query(`
       SELECT id FROM employee_invitations
-      WHERE employee_id = $1 AND accepted_at IS NULL AND expires_at > NOW()
+      WHERE employee_id = $1 AND accepted_at IS NULL
     `, [id]);
-
-    if (existingInvite.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'An invitation is already pending for this employee'
-      });
-    }
 
     // Generate token
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    // Create invitation
-    await query(`
-      INSERT INTO employee_invitations (employee_id, company_id, email, token, expires_at, sent_at, created_by)
-      VALUES ($1, $2, $3, $4, $5, NOW(), $6)
-    `, [id, employee.company_id, employee.email, token, expiresAt, req.user.id]);
+    if (existingInvite.rows.length > 0) {
+      // Update existing invitation with new token (resend)
+      await query(`
+        UPDATE employee_invitations
+        SET token = $2, expires_at = $3, sent_at = NOW(), resend_count = COALESCE(resend_count, 0) + 1, last_resent_at = NOW()
+        WHERE id = $1
+      `, [existingInvite.rows[0].id, token, expiresAt]);
+      console.log('Updated existing invitation for employee:', id);
+    } else {
+      // Create new invitation
+      await query(`
+        INSERT INTO employee_invitations (employee_id, company_id, email, token, expires_at, sent_at, created_by)
+        VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+      `, [id, employee.company_id, employee.email, token, expiresAt, req.user.id]);
+    }
 
     // Update employee
     await query(`
@@ -662,23 +665,27 @@ router.post('/ess/bulk-invite', async (req, res) => {
         // Check for existing pending invitation
         const existingInvite = await query(`
           SELECT id FROM employee_invitations
-          WHERE employee_id = $1 AND accepted_at IS NULL AND expires_at > NOW()
+          WHERE employee_id = $1 AND accepted_at IS NULL
         `, [employeeId]);
-
-        if (existingInvite.rows.length > 0) {
-          results.skipped.push({ id: employeeId, name: employeeName, reason: 'Invitation already pending' });
-          continue;
-        }
 
         // Generate token
         const token = crypto.randomBytes(32).toString('hex');
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-        // Create invitation
-        await query(`
-          INSERT INTO employee_invitations (employee_id, company_id, email, token, expires_at, sent_at, created_by)
-          VALUES ($1, $2, $3, $4, $5, NOW(), $6)
-        `, [employeeId, employee.company_id, employee.email, token, expiresAt, req.user.id]);
+        if (existingInvite.rows.length > 0) {
+          // Update existing invitation with new token (resend)
+          await query(`
+            UPDATE employee_invitations
+            SET token = $2, expires_at = $3, sent_at = NOW(), resend_count = COALESCE(resend_count, 0) + 1, last_resent_at = NOW()
+            WHERE id = $1
+          `, [existingInvite.rows[0].id, token, expiresAt]);
+        } else {
+          // Create new invitation
+          await query(`
+            INSERT INTO employee_invitations (employee_id, company_id, email, token, expires_at, sent_at, created_by)
+            VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+          `, [employeeId, employee.company_id, employee.email, token, expiresAt, req.user.id]);
+        }
 
         // Update employee record
         await query(`
