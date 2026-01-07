@@ -445,7 +445,7 @@ export default function MyOnboardingWizard() {
                     </div>
                   )}
                 </div>
-                <div className="ml-4 flex items-center justify-end space-x-2 flex-shrink-0 w-48">
+                <div className="ml-4 flex items-center justify-end space-x-2 flex-shrink-0 min-w-[180px]">
                   {/* View button - always show for pending docs that need action */}
                   {(doc.requires_signature || doc.requires_acknowledgment || doc.policy_id) && doc.status === 'pending' && (
                     <button
@@ -461,7 +461,7 @@ export default function MyOnboardingWizard() {
                     <button
                       onClick={() => handleSignDocument(doc)}
                       disabled={processing === doc.id}
-                      className="px-4 py-1.5 bg-primary text-white text-sm rounded hover:bg-primary/90 disabled:opacity-50"
+                      className="px-4 py-1.5 bg-primary text-white text-sm rounded hover:bg-primary/90 disabled:opacity-50 min-w-[110px] text-center"
                     >
                       {processing === doc.id ? 'Signing...' : 'Sign'}
                     </button>
@@ -472,7 +472,7 @@ export default function MyOnboardingWizard() {
                     <button
                       onClick={() => handleAcknowledgeDocument(doc)}
                       disabled={processing === doc.id}
-                      className="px-4 py-1.5 bg-accent text-white text-sm rounded hover:bg-accent/90 disabled:opacity-50"
+                      className="px-4 py-1.5 bg-accent text-white text-sm rounded hover:bg-accent/90 disabled:opacity-50 min-w-[110px] text-center"
                     >
                       {processing === doc.id ? '...' : 'Acknowledge'}
                     </button>
