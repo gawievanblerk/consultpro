@@ -1165,4 +1165,152 @@ async function updatePhaseStatus(employeeId, phase) {
   }
 }
 
+/**
+ * POST /api/onboarding-workflow/employees/:employeeId/refresh-documents
+ * Regenerate missing documents for an existing onboarding
+ */
+router.post('/employees/:employeeId/refresh-documents', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { employeeId } = req.params;
+    const tenantId = req.tenant_id || req.user?.org;
+
+    // Get existing onboarding
+    const onboardingResult = await client.query(`
+      SELECT eo.*, e.company_id
+      FROM employee_onboarding eo
+      JOIN employees e ON eo.employee_id = e.id
+      WHERE eo.employee_id = $1
+    `, [employeeId]);
+
+    if (onboardingResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'No onboarding found for this employee' });
+    }
+
+    const onboarding = onboardingResult.rows[0];
+    const companyId = onboarding.company_id;
+
+    // Default phase config
+    const phaseConfig = {
+      phase1: {
+        documents: [
+          { type: 'offer_letter', label: 'Offer Letter', action: 'sign', required: true },
+          { type: 'employment_contract', label: 'Employment Contract', action: 'sign', required: true },
+          { type: 'nda', label: 'Non-Disclosure Agreement', action: 'sign', required: true },
+          { type: 'ndpa_consent', label: 'NDPA Notice & Consent', action: 'acknowledge', required: true },
+          { type: 'code_of_conduct', label: 'Code of Conduct', action: 'acknowledge', required: true }
+        ],
+        due_days: 2
+      },
+      phase2: {
+        documents: [
+          { type: 'job_description', label: 'Job Description', action: 'acknowledge', required: true },
+          { type: 'org_chart', label: 'Organizational Chart', action: 'acknowledge', required: true },
+          { type: 'key_contacts', label: 'Key Contacts & Escalation Map', action: 'acknowledge', required: false }
+        ],
+        due_days: 3
+      },
+      phase3: {
+        documents: [
+          { type: 'passport_photos', label: 'Passport Photographs', action: 'upload', required: true },
+          { type: 'educational_certs', label: 'Educational Certificates', action: 'upload', required: true },
+          { type: 'professional_certs', label: 'Professional Certifications', action: 'upload', required: false },
+          { type: 'government_id', label: 'Government-Issued ID', action: 'upload', required: true },
+          { type: 'bank_details', label: 'Bank Account Verification', action: 'upload', required: true }
+        ],
+        due_days: 5
+      }
+    };
+
+    await client.query('BEGIN');
+
+    let createdCount = 0;
+
+    // Create documents for phases 1-3
+    for (const [phaseKey, phaseData] of Object.entries(phaseConfig)) {
+      if (!phaseData.documents) continue;
+
+      const phaseNum = parseInt(phaseKey.replace('phase', ''));
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + (phaseData.due_days || 5));
+
+      for (const doc of phaseData.documents) {
+        // Check if document already exists
+        const existingDoc = await client.query(
+          'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND document_type = $2',
+          [employeeId, doc.type]
+        );
+
+        if (existingDoc.rows.length === 0) {
+          await client.query(`
+            INSERT INTO onboarding_documents (
+              tenant_id, company_id, employee_id, onboarding_id,
+              document_type, document_title, document_category, phase,
+              requires_signature, requires_acknowledgment, requires_upload,
+              is_required, status, due_date
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13)
+          `, [
+            tenantId,
+            companyId,
+            employeeId,
+            onboarding.id,
+            doc.type,
+            doc.label,
+            `phase${phaseNum}_${doc.action === 'sign' ? 'signing' : doc.action === 'acknowledge' ? 'acknowledgment' : 'employee_file'}`,
+            phaseNum,
+            doc.action === 'sign',
+            doc.action === 'acknowledge',
+            doc.action === 'upload',
+            doc.required !== false,
+            dueDate
+          ]);
+          createdCount++;
+        }
+      }
+    }
+
+    // Add Phase 4 policy documents
+    const policies = await client.query(`
+      SELECT id, title FROM policies
+      WHERE tenant_id = $1 AND (company_id = $2 OR company_id IS NULL)
+      AND is_active = true AND requires_acknowledgment = true
+    `, [tenantId, companyId]);
+
+    for (const policy of policies.rows) {
+      const existingDoc = await client.query(
+        'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND policy_id = $2',
+        [employeeId, policy.id]
+      );
+
+      if (existingDoc.rows.length === 0) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 5);
+
+        await client.query(`
+          INSERT INTO onboarding_documents (
+            tenant_id, company_id, employee_id, onboarding_id,
+            document_type, document_title, document_category, phase,
+            requires_acknowledgment, is_required, policy_id, status, due_date
+          ) VALUES ($1, $2, $3, $4, 'policy', $5, 'phase4_acknowledgment', 4, true, true, $6, 'pending', $7)
+        `, [tenantId, companyId, employeeId, onboarding.id, policy.title, policy.id, dueDate]);
+        createdCount++;
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: `Created ${createdCount} missing document(s)`,
+      documentsCreated: createdCount
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error refreshing documents:', error);
+    res.status(500).json({ success: false, error: 'Failed to refresh documents' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
