@@ -145,7 +145,7 @@ async function initializeOnboarding(tenantId, companyId, employeeId, workflowId 
           const docResult = await client.query(`
             INSERT INTO onboarding_documents (
               tenant_id, company_id, employee_id, onboarding_id,
-              document_type, document_name, document_category, phase,
+              document_type, document_title, document_category, phase,
               requires_signature, requires_acknowledgment, requires_upload,
               is_required, status, due_date
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13)
@@ -190,7 +190,7 @@ async function initializeOnboarding(tenantId, companyId, employeeId, workflowId 
         await client.query(`
           INSERT INTO onboarding_documents (
             tenant_id, company_id, employee_id, onboarding_id,
-            document_type, document_name, document_category, phase,
+            document_type, document_title, document_category, phase,
             requires_acknowledgment, is_required, policy_id, status, due_date
           ) VALUES ($1, $2, $3, $4, 'policy', $5, 'phase4_acknowledgment', 4, true, true, $6, 'pending', $7)
         `, [tenantId, companyId, employeeId, onboarding.id, policy.name, policy.id, dueDate]);
@@ -237,27 +237,27 @@ async function checkHardGates(tenantId, employeeId) {
 
   // Gate 1: Phase 1 documents (all required signed/acknowledged)
   const phase1Docs = await pool.query(`
-    SELECT document_type, document_name, status, is_required
+    SELECT document_type, document_title, status, is_required
     FROM onboarding_documents
     WHERE employee_id = $1 AND phase = 1 AND is_required = true
   `, [employeeId]);
 
   for (const doc of phase1Docs.rows) {
     if (!['signed', 'acknowledged'].includes(doc.status)) {
-      errors.push(`Phase 1: ${doc.document_name} not completed (status: ${doc.status})`);
+      errors.push(`Phase 1: ${doc.document_title} not completed (status: ${doc.status})`);
     }
   }
 
   // Gate 2: Phase 3 documents (all required uploaded and verified)
   const phase3Docs = await pool.query(`
-    SELECT document_type, document_name, status, is_required
+    SELECT document_type, document_title, status, is_required
     FROM onboarding_documents
     WHERE employee_id = $1 AND phase = 3 AND is_required = true
   `, [employeeId]);
 
   for (const doc of phase3Docs.rows) {
     if (!['verified', 'uploaded'].includes(doc.status)) {
-      errors.push(`Phase 3: ${doc.document_name} not completed (status: ${doc.status})`);
+      errors.push(`Phase 3: ${doc.document_title} not completed (status: ${doc.status})`);
     }
   }
 

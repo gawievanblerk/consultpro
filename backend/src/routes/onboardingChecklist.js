@@ -720,7 +720,7 @@ router.get('/my-documents', async (req, res) => {
       params.push(parseInt(phase));
     }
 
-    query += ' ORDER BY od.phase, od.is_required DESC, od.document_name';
+    query += ' ORDER BY od.phase, od.is_required DESC, od.document_title';
 
     const result = await pool.query(query, params);
 
@@ -1114,7 +1114,7 @@ router.get('/my-document/:docId/content', async (req, res) => {
       success: true,
       data: {
         type: doc.template_type || 'document',
-        name: doc.document_name,
+        name: doc.document_title,
         content,
         status: doc.status,
         requiresSignature: doc.requires_signature,
