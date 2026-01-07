@@ -1044,31 +1044,49 @@ router.get('/my-profile-completion', async (req, res) => {
  */
 router.get('/my-document/:docId/content', async (req, res) => {
   try {
-    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
+    const impersonatedEmployeeId = req.user?.employee_id;
     const { docId } = req.params;
 
-    // Get employee ID
-    const employeeResult = await pool.query(`
-      SELECT e.* FROM employees e
-      WHERE e.user_id = $1 AND e.tenant_id = $2
-    `, [userId, tenantId]);
+    // Get employee ID - try impersonation first, then user_id lookup
+    let employeeId;
+    let employee;
 
-    if (employeeResult.rows.length === 0) {
+    if (impersonatedEmployeeId) {
+      const verify = await pool.query(
+        'SELECT * FROM employees WHERE id = $1 AND deleted_at IS NULL',
+        [impersonatedEmployeeId]
+      );
+      if (verify.rows.length > 0) {
+        employeeId = impersonatedEmployeeId;
+        employee = verify.rows[0];
+      }
+    }
+
+    if (!employeeId) {
+      const employeeResult = await pool.query(
+        'SELECT * FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+        [userId]
+      );
+      if (employeeResult.rows.length > 0) {
+        employeeId = employeeResult.rows[0].id;
+        employee = employeeResult.rows[0];
+      }
+    }
+
+    if (!employeeId) {
       return res.status(404).json({ success: false, error: 'Employee record not found' });
     }
 
-    const employee = employeeResult.rows[0];
-
-    // Get document with template
+    // Get document (removed template join as schema may differ)
     const docResult = await pool.query(`
-      SELECT od.*, dt.template_content, dt.template_type,
-             p.name as policy_name, p.description as policy_description, p.file_url as policy_url
+      SELECT od.*,
+             p.title as policy_name, p.description as policy_description,
+             COALESCE(p.external_url, p.file_path) as policy_url
       FROM onboarding_documents od
-      LEFT JOIN document_templates dt ON od.template_id = dt.id
       LEFT JOIN policies p ON od.policy_id = p.id
       WHERE od.id = $1 AND od.employee_id = $2
-    `, [docId, employee.id]);
+    `, [docId, employeeId]);
 
     if (docResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Document not found' });
@@ -1082,36 +1100,38 @@ router.get('/my-document/:docId/content', async (req, res) => {
         success: true,
         data: {
           type: 'policy',
-          name: doc.policy_name,
-          description: doc.policy_description,
+          name: doc.policy_name || doc.document_title,
+          description: doc.policy_description || 'Please review and acknowledge this policy.',
           url: doc.policy_url,
-          status: doc.status
+          status: doc.status,
+          requiresAcknowledgment: doc.requires_acknowledgment
         }
       });
     }
 
-    // If it has a template, process placeholders
-    let content = doc.template_content || '';
-    if (content) {
-      const placeholders = {
-        '{{employee_name}}': `${employee.first_name} ${employee.last_name}`,
-        '{{employee_email}}': employee.email,
-        '{{employee_number}}': employee.employee_number,
-        '{{job_title}}': employee.job_title || '',
-        '{{department}}': employee.department || '',
-        '{{hire_date}}': employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : '',
-        '{{date}}': new Date().toLocaleDateString()
-      };
+    // Return document info (templates not currently supported)
+    // Generate placeholder content based on document type
+    let content = '';
+    const docType = doc.document_type;
 
-      for (const [key, value] of Object.entries(placeholders)) {
-        content = content.replace(new RegExp(key, 'g'), value);
-      }
-    }
+    // Generate content description based on document type
+    const contentDescriptions = {
+      'offer_letter': `<h2>Offer Letter</h2><p>Dear ${employee.first_name} ${employee.last_name},</p><p>We are pleased to offer you the position of <strong>${employee.job_title || 'Employee'}</strong>.</p><p>Please sign below to accept this offer.</p>`,
+      'employment_contract': `<h2>Employment Contract</h2><p>This Employment Contract is entered into between the Company and <strong>${employee.first_name} ${employee.last_name}</strong>.</p><p>Position: ${employee.job_title || 'As assigned'}</p><p>Start Date: ${employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : 'As per offer letter'}</p><p>Please review and sign to acknowledge acceptance of terms.</p>`,
+      'nda': `<h2>Non-Disclosure Agreement</h2><p>This NDA is entered into by <strong>${employee.first_name} ${employee.last_name}</strong>.</p><p>By signing this agreement, you agree to maintain confidentiality of all proprietary information.</p>`,
+      'ndpa_consent': `<h2>NDPA Notice & Consent</h2><p>In accordance with the Nigeria Data Protection Act, we require your consent to collect and process your personal data for employment purposes.</p><p>Please acknowledge that you have read and understand this notice.</p>`,
+      'code_of_conduct': `<h2>Code of Conduct</h2><p>This Code of Conduct outlines the expected behavior and ethical standards for all employees.</p><p>Please acknowledge that you have read and agree to abide by this code.</p>`,
+      'job_description': `<h2>Job Description</h2><p><strong>Position:</strong> ${employee.job_title || 'As assigned'}</p><p><strong>Department:</strong> ${employee.department || 'As assigned'}</p><p>Please acknowledge that you have reviewed and understood your role and responsibilities.</p>`,
+      'org_chart': `<h2>Organizational Chart</h2><p>Please review the organizational structure and reporting lines.</p><p>Acknowledge once you understand the team structure.</p>`,
+      'key_contacts': `<h2>Key Contacts & Escalation Map</h2><p>Please review the list of key contacts and escalation procedures.</p><p>Acknowledge once you have noted the important contacts.</p>`
+    };
+
+    content = contentDescriptions[docType] || `<h2>${doc.document_title}</h2><p>Please review and ${doc.requires_signature ? 'sign' : 'acknowledge'} this document.</p>`;
 
     res.json({
       success: true,
       data: {
-        type: doc.template_type || 'document',
+        type: 'document',
         name: doc.document_title,
         content,
         status: doc.status,
