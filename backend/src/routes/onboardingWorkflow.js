@@ -1173,11 +1173,10 @@ router.post('/employees/:employeeId/refresh-documents', async (req, res) => {
   const client = await pool.connect();
   try {
     const { employeeId } = req.params;
-    const tenantId = req.tenant_id || req.user?.org;
 
-    // Get existing onboarding
+    // Get existing onboarding with employee's tenant_id
     const onboardingResult = await client.query(`
-      SELECT eo.*, e.company_id
+      SELECT eo.*, e.company_id, e.tenant_id
       FROM employee_onboarding eo
       JOIN employees e ON eo.employee_id = e.id
       WHERE eo.employee_id = $1
@@ -1189,6 +1188,7 @@ router.post('/employees/:employeeId/refresh-documents', async (req, res) => {
 
     const onboarding = onboardingResult.rows[0];
     const companyId = onboarding.company_id;
+    const tenantId = onboarding.tenant_id;
 
     // Default phase config
     const phaseConfig = {
