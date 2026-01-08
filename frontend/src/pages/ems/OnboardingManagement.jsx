@@ -15,6 +15,7 @@ export default function OnboardingManagement() {
   const [modalType, setModalType] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [processing, setProcessing] = useState(false);
+  const [viewChecklist, setViewChecklist] = useState(null);
 
   // Default checklist items
   const defaultChecklistItems = [
@@ -173,6 +174,36 @@ export default function OnboardingManagement() {
     setShowModal(true);
   };
 
+  const handleToggleChecklistItem = async (checklistId, itemIndex, completed) => {
+    setProcessing(true);
+    try {
+      await api.put(`/api/onboarding-checklist/checklists/${checklistId}/item`, {
+        itemIndex,
+        completed
+      });
+      // Update local state
+      const updatedChecklists = checklists.map(c => {
+        if (c.id === checklistId) {
+          const updatedItems = [...c.items];
+          updatedItems[itemIndex] = { ...updatedItems[itemIndex], completed };
+          return { ...c, items: updatedItems };
+        }
+        return c;
+      });
+      setChecklists(updatedChecklists);
+      // Update viewChecklist if open
+      if (viewChecklist?.id === checklistId) {
+        const updatedItems = [...viewChecklist.items];
+        updatedItems[itemIndex] = { ...updatedItems[itemIndex], completed };
+        setViewChecklist({ ...viewChecklist, items: updatedItems });
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update item');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const getChecklistProgress = (checklist) => {
     if (!checklist?.items?.length) return 0;
     const completed = checklist.items.filter(i => i.completed).length;
@@ -313,7 +344,11 @@ export default function OnboardingManagement() {
                     </td>
                     <td className="px-6 py-4">
                       {checklist ? (
-                        <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setViewChecklist(checklist)}
+                          className="flex items-center space-x-2 hover:opacity-80 cursor-pointer"
+                          title="Click to view checklist details"
+                        >
                           <div className="w-24 bg-gray-200 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full ${progress === 100 ? 'bg-green-500' : 'bg-primary'}`}
@@ -321,7 +356,7 @@ export default function OnboardingManagement() {
                             />
                           </div>
                           <span className="text-sm text-gray-600">{progress}%</span>
-                        </div>
+                        </button>
                       ) : (
                         <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">No checklist</span>
                       )}
@@ -391,7 +426,11 @@ export default function OnboardingManagement() {
               const progress = getChecklistProgress(checklist);
 
               return (
-                <div key={checklist.id} className="bg-white rounded-lg shadow p-5">
+                <div
+                  key={checklist.id}
+                  className="bg-white rounded-lg shadow p-5 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => setViewChecklist(checklist)}
+                >
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-semibold text-gray-900">
@@ -621,6 +660,113 @@ export default function OnboardingManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Checklist Detail Modal */}
+      {viewChecklist && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-semibold">Onboarding Checklist</h2>
+                <p className="text-sm text-gray-500">
+                  {employees.find(e => e.id === viewChecklist.employee_id)?.first_name}{' '}
+                  {employees.find(e => e.id === viewChecklist.employee_id)?.last_name}
+                </p>
+              </div>
+              <button onClick={() => setViewChecklist(null)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-b">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+                <span className="text-sm font-bold">{getChecklistProgress(viewChecklist)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className={`h-3 rounded-full transition-all ${getChecklistProgress(viewChecklist) === 100 ? 'bg-green-500' : 'bg-primary'}`}
+                  style={{ width: `${getChecklistProgress(viewChecklist)}%` }}
+                />
+              </div>
+              <div className="mt-2 text-xs text-gray-500">
+                {viewChecklist.items?.filter(i => i.completed).length} of {viewChecklist.items?.length} items completed
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {['hr', 'documents', 'policies', 'it', 'orientation'].map(category => {
+                const categoryItems = viewChecklist.items?.filter(i => i.category === category) || [];
+                if (categoryItems.length === 0) return null;
+
+                const categoryLabels = {
+                  hr: 'HR & Personal Info',
+                  documents: 'Documents',
+                  policies: 'Policies',
+                  it: 'IT & Systems',
+                  orientation: 'Orientation'
+                };
+
+                return (
+                  <div key={category} className="mb-6">
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+                      {categoryLabels[category]}
+                      <span className="ml-2 text-xs font-normal text-gray-500">
+                        ({categoryItems.filter(i => i.completed).length}/{categoryItems.length})
+                      </span>
+                    </h3>
+                    <div className="space-y-2">
+                      {categoryItems.map((item, idx) => {
+                        const itemIndex = viewChecklist.items.findIndex(i => i === item);
+                        return (
+                          <label
+                            key={idx}
+                            className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${
+                              item.completed
+                                ? 'bg-green-50 border-green-200'
+                                : 'bg-white border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={item.completed || false}
+                              onChange={(e) => handleToggleChecklistItem(viewChecklist.id, itemIndex, e.target.checked)}
+                              disabled={processing}
+                              className="h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                            />
+                            <span className={`ml-3 text-sm ${item.completed ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                              {item.item}
+                            </span>
+                            {item.required && !item.completed && (
+                              <span className="ml-auto text-xs text-red-500">Required</span>
+                            )}
+                            {item.completed && (
+                              <svg className="ml-auto h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setViewChecklist(null)}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
