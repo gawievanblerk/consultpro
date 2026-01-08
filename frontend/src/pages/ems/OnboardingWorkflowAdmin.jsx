@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { useCompany } from '../../context/CompanyContext';
+import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/BulkActions';
+import { DocumentTextIcon, PlayIcon } from '@heroicons/react/24/outline';
 
 const PHASE_LABELS = {
   phase1: 'Document Signing',
@@ -30,6 +32,31 @@ export default function OnboardingWorkflowAdmin() {
   const [showModal, setShowModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employeeOnboarding, setEmployeeOnboarding] = useState(null);
+
+  // Bulk selection and assignment states
+  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
+  const [documentTypes, setDocumentTypes] = useState([]);
+  const [selectedDocTypes, setSelectedDocTypes] = useState([]);
+  const [bulkDueDays, setBulkDueDays] = useState(7);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  // Combine all employees for bulk selection (both new hires and in-progress)
+  const allEmployeesForSelection = [
+    ...newHires.map(e => ({ ...e, id: e.id || e.employee_id, _type: 'new' })),
+    ...employees.map(e => ({ ...e, id: e.employee_id, _type: 'onboarding' }))
+  ];
+
+  const {
+    selectedIds,
+    selectedCount,
+    isAllSelected,
+    isPartiallySelected,
+    toggleItem,
+    toggleAll,
+    clearSelection,
+    isSelected,
+    selectedItems
+  } = useBulkSelection(allEmployeesForSelection);
 
   useEffect(() => {
     fetchData();
@@ -169,6 +196,78 @@ export default function OnboardingWorkflowAdmin() {
     return inPhase.length;
   };
 
+  // Bulk operations handlers
+  const handleOpenBulkAssign = async () => {
+    try {
+      const res = await api.get('/api/onboarding-workflow/document-types');
+      setDocumentTypes(res.data.data || []);
+      setSelectedDocTypes([]);
+      setBulkDueDays(7);
+      setShowBulkAssignModal(true);
+    } catch (err) {
+      setError('Failed to load document types');
+    }
+  };
+
+  const handleBulkAssignDocuments = async () => {
+    if (selectedDocTypes.length === 0) {
+      setError('Please select at least one document type');
+      return;
+    }
+
+    setBulkProcessing(true);
+    try {
+      const documents = documentTypes.filter(d => selectedDocTypes.includes(d.type));
+      const employeeIds = Array.from(selectedIds);
+
+      const res = await api.post('/api/onboarding-workflow/bulk-assign-documents', {
+        employee_ids: employeeIds,
+        documents,
+        due_days: bulkDueDays
+      });
+
+      alert(res.data.message);
+      setShowBulkAssignModal(false);
+      clearSelection();
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to assign documents');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const handleBulkStartOnboarding = async () => {
+    const newHireIds = selectedItems.filter(e => e._type === 'new').map(e => e.id);
+    if (newHireIds.length === 0) {
+      setError('No new hires selected. Bulk start only applies to new hires.');
+      return;
+    }
+
+    if (!confirm(`Start onboarding for ${newHireIds.length} employee(s)?`)) return;
+
+    setBulkProcessing(true);
+    try {
+      const res = await api.post('/api/onboarding-workflow/bulk-start-onboarding', {
+        employee_ids: newHireIds
+      });
+
+      alert(res.data.message);
+      clearSelection();
+      fetchData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to start onboarding');
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const toggleDocType = (type) => {
+    setSelectedDocTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -278,6 +377,13 @@ export default function OnboardingWorkflowAdmin() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <SelectCheckbox
+                    checked={isAllSelected}
+                    indeterminate={isPartiallySelected}
+                    onChange={toggleAll}
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Current Phase</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progress</th>
@@ -288,7 +394,13 @@ export default function OnboardingWorkflowAdmin() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {employees.filter(e => e.overall_status !== 'completed').map((employee) => (
-                <tr key={employee.employee_id} className="hover:bg-gray-50">
+                <tr key={employee.employee_id} className={`hover:bg-gray-50 ${isSelected(employee.employee_id) ? 'bg-primary-50' : ''}`}>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <SelectCheckbox
+                      checked={isSelected(employee.employee_id)}
+                      onChange={() => toggleItem(employee.employee_id)}
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">
                       {employee.first_name} {employee.last_name}
@@ -331,7 +443,7 @@ export default function OnboardingWorkflowAdmin() {
               ))}
               {employees.filter(e => e.overall_status !== 'completed').length === 0 && (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                     No employees currently in onboarding
                   </td>
                 </tr>
@@ -347,6 +459,13 @@ export default function OnboardingWorkflowAdmin() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <SelectCheckbox
+                    checked={isAllSelected}
+                    indeterminate={isPartiallySelected}
+                    onChange={toggleAll}
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Position</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hire Date</th>
@@ -355,8 +474,16 @@ export default function OnboardingWorkflowAdmin() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {newHires.map((employee) => (
-                <tr key={employee.id || employee.employee_id} className="hover:bg-gray-50">
+              {newHires.map((employee) => {
+                const empId = employee.id || employee.employee_id;
+                return (
+                <tr key={empId} className={`hover:bg-gray-50 ${isSelected(empId) ? 'bg-primary-50' : ''}`}>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <SelectCheckbox
+                      checked={isSelected(empId)}
+                      onChange={() => toggleItem(empId)}
+                    />
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">
                       {employee.employee_name || `${employee.first_name} ${employee.last_name}`}
@@ -384,10 +511,11 @@ export default function OnboardingWorkflowAdmin() {
                     </button>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
               {newHires.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                     No new hires awaiting onboarding
                   </td>
                 </tr>
@@ -619,6 +747,234 @@ export default function OnboardingWorkflowAdmin() {
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {processing === 'activate' ? 'Activating...' : 'Activate Employee'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Actions Toolbar */}
+      <BulkActions
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        customActions={[
+          {
+            label: 'Assign Documents',
+            icon: DocumentTextIcon,
+            onClick: handleOpenBulkAssign,
+            className: 'bg-accent-600 hover:bg-accent-700'
+          },
+          {
+            label: 'Start Onboarding',
+            icon: PlayIcon,
+            onClick: handleBulkStartOnboarding,
+            className: 'bg-orange-600 hover:bg-orange-700'
+          }
+        ]}
+      />
+
+      {/* Bulk Document Assignment Modal */}
+      {showBulkAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Assign Documents</h3>
+                <p className="text-sm text-gray-500">
+                  Assign documents to {selectedCount} selected employee(s)
+                </p>
+              </div>
+              <button
+                onClick={() => setShowBulkAssignModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Due Days Setting */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Due Date (days from hire date)
+                </label>
+                <input
+                  type="number"
+                  value={bulkDueDays}
+                  onChange={(e) => setBulkDueDays(parseInt(e.target.value) || 7)}
+                  className="w-32 px-3 py-2 border rounded-lg"
+                  min={1}
+                  max={90}
+                />
+              </div>
+
+              {/* Document Type Selection */}
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Select Documents to Assign
+                  </label>
+                  <div className="text-sm text-gray-500">
+                    {selectedDocTypes.length} selected
+                  </div>
+                </div>
+
+                {/* Phase 1: Document Signing */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-primary-700 mb-2 bg-primary-50 px-3 py-1 rounded">
+                    Phase 1: Document Signing
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 pl-2">
+                    {documentTypes.filter(d => d.phase === 1).map((doc) => (
+                      <label
+                        key={doc.type}
+                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50 ${
+                          selectedDocTypes.includes(doc.type) ? 'bg-accent-50 border border-accent-200' : 'border border-transparent'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDocTypes.includes(doc.type)}
+                          onChange={() => toggleDocType(doc.type)}
+                          className="h-4 w-4 text-accent-600 rounded"
+                        />
+                        <div>
+                          <span className="text-sm font-medium">{doc.title}</span>
+                          {doc.requires_signature && (
+                            <span className="ml-1 text-xs text-blue-600">(Sign)</span>
+                          )}
+                          {doc.requires_acknowledgment && (
+                            <span className="ml-1 text-xs text-green-600">(Ack)</span>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Phase 2: Role Clarity */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-primary-700 mb-2 bg-primary-50 px-3 py-1 rounded">
+                    Phase 2: Role Clarity
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 pl-2">
+                    {documentTypes.filter(d => d.phase === 2).map((doc) => (
+                      <label
+                        key={doc.type}
+                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50 ${
+                          selectedDocTypes.includes(doc.type) ? 'bg-accent-50 border border-accent-200' : 'border border-transparent'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDocTypes.includes(doc.type)}
+                          onChange={() => toggleDocType(doc.type)}
+                          className="h-4 w-4 text-accent-600 rounded"
+                        />
+                        <div>
+                          <span className="text-sm font-medium">{doc.title}</span>
+                          {doc.requires_acknowledgment && (
+                            <span className="ml-1 text-xs text-green-600">(Ack)</span>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Phase 3: Employee File */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-primary-700 mb-2 bg-primary-50 px-3 py-1 rounded">
+                    Phase 3: Employee File (Uploads)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 pl-2">
+                    {documentTypes.filter(d => d.phase === 3).map((doc) => (
+                      <label
+                        key={doc.type}
+                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50 ${
+                          selectedDocTypes.includes(doc.type) ? 'bg-accent-50 border border-accent-200' : 'border border-transparent'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDocTypes.includes(doc.type)}
+                          onChange={() => toggleDocType(doc.type)}
+                          className="h-4 w-4 text-accent-600 rounded"
+                        />
+                        <div>
+                          <span className="text-sm font-medium">{doc.title}</span>
+                          {doc.requires_upload && (
+                            <span className="ml-1 text-xs text-orange-600">(Upload)</span>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quick Select Buttons */}
+                <div className="flex gap-2 mt-4 pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDocTypes(documentTypes.filter(d => d.phase === 1).map(d => d.type))}
+                    className="px-3 py-1.5 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200"
+                  >
+                    Select All Phase 1
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDocTypes(documentTypes.map(d => d.type))}
+                    className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDocTypes([])}
+                    className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              {/* Selected Employees Preview */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Employees</h4>
+                <div className="flex flex-wrap gap-2">
+                  {selectedItems.slice(0, 10).map((emp) => (
+                    <span
+                      key={emp.id}
+                      className="px-2 py-1 bg-white border rounded text-sm"
+                    >
+                      {emp.first_name || emp.employee_name?.split(' ')[0]} {emp.last_name || ''}
+                    </span>
+                  ))}
+                  {selectedItems.length > 10 && (
+                    <span className="px-2 py-1 text-sm text-gray-500">
+                      +{selectedItems.length - 10} more
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => setShowBulkAssignModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkAssignDocuments}
+                disabled={bulkProcessing || selectedDocTypes.length === 0}
+                className="px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 disabled:opacity-50"
+              >
+                {bulkProcessing ? 'Assigning...' : `Assign ${selectedDocTypes.length} Document(s)`}
               </button>
             </div>
           </div>
