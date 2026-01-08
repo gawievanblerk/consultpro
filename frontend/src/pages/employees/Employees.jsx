@@ -15,7 +15,8 @@ import {
   EnvelopeIcon,
   FunnelIcon,
   ArrowUpTrayIcon,
-  PaperAirplaneIcon
+  PaperAirplaneIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 
 const statusColors = {
@@ -34,6 +35,53 @@ const statusLabels = {
   probation: 'Probation'
 };
 
+// Field name to user-friendly label mapping
+const fieldLabels = {
+  firstName: 'First Name',
+  lastName: 'Last Name',
+  middleName: 'Middle Name',
+  email: 'Email',
+  phone: 'Phone',
+  dateOfBirth: 'Date of Birth',
+  gender: 'Gender',
+  jobTitle: 'Job Title',
+  department: 'Department',
+  hireDate: 'Hire Date',
+  employmentType: 'Employment Type',
+  employmentStatus: 'Employment Status',
+  salary: 'Salary',
+  salaryCurrency: 'Currency',
+  companyId: 'Company'
+};
+
+// Map which tab each field belongs to
+const fieldToTab = {
+  firstName: 'basic',
+  lastName: 'basic',
+  middleName: 'basic',
+  email: 'basic',
+  phone: 'basic',
+  dateOfBirth: 'basic',
+  gender: 'basic',
+  jobTitle: 'employment',
+  department: 'employment',
+  hireDate: 'employment',
+  employmentType: 'employment',
+  employmentStatus: 'employment',
+  salary: 'employment',
+  salaryCurrency: 'employment',
+  nin: 'compliance',
+  bvn: 'compliance',
+  taxId: 'compliance',
+  pensionPin: 'compliance',
+  pensionPfa: 'compliance',
+  nhfNumber: 'compliance',
+  nhisNumber: 'compliance',
+  bankName: 'banking',
+  bankAccountNumber: 'banking',
+  bankAccountName: 'banking'
+};
+
 function Employees() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
@@ -48,6 +96,7 @@ function Employees() {
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -171,22 +220,81 @@ function Employees() {
       });
     }
     setActiveTab('basic');
+    setFieldErrors({});
     setModalOpen(true);
   };
 
   const handleCloseModal = () => {
+    setFieldErrors({});
     setModalOpen(false);
     setEditingEmployee(null);
   };
 
+  // Client-side validation before API call
+  const validateForm = () => {
+    const errors = {};
+
+    if (!formData.firstName?.trim()) {
+      errors.firstName = 'First name is required';
+    }
+    if (!formData.lastName?.trim()) {
+      errors.lastName = 'Last name is required';
+    }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    return errors;
+  };
+
+  // Parse API validation errors into field errors
+  const parseApiErrors = (apiErrors) => {
+    const errors = {};
+    if (Array.isArray(apiErrors)) {
+      apiErrors.forEach(err => {
+        // express-validator returns 'path' or 'param' for field name
+        const fieldName = err.path || err.param;
+        if (fieldName) {
+          errors[fieldName] = err.msg || 'Invalid value';
+        }
+      });
+    }
+    return errors;
+  };
+
+  // Get tabs that have errors
+  const getTabsWithErrors = () => {
+    const tabs = new Set();
+    Object.keys(fieldErrors).forEach(field => {
+      const tab = fieldToTab[field];
+      if (tab) tabs.add(tab);
+    });
+    return tabs;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    // Client-side validation first
+    const clientErrors = validateForm();
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      // Navigate to the first tab with errors
+      const firstErrorField = Object.keys(clientErrors)[0];
+      const targetTab = fieldToTab[firstErrorField] || 'basic';
+      setActiveTab(targetTab);
+      toast.error('Please fix the highlighted errors');
+      return;
+    }
+
     setSaving(true);
     try {
       // For new employees, use selected company; for edits, use existing company
       const companyId = editingEmployee?.company_id || selectedCompany?.id;
 
       if (!companyId) {
+        setFieldErrors({ companyId: 'Please select a company first' });
         toast.error('Please select a company first');
         setSaving(false);
         return;
@@ -208,9 +316,43 @@ function Employees() {
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save employee:', error);
-      toast.error(error.response?.data?.error || 'Failed to save employee');
+
+      // Parse validation errors from API
+      if (error.response?.data?.errors) {
+        const apiFieldErrors = parseApiErrors(error.response.data.errors);
+        setFieldErrors(apiFieldErrors);
+
+        // Navigate to the first tab with errors
+        const firstErrorField = Object.keys(apiFieldErrors)[0];
+        if (firstErrorField) {
+          const targetTab = fieldToTab[firstErrorField] || 'basic';
+          setActiveTab(targetTab);
+        }
+
+        // Build error message
+        const errorCount = Object.keys(apiFieldErrors).length;
+        const fieldNames = Object.keys(apiFieldErrors)
+          .map(f => fieldLabels[f] || f)
+          .slice(0, 3)
+          .join(', ');
+        toast.error(`Please fix ${errorCount} error(s): ${fieldNames}${errorCount > 3 ? '...' : ''}`);
+      } else {
+        toast.error(error.response?.data?.error || 'Failed to save employee');
+      }
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Clear error for a specific field when user changes it
+  const handleFieldChange = (field, value) => {
+    setFormData({ ...formData, [field]: value });
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => {
+        const updated = { ...prev };
+        delete updated[field];
+        return updated;
+      });
     }
   };
 
@@ -491,35 +633,66 @@ function Employees() {
 
       <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingEmployee ? 'Edit Employee' : 'Add Employee'} size="xl">
         <form onSubmit={handleSubmit}>
+          {/* Error Summary Banner */}
+          {Object.keys(fieldErrors).length > 0 && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <ExclamationTriangleIcon className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-red-800">Please fix the following errors:</h4>
+                  <ul className="mt-2 text-sm text-red-700 space-y-1">
+                    {Object.entries(fieldErrors).map(([field, error]) => (
+                      <li key={field}>
+                        <strong>{fieldLabels[field] || field}:</strong> {error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="flex border-b border-gray-200 mb-4">
             <button
               type="button"
               onClick={() => setActiveTab('basic')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'basic' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-2 text-sm font-medium flex items-center gap-1 ${activeTab === 'basic' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               Basic Info
+              {getTabsWithErrors().has('basic') && (
+                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('employment')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'employment' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-2 text-sm font-medium flex items-center gap-1 ${activeTab === 'employment' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               Employment
+              {getTabsWithErrors().has('employment') && (
+                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('compliance')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'compliance' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-2 text-sm font-medium flex items-center gap-1 ${activeTab === 'compliance' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               Nigeria Compliance
+              {getTabsWithErrors().has('compliance') && (
+                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('banking')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'banking' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-2 text-sm font-medium flex items-center gap-1 ${activeTab === 'banking' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               Banking
+              {getTabsWithErrors().has('banking') && (
+                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
             </button>
           </div>
 
@@ -528,52 +701,59 @@ function Employees() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label">First Name *</label>
+                  <label className={`form-label ${fieldErrors.firstName ? 'text-red-600' : ''}`}>First Name *</label>
                   <input
                     type="text"
-                    required
                     value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('firstName', e.target.value)}
+                    className={`form-input ${fieldErrors.firstName ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.firstName && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.firstName}</p>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Middle Name</label>
                   <input
                     type="text"
                     value={formData.middleName}
-                    onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
+                    onChange={(e) => handleFieldChange('middleName', e.target.value)}
                     className="form-input"
                   />
                 </div>
                 <div>
-                  <label className="form-label">Last Name *</label>
+                  <label className={`form-label ${fieldErrors.lastName ? 'text-red-600' : ''}`}>Last Name *</label>
                   <input
                     type="text"
-                    required
                     value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('lastName', e.target.value)}
+                    className={`form-input ${fieldErrors.lastName ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.lastName && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.lastName}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Email</label>
+                  <label className={`form-label ${fieldErrors.email ? 'text-red-600' : ''}`}>Email</label>
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('email', e.target.value)}
+                    className={`form-input ${fieldErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     placeholder="Required for ESS access"
                   />
+                  {fieldErrors.email && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Phone</label>
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => handleFieldChange('phone', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -584,7 +764,7 @@ function Employees() {
                   <input
                     type="date"
                     value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                    onChange={(e) => handleFieldChange('dateOfBirth', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -592,7 +772,7 @@ function Employees() {
                   <label className="form-label">Gender</label>
                   <select
                     value={formData.gender}
-                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    onChange={(e) => handleFieldChange('gender', e.target.value)}
                     className="form-input"
                   >
                     <option value="">Select...</option>
@@ -609,56 +789,65 @@ function Employees() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Job Title *</label>
+                  <label className={`form-label ${fieldErrors.jobTitle ? 'text-red-600' : ''}`}>Job Title *</label>
                   <input
                     type="text"
-                    required
                     value={formData.jobTitle}
-                    onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('jobTitle', e.target.value)}
+                    className={`form-input ${fieldErrors.jobTitle ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.jobTitle && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.jobTitle}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="form-label">Department *</label>
+                  <label className={`form-label ${fieldErrors.department ? 'text-red-600' : ''}`}>Department *</label>
                   <input
                     type="text"
-                    required
                     value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('department', e.target.value)}
+                    className={`form-input ${fieldErrors.department ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.department && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.department}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label">Hire Date *</label>
+                  <label className={`form-label ${fieldErrors.hireDate ? 'text-red-600' : ''}`}>Hire Date *</label>
                   <input
                     type="date"
-                    required
                     value={formData.hireDate}
-                    onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('hireDate', e.target.value)}
+                    className={`form-input ${fieldErrors.hireDate ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.hireDate && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.hireDate}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="form-label">Employment Type</label>
+                  <label className={`form-label ${fieldErrors.employmentType ? 'text-red-600' : ''}`}>Employment Type</label>
                   <select
                     value={formData.employmentType}
-                    onChange={(e) => setFormData({ ...formData, employmentType: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('employmentType', e.target.value)}
+                    className={`form-input ${fieldErrors.employmentType ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   >
                     <option value="full_time">Full Time</option>
                     <option value="part_time">Part Time</option>
                     <option value="contract">Contract</option>
                     <option value="intern">Intern</option>
                   </select>
+                  {fieldErrors.employmentType && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.employmentType}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="form-label">Status</label>
+                  <label className={`form-label ${fieldErrors.employmentStatus ? 'text-red-600' : ''}`}>Status</label>
                   <select
                     value={formData.employmentStatus}
-                    onChange={(e) => setFormData({ ...formData, employmentStatus: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('employmentStatus', e.target.value)}
+                    className={`form-input ${fieldErrors.employmentStatus ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   >
                     <option value="active">Active</option>
                     <option value="probation">Probation</option>
@@ -666,6 +855,9 @@ function Employees() {
                     <option value="suspended">Suspended</option>
                     <option value="terminated">Terminated</option>
                   </select>
+                  {fieldErrors.employmentStatus && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.employmentStatus}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -674,7 +866,7 @@ function Employees() {
                   <input
                     type="number"
                     value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                    onChange={(e) => handleFieldChange('salary', e.target.value)}
                     className="form-input"
                     placeholder="Monthly salary"
                   />
@@ -683,7 +875,7 @@ function Employees() {
                   <label className="form-label">Currency</label>
                   <select
                     value={formData.salaryCurrency}
-                    onChange={(e) => setFormData({ ...formData, salaryCurrency: e.target.value })}
+                    onChange={(e) => handleFieldChange('salaryCurrency', e.target.value)}
                     className="form-input"
                   >
                     <option value="NGN">NGN - Nigerian Naira</option>
@@ -706,7 +898,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.nin}
-                    onChange={(e) => setFormData({ ...formData, nin: e.target.value })}
+                    onChange={(e) => handleFieldChange('nin', e.target.value)}
                     className="form-input"
                     placeholder="11-digit NIN"
                     maxLength={11}
@@ -717,7 +909,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.bvn}
-                    onChange={(e) => setFormData({ ...formData, bvn: e.target.value })}
+                    onChange={(e) => handleFieldChange('bvn', e.target.value)}
                     className="form-input"
                     placeholder="11-digit BVN"
                     maxLength={11}
@@ -730,7 +922,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.taxId}
-                    onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                    onChange={(e) => handleFieldChange('taxId', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -739,7 +931,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.pensionPin}
-                    onChange={(e) => setFormData({ ...formData, pensionPin: e.target.value })}
+                    onChange={(e) => handleFieldChange('pensionPin', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -750,7 +942,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.pensionPfa}
-                    onChange={(e) => setFormData({ ...formData, pensionPfa: e.target.value })}
+                    onChange={(e) => handleFieldChange('pensionPfa', e.target.value)}
                     className="form-input"
                     placeholder="e.g. ARM Pension"
                   />
@@ -760,7 +952,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.nhfNumber}
-                    onChange={(e) => setFormData({ ...formData, nhfNumber: e.target.value })}
+                    onChange={(e) => handleFieldChange('nhfNumber', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -769,7 +961,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.nhisNumber}
-                    onChange={(e) => setFormData({ ...formData, nhisNumber: e.target.value })}
+                    onChange={(e) => handleFieldChange('nhisNumber', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -787,7 +979,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.bankName}
-                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                    onChange={(e) => handleFieldChange('bankName', e.target.value)}
                     className="form-input"
                     placeholder="e.g. Access Bank"
                   />
@@ -797,7 +989,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.bankAccountNumber}
-                    onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
+                    onChange={(e) => handleFieldChange('bankAccountNumber', e.target.value)}
                     className="form-input"
                     placeholder="10-digit NUBAN"
                     maxLength={10}
@@ -809,7 +1001,7 @@ function Employees() {
                 <input
                   type="text"
                   value={formData.bankAccountName}
-                  onChange={(e) => setFormData({ ...formData, bankAccountName: e.target.value })}
+                  onChange={(e) => handleFieldChange('bankAccountName', e.target.value)}
                   className="form-input"
                   placeholder="Name on bank account"
                 />

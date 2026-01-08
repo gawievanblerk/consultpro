@@ -141,6 +141,48 @@ router.post('/checklists', async (req, res) => {
     const userId = req.user.id;
     const { company_id, employee_id, items } = req.body;
 
+    // Validate required fields
+    if (!employee_id) {
+      return res.status(400).json({ success: false, error: 'Employee ID is required' });
+    }
+
+    // If company_id not provided, try to get it from employee record
+    let actualCompanyId = company_id;
+    let actualTenantId = tenantId;
+
+    if (!actualCompanyId || !actualTenantId) {
+      const employeeResult = await pool.query(`
+        SELECT e.company_id, c.tenant_id
+        FROM employees e
+        JOIN companies c ON e.company_id = c.id
+        WHERE e.id = $1 AND e.deleted_at IS NULL
+      `, [employee_id]);
+
+      if (employeeResult.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Employee not found' });
+      }
+
+      actualCompanyId = actualCompanyId || employeeResult.rows[0].company_id;
+      actualTenantId = actualTenantId || employeeResult.rows[0].tenant_id;
+    }
+
+    if (!actualTenantId) {
+      return res.status(400).json({ success: false, error: 'Could not determine tenant. Please contact support.' });
+    }
+
+    // Check if employee already has an active checklist
+    const existingResult = await pool.query(`
+      SELECT id FROM onboarding_checklists
+      WHERE employee_id = $1 AND status != 'completed'
+    `, [employee_id]);
+
+    if (existingResult.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'This employee already has an active onboarding checklist'
+      });
+    }
+
     // Use provided items or default checklist
     const checklistItems = items || DEFAULT_CHECKLIST_ITEMS.map(item => ({
       ...item,
@@ -154,11 +196,18 @@ router.post('/checklists', async (req, res) => {
         tenant_id, company_id, employee_id, items, status, created_by
       ) VALUES ($1, $2, $3, $4, 'pending', $5)
       RETURNING *
-    `, [tenantId, company_id, employee_id, JSON.stringify(checklistItems), userId]);
+    `, [actualTenantId, actualCompanyId, employee_id, JSON.stringify(checklistItems), userId]);
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Error creating onboarding checklist:', error);
+    // Provide more specific error messages
+    if (error.code === '23503') {
+      return res.status(400).json({ success: false, error: 'Invalid employee or company reference' });
+    }
+    if (error.code === '23505') {
+      return res.status(400).json({ success: false, error: 'A checklist already exists for this employee' });
+    }
     res.status(500).json({ success: false, error: 'Failed to create onboarding checklist' });
   }
 });
