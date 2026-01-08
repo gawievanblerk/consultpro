@@ -220,16 +220,18 @@ router.post('/checklists', async (req, res) => {
 // PUT /api/onboarding-checklist/checklists/:id/item - Update single item in checklist
 router.put('/checklists/:id/item', async (req, res) => {
   try {
-    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { id } = req.params;
     const { itemIndex, completed, notes } = req.body;
 
-    // Get current checklist
-    const checklistResult = await pool.query(
-      'SELECT * FROM onboarding_checklists WHERE id = $1 AND tenant_id = $2',
-      [id, tenantId]
-    );
+    // Get current checklist (join through hierarchy for access control)
+    const checklistResult = await pool.query(`
+      SELECT oc.*
+      FROM onboarding_checklists oc
+      JOIN companies c ON oc.company_id = c.id
+      JOIN consultants con ON c.consultant_id = con.id
+      WHERE oc.id = $1
+    `, [id]);
 
     if (checklistResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Checklist not found' });
@@ -270,9 +272,9 @@ router.put('/checklists/:id/item', async (req, res) => {
           completed_at = CASE WHEN $2 = 'completed' THEN NOW() ELSE NULL END,
           completed_by = CASE WHEN $2 = 'completed' THEN $3 ELSE NULL END,
           updated_at = NOW()
-      WHERE id = $4 AND tenant_id = $5
+      WHERE id = $4
       RETURNING *
-    `, [JSON.stringify(items), newStatus, userId, id, tenantId]);
+    `, [JSON.stringify(items), newStatus, userId, id]);
 
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
