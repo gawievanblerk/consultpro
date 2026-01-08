@@ -50,8 +50,12 @@ export default function OnboardingManagement() {
   });
 
   useEffect(() => {
+    // Only fetch when company context is ready (if in company mode, wait for selectedCompany)
+    if (isCompanyMode && !selectedCompany?.id) {
+      return; // Wait for company to be selected
+    }
     fetchData();
-  }, [selectedCompany]);
+  }, [selectedCompany, isCompanyMode]);
 
   const fetchData = async () => {
     try {
