@@ -218,15 +218,8 @@ export default function OnboardingManagement() {
   };
 
   const getNewEmployees = () => {
-    // Employees hired in last 90 days without a checklist
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-    return employees.filter(emp => {
-      const hireDate = new Date(emp.hire_date);
-      const hasChecklist = checklists.some(c => c.employee_id === emp.id);
-      return hireDate >= ninetyDaysAgo || !hasChecklist;
-    });
+    // Show all employees - those with checklists show progress, those without can create one
+    return employees;
   };
 
   if (loading) {
@@ -289,8 +282,8 @@ export default function OnboardingManagement() {
           <div className="text-3xl font-bold text-yellow-600">{pendingAcks.length}</div>
         </div>
         <div className="bg-white rounded-lg shadow p-5">
-          <div className="text-sm text-gray-500">New Employees</div>
-          <div className="text-3xl font-bold text-accent-600">{getNewEmployees().length}</div>
+          <div className="text-sm text-gray-500">Total Employees</div>
+          <div className="text-3xl font-bold text-accent-600">{employees.length}</div>
         </div>
       </div>
 
