@@ -279,7 +279,8 @@ router.put('/checklists/:id/item', async (req, res) => {
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Error updating checklist item:', error);
-    res.status(500).json({ success: false, error: 'Failed to update checklist item' });
+    console.error('Error details:', error.code, error.message, error.detail);
+    res.status(500).json({ success: false, error: `Failed to update checklist item: ${error.message}` });
   }
 });
 
