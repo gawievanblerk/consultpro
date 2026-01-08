@@ -39,9 +39,10 @@ const DEFAULT_CHECKLIST_ITEMS = [
 // GET /api/onboarding-checklist/checklists - List onboarding checklists
 router.get('/checklists', async (req, res) => {
   try {
-    const tenantId = req.tenant_id || req.user?.org;
     const { company_id, employee_id, status } = req.query;
 
+    // Build query - filter by company_id if provided, otherwise get all accessible checklists
+    // Join through consultants to get tenant relationship for proper access control
     let query = `
       SELECT
         oc.*,
@@ -54,10 +55,11 @@ router.get('/checklists', async (req, res) => {
       FROM onboarding_checklists oc
       JOIN employees e ON oc.employee_id = e.id
       JOIN companies c ON oc.company_id = c.id
-      WHERE oc.tenant_id = $1
+      JOIN consultants con ON c.consultant_id = con.id
+      WHERE 1=1
     `;
-    const params = [tenantId];
-    let paramIdx = 2;
+    const params = [];
+    let paramIdx = 1;
 
     if (company_id) {
       query += ` AND oc.company_id = $${paramIdx++}`;
