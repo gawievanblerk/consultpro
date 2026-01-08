@@ -1016,6 +1016,7 @@ app.use('/api/onboarding-checklist', require('./routes/onboardingChecklist'));
 app.use('/api/onboarding-workflow', require('./routes/onboardingWorkflow'));
 app.use('/api/medical', require('./routes/medicalInfo'));
 app.use('/api/probation-checkins', require('./routes/probationCheckins'));
+app.use('/api/document-templates', require('./routes/documentTemplates'));
 
 // ============================================================================
 // Error Handlers

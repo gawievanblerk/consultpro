@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../utils/db');
+const authenticateToken = require('../middleware/auth');
+
+// Apply authentication to all routes
+router.use(authenticateToken);
 
 // ============================================================================
 // ONBOARDING CHECKLISTS
@@ -137,6 +141,48 @@ router.post('/checklists', async (req, res) => {
     const userId = req.user.id;
     const { company_id, employee_id, items } = req.body;
 
+    // Validate required fields
+    if (!employee_id) {
+      return res.status(400).json({ success: false, error: 'Employee ID is required' });
+    }
+
+    // If company_id not provided, try to get it from employee record
+    let actualCompanyId = company_id;
+    let actualTenantId = tenantId;
+
+    if (!actualCompanyId || !actualTenantId) {
+      const employeeResult = await pool.query(`
+        SELECT e.company_id, c.tenant_id
+        FROM employees e
+        JOIN companies c ON e.company_id = c.id
+        WHERE e.id = $1 AND e.deleted_at IS NULL
+      `, [employee_id]);
+
+      if (employeeResult.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Employee not found' });
+      }
+
+      actualCompanyId = actualCompanyId || employeeResult.rows[0].company_id;
+      actualTenantId = actualTenantId || employeeResult.rows[0].tenant_id;
+    }
+
+    if (!actualTenantId) {
+      return res.status(400).json({ success: false, error: 'Could not determine tenant. Please contact support.' });
+    }
+
+    // Check if employee already has an active checklist
+    const existingResult = await pool.query(`
+      SELECT id FROM onboarding_checklists
+      WHERE employee_id = $1 AND status != 'completed'
+    `, [employee_id]);
+
+    if (existingResult.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'This employee already has an active onboarding checklist'
+      });
+    }
+
     // Use provided items or default checklist
     const checklistItems = items || DEFAULT_CHECKLIST_ITEMS.map(item => ({
       ...item,
@@ -150,11 +196,18 @@ router.post('/checklists', async (req, res) => {
         tenant_id, company_id, employee_id, items, status, created_by
       ) VALUES ($1, $2, $3, $4, 'pending', $5)
       RETURNING *
-    `, [tenantId, company_id, employee_id, JSON.stringify(checklistItems), userId]);
+    `, [actualTenantId, actualCompanyId, employee_id, JSON.stringify(checklistItems), userId]);
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Error creating onboarding checklist:', error);
+    // Provide more specific error messages
+    if (error.code === '23503') {
+      return res.status(400).json({ success: false, error: 'Invalid employee or company reference' });
+    }
+    if (error.code === '23505') {
+      return res.status(400).json({ success: false, error: 'A checklist already exists for this employee' });
+    }
     res.status(500).json({ success: false, error: 'Failed to create onboarding checklist' });
   }
 });
@@ -583,8 +636,9 @@ router.get('/my-onboarding', async (req, res) => {
     const userId = req.user?.id || req.user?.sub;
     // Check for employee_id from impersonation JWT
     const impersonatedEmployeeId = req.user?.employee_id;
+    const isImpersonation = req.user?.isImpersonation || false;
 
-    console.log('[My Onboarding] userId:', userId, 'employee_id:', impersonatedEmployeeId, 'user:', req.user?.email);
+    console.log('[My Onboarding] userId:', userId, 'employee_id:', impersonatedEmployeeId, 'isImpersonation:', isImpersonation, 'user:', req.user?.email);
 
     let employeeId, tenantId;
 
@@ -629,6 +683,20 @@ router.get('/my-onboarding', async (req, res) => {
     console.log('[My Onboarding] Progress:', progress ? 'found' : 'not found');
 
     if (!progress) {
+      // Debug: Show all onboarding records for the company to help identify mismatches
+      const companyId = employeeResult.rows[0]?.company_id;
+      if (companyId) {
+        const allOnboarding = await pool.query(`
+          SELECT eo.employee_id, e.first_name, e.last_name, e.email, eo.overall_status, eo.created_at
+          FROM employee_onboarding eo
+          JOIN employees e ON eo.employee_id = e.id
+          WHERE eo.company_id = $1
+          ORDER BY eo.created_at DESC
+          LIMIT 10
+        `, [companyId]);
+        console.log('[My Onboarding] DEBUG - All onboarding records for company:', companyId, allOnboarding.rows);
+      }
+
       return res.json({
         success: true,
         data: null,
@@ -681,27 +749,25 @@ router.get('/my-documents', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Employee record not found' });
     }
 
+    // Note: removed tenant_id filter as employee_id is unique and tenant mismatch was causing issues
     let query = `
       SELECT
         od.*,
-        p.name as policy_name,
+        p.title as policy_name,
         p.description as policy_description,
-        p.file_url as policy_url,
-        dt.template_content,
-        dt.template_type
+        COALESCE(p.external_url, p.file_path) as policy_url
       FROM onboarding_documents od
       LEFT JOIN policies p ON od.policy_id = p.id
-      LEFT JOIN document_templates dt ON od.template_id = dt.id
-      WHERE od.employee_id = $1 AND od.tenant_id = $2
+      WHERE od.employee_id = $1
     `;
-    const params = [employeeId, tenantId];
+    const params = [employeeId];
 
     if (phase) {
-      query += ` AND od.phase = $3`;
+      query += ` AND od.phase = $2`;
       params.push(parseInt(phase));
     }
 
-    query += ' ORDER BY od.phase, od.is_required DESC, od.document_name';
+    query += ' ORDER BY od.phase, od.is_required DESC, od.document_title';
 
     const result = await pool.query(query, params);
 
@@ -802,7 +868,8 @@ router.post('/my-documents/:docId/upload', upload.single('file'), async (req, re
 router.post('/my-documents/:docId/sign', async (req, res) => {
   try {
     const tenantId = req.tenant_id || req.user?.org;
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?.sub;
+    const impersonatedEmployeeId = req.user?.employee_id;
     const { docId } = req.params;
     const { signature_data } = req.body;
     const ipAddress = req.ip || req.connection.remoteAddress;
@@ -812,17 +879,32 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Signature is required' });
     }
 
-    // Get employee ID
-    const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
-      [userId]
-    );
+    let employeeId;
 
-    if (employeeResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    // Try employee_id from impersonation first, then user_id lookup
+    if (impersonatedEmployeeId) {
+      const verify = await pool.query(
+        'SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL',
+        [impersonatedEmployeeId]
+      );
+      if (verify.rows.length > 0) {
+        employeeId = impersonatedEmployeeId;
+      }
     }
 
-    const employeeId = employeeResult.rows[0].id;
+    if (!employeeId && userId) {
+      const employeeResult = await pool.query(
+        'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+        [userId]
+      );
+      if (employeeResult.rows.length > 0) {
+        employeeId = employeeResult.rows[0].id;
+      }
+    }
+
+    if (!employeeId) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
 
     // Verify document belongs to employee and requires signature
     const docResult = await pool.query(
@@ -872,22 +954,38 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
 router.post('/my-documents/:docId/acknowledge', async (req, res) => {
   try {
     const tenantId = req.tenant_id || req.user?.org;
-    const userId = req.user.id;
+    const userId = req.user?.id || req.user?.sub;
+    const impersonatedEmployeeId = req.user?.employee_id;
     const { docId } = req.params;
     const ipAddress = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
-    // Get employee ID
-    const employeeResult = await pool.query(
-      'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
-      [userId]
-    );
+    let employeeId;
 
-    if (employeeResult.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    // Try employee_id from impersonation first, then user_id lookup
+    if (impersonatedEmployeeId) {
+      const verify = await pool.query(
+        'SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL',
+        [impersonatedEmployeeId]
+      );
+      if (verify.rows.length > 0) {
+        employeeId = impersonatedEmployeeId;
+      }
     }
 
-    const employeeId = employeeResult.rows[0].id;
+    if (!employeeId && userId) {
+      const employeeResult = await pool.query(
+        'SELECT id FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+        [userId]
+      );
+      if (employeeResult.rows.length > 0) {
+        employeeId = employeeResult.rows[0].id;
+      }
+    }
+
+    if (!employeeId) {
+      return res.status(404).json({ success: false, error: 'Employee record not found' });
+    }
 
     // Verify document belongs to employee
     const docResult = await pool.query(
@@ -968,10 +1066,9 @@ router.get('/my-profile-completion', async (req, res) => {
       SELECT
         first_name, last_name, email, phone,
         date_of_birth, gender, marital_status,
-        address, city, state, country,
-        national_id, tax_id,
+        address_line1, city, state_of_residence, country,
+        nin, tax_id, bvn,
         bank_name, bank_account_number, bank_account_name,
-        emergency_contact_name, emergency_contact_phone,
         job_title, department
       FROM employees WHERE id = $1
     `, [employeeId]);
@@ -987,22 +1084,18 @@ router.get('/my-profile-completion', async (req, res) => {
         date_of_birth: !!employee.date_of_birth,
         gender: !!employee.gender,
         marital_status: !!employee.marital_status,
-        national_id: !!employee.national_id
+        nin: !!employee.nin
       },
       address: {
-        address: !!employee.address,
+        address_line1: !!employee.address_line1,
         city: !!employee.city,
-        state: !!employee.state,
+        state_of_residence: !!employee.state_of_residence,
         country: !!employee.country
       },
       banking: {
         bank_name: !!employee.bank_name,
         bank_account_number: !!employee.bank_account_number,
         bank_account_name: !!employee.bank_account_name
-      },
-      emergency: {
-        emergency_contact_name: !!employee.emergency_contact_name,
-        emergency_contact_phone: !!employee.emergency_contact_phone
       },
       employment: {
         job_title: !!employee.job_title,
@@ -1032,31 +1125,49 @@ router.get('/my-profile-completion', async (req, res) => {
  */
 router.get('/my-document/:docId/content', async (req, res) => {
   try {
-    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
+    const impersonatedEmployeeId = req.user?.employee_id;
     const { docId } = req.params;
 
-    // Get employee ID
-    const employeeResult = await pool.query(`
-      SELECT e.* FROM employees e
-      WHERE e.user_id = $1 AND e.tenant_id = $2
-    `, [userId, tenantId]);
+    // Get employee ID - try impersonation first, then user_id lookup
+    let employeeId;
+    let employee;
 
-    if (employeeResult.rows.length === 0) {
+    if (impersonatedEmployeeId) {
+      const verify = await pool.query(
+        'SELECT * FROM employees WHERE id = $1 AND deleted_at IS NULL',
+        [impersonatedEmployeeId]
+      );
+      if (verify.rows.length > 0) {
+        employeeId = impersonatedEmployeeId;
+        employee = verify.rows[0];
+      }
+    }
+
+    if (!employeeId) {
+      const employeeResult = await pool.query(
+        'SELECT * FROM employees WHERE user_id = $1 AND deleted_at IS NULL',
+        [userId]
+      );
+      if (employeeResult.rows.length > 0) {
+        employeeId = employeeResult.rows[0].id;
+        employee = employeeResult.rows[0];
+      }
+    }
+
+    if (!employeeId) {
       return res.status(404).json({ success: false, error: 'Employee record not found' });
     }
 
-    const employee = employeeResult.rows[0];
-
-    // Get document with template
+    // Get document (removed template join as schema may differ)
     const docResult = await pool.query(`
-      SELECT od.*, dt.template_content, dt.template_type,
-             p.name as policy_name, p.description as policy_description, p.file_url as policy_url
+      SELECT od.*,
+             p.title as policy_name, p.description as policy_description,
+             COALESCE(p.external_url, p.file_path) as policy_url
       FROM onboarding_documents od
-      LEFT JOIN document_templates dt ON od.template_id = dt.id
       LEFT JOIN policies p ON od.policy_id = p.id
       WHERE od.id = $1 AND od.employee_id = $2
-    `, [docId, employee.id]);
+    `, [docId, employeeId]);
 
     if (docResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Document not found' });
@@ -1070,37 +1181,85 @@ router.get('/my-document/:docId/content', async (req, res) => {
         success: true,
         data: {
           type: 'policy',
-          name: doc.policy_name,
-          description: doc.policy_description,
+          name: doc.policy_name || doc.document_title,
+          description: doc.policy_description || 'Please review and acknowledge this policy.',
           url: doc.policy_url,
-          status: doc.status
+          status: doc.status,
+          requiresAcknowledgment: doc.requires_acknowledgment
         }
       });
     }
 
-    // If it has a template, process placeholders
-    let content = doc.template_content || '';
-    if (content) {
-      const placeholders = {
-        '{{employee_name}}': `${employee.first_name} ${employee.last_name}`,
-        '{{employee_email}}': employee.email,
-        '{{employee_number}}': employee.employee_number,
-        '{{job_title}}': employee.job_title || '',
-        '{{department}}': employee.department || '',
-        '{{hire_date}}': employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : '',
-        '{{date}}': new Date().toLocaleDateString()
+    // Try to get template for this document type
+    let content = '';
+    const docType = doc.document_type;
+    const tenantId = doc.tenant_id;
+
+    // Check for template
+    const templateResult = await pool.query(`
+      SELECT * FROM document_templates
+      WHERE tenant_id = $1 AND template_type = $2 AND is_active = true
+      ORDER BY company_id NULLS LAST LIMIT 1
+    `, [tenantId, docType]);
+
+    if (templateResult.rows.length > 0) {
+      // Use template content and replace placeholders
+      const template = templateResult.rows[0];
+      content = template.content;
+
+      // Get additional employee data for placeholders
+      const empDataResult = await pool.query(`
+        SELECT e.*, c.trading_name as company_name,
+               m.first_name || ' ' || m.last_name as manager_name
+        FROM employees e
+        LEFT JOIN companies c ON e.company_id = c.id
+        LEFT JOIN employees m ON e.reports_to = m.id
+        WHERE e.id = $1
+      `, [employeeId]);
+
+      if (empDataResult.rows.length > 0) {
+        const emp = empDataResult.rows[0];
+        const replacements = {
+          '{{employee_name}}': `${emp.first_name || ''} ${emp.last_name || ''}`.trim(),
+          '{{employee_first_name}}': emp.first_name || '',
+          '{{employee_last_name}}': emp.last_name || '',
+          '{{employee_email}}': emp.email || '',
+          '{{employee_number}}': emp.employee_number || 'N/A',
+          '{{job_title}}': emp.job_title || 'As assigned',
+          '{{department}}': emp.department || 'As assigned',
+          '{{hire_date}}': emp.hire_date ? new Date(emp.hire_date).toLocaleDateString() : 'As per offer letter',
+          '{{company_name}}': emp.company_name || 'The Company',
+          '{{salary}}': emp.basic_salary ? `NGN ${Number(emp.basic_salary).toLocaleString()}` : 'As per offer',
+          '{{manager_name}}': emp.manager_name || 'Your Line Manager',
+          '{{current_date}}': new Date().toLocaleDateString(),
+          '{{probation_end_date}}': emp.probation_end_date ? new Date(emp.probation_end_date).toLocaleDateString() : 'As per policy'
+        };
+
+        for (const [placeholder, value] of Object.entries(replacements)) {
+          content = content.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
+        }
+      }
+    } else {
+      // Fallback to default content descriptions
+      const contentDescriptions = {
+        'offer_letter': `<h2>Offer Letter</h2><p>Dear ${employee.first_name} ${employee.last_name},</p><p>We are pleased to offer you the position of <strong>${employee.job_title || 'Employee'}</strong>.</p><p>Please sign below to accept this offer.</p>`,
+        'employment_contract': `<h2>Employment Contract</h2><p>This Employment Contract is entered into between the Company and <strong>${employee.first_name} ${employee.last_name}</strong>.</p><p>Position: ${employee.job_title || 'As assigned'}</p><p>Start Date: ${employee.hire_date ? new Date(employee.hire_date).toLocaleDateString() : 'As per offer letter'}</p><p>Please review and sign to acknowledge acceptance of terms.</p>`,
+        'nda': `<h2>Non-Disclosure Agreement</h2><p>This NDA is entered into by <strong>${employee.first_name} ${employee.last_name}</strong>.</p><p>By signing this agreement, you agree to maintain confidentiality of all proprietary information.</p>`,
+        'ndpa_consent': `<h2>NDPA Notice & Consent</h2><p>In accordance with the Nigeria Data Protection Act, we require your consent to collect and process your personal data for employment purposes.</p><p>Please acknowledge that you have read and understand this notice.</p>`,
+        'code_of_conduct': `<h2>Code of Conduct</h2><p>This Code of Conduct outlines the expected behavior and ethical standards for all employees.</p><p>Please acknowledge that you have read and agree to abide by this code.</p>`,
+        'job_description': `<h2>Job Description</h2><p><strong>Position:</strong> ${employee.job_title || 'As assigned'}</p><p><strong>Department:</strong> ${employee.department || 'As assigned'}</p><p>Please acknowledge that you have reviewed and understood your role and responsibilities.</p>`,
+        'org_chart': `<h2>Organizational Chart</h2><p>Please review the organizational structure and reporting lines.</p><p>Acknowledge once you understand the team structure.</p>`,
+        'key_contacts': `<h2>Key Contacts & Escalation Map</h2><p>Please review the list of key contacts and escalation procedures.</p><p>Acknowledge once you have noted the important contacts.</p>`
       };
 
-      for (const [key, value] of Object.entries(placeholders)) {
-        content = content.replace(new RegExp(key, 'g'), value);
-      }
+      content = contentDescriptions[docType] || `<h2>${doc.document_title}</h2><p>Please review and ${doc.requires_signature ? 'sign' : 'acknowledge'} this document.</p>`;
     }
 
     res.json({
       success: true,
       data: {
-        type: doc.template_type || 'document',
-        name: doc.document_name,
+        type: 'document',
+        name: doc.document_title,
         content,
         status: doc.status,
         requiresSignature: doc.requires_signature,

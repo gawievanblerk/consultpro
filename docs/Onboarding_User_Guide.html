@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Onboarding System - User Guide</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #1f2937;
+      background: #fff;
+    }
+
+    .cover-page {
+      page-break-after: always;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #0d2865 0%, #1e40af 100%);
+      color: white;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .cover-page h1 {
+      font-size: 42pt;
+      font-weight: 700;
+      margin-bottom: 20px;
+      letter-spacing: -1px;
+    }
+
+    .cover-page .subtitle {
+      font-size: 18pt;
+      font-weight: 400;
+      opacity: 0.9;
+      margin-bottom: 60px;
+    }
+
+    .cover-page .logo {
+      width: 120px;
+      height: 120px;
+      background: white;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 40px;
+      font-size: 48pt;
+      color: #0d2865;
+      font-weight: 700;
+    }
+
+    .cover-page .version {
+      position: absolute;
+      bottom: 60px;
+      font-size: 10pt;
+      opacity: 0.7;
+    }
+
+    .toc-page {
+      page-break-after: always;
+      padding: 60px;
+    }
+
+    .toc-page h2 {
+      font-size: 24pt;
+      color: #0d2865;
+      margin-bottom: 30px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #0d2865;
+    }
+
+    .toc-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px dotted #d1d5db;
+    }
+
+    .toc-item a {
+      color: #1f2937;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .toc-item span {
+      color: #6b7280;
+    }
+
+    .content {
+      padding: 40px 60px;
+    }
+
+    h1 {
+      font-size: 28pt;
+      color: #0d2865;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 3px solid #0d2865;
+      page-break-after: avoid;
+    }
+
+    h2 {
+      font-size: 18pt;
+      color: #0d2865;
+      margin-top: 40px;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e5e7eb;
+      page-break-after: avoid;
+    }
+
+    h3 {
+      font-size: 14pt;
+      color: #374151;
+      margin-top: 25px;
+      margin-bottom: 12px;
+      page-break-after: avoid;
+    }
+
+    h4 {
+      font-size: 12pt;
+      color: #4b5563;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    p {
+      margin-bottom: 12px;
+    }
+
+    ul, ol {
+      margin-bottom: 15px;
+      padding-left: 25px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 10pt;
+    }
+
+    th {
+      background: #0d2865;
+      color: white;
+      padding: 12px 15px;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    td {
+      padding: 10px 15px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    .tip-box {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .tip-box h4 {
+      color: #1e40af;
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+
+    .warning-box {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .warning-box h4 {
+      color: #b45309;
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+
+    .success-box {
+      background: #d1fae5;
+      border-left: 4px solid #10b981;
+      padding: 15px 20px;
+      margin: 20px 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .code-block {
+      background: #1f2937;
+      color: #e5e7eb;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Consolas', monospace;
+      font-size: 10pt;
+      margin: 20px 0;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    .placeholder {
+      background: #dbeafe;
+      color: #1e40af;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 10pt;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 9pt;
+      font-weight: 600;
+    }
+
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+
+    .workflow-diagram {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 30px 0;
+      padding: 25px;
+      background: #f3f4f6;
+      border-radius: 12px;
+    }
+
+    .workflow-step {
+      text-align: center;
+      flex: 1;
+    }
+
+    .workflow-step .number {
+      width: 40px;
+      height: 40px;
+      background: #0d2865;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px;
+      font-weight: 700;
+    }
+
+    .workflow-step .label {
+      font-size: 9pt;
+      color: #4b5563;
+    }
+
+    .workflow-arrow {
+      color: #9ca3af;
+      font-size: 20pt;
+    }
+
+    .phase-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 15px 0;
+      page-break-inside: avoid;
+    }
+
+    .phase-card h4 {
+      display: flex;
+      align-items: center;
+      margin-top: 0;
+    }
+
+    .phase-number {
+      width: 30px;
+      height: 30px;
+      background: #0d2865;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+      font-weight: 700;
+      font-size: 14pt;
+    }
+
+    .hard-gate {
+      background: #fef2f2;
+      border-color: #fecaca;
+    }
+
+    .hard-gate .phase-number {
+      background: #dc2626;
+    }
+
+    .checklist {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .checklist li {
+      padding: 8px 0 8px 30px;
+      position: relative;
+    }
+
+    .checklist li::before {
+      content: "☐";
+      position: absolute;
+      left: 0;
+      color: #6b7280;
+    }
+
+    .nav-table td:first-child {
+      font-weight: 600;
+      color: #0d2865;
+    }
+
+    .footer {
+      margin-top: 60px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      color: #6b7280;
+      font-size: 9pt;
+    }
+
+    @media print {
+      .cover-page {
+        height: 100vh;
+      }
+
+      h1, h2, h3 {
+        page-break-after: avoid;
+      }
+
+      .phase-card, table, .tip-box, .warning-box {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover-page">
+  <div class="logo">C</div>
+  <h1>Employee Onboarding System</h1>
+  <div class="subtitle">User Guide for HR Administrators & Consultants</div>
+  <div class="version">
+    Version 1.0 | January 2026<br>
+    ConsultPro by Rozitech
+  </div>
+</div>
+
+<!-- Table of Contents -->
+<div class="toc-page">
+  <h2>Table of Contents</h2>
+
+  <div class="toc-item"><a>1. Quick Start</a><span>3</span></div>
+  <div class="toc-item"><a>2. Document Templates</a><span>4</span></div>
+  <div class="toc-item"><a>3. Starting Employee Onboarding</a><span>7</span></div>
+  <div class="toc-item"><a>4. Monitoring Progress</a><span>8</span></div>
+  <div class="toc-item"><a>5. The 5 Onboarding Phases</a><span>9</span></div>
+  <div class="toc-item"><a>6. Employee Experience (ESS)</a><span>11</span></div>
+  <div class="toc-item"><a>7. Troubleshooting</a><span>12</span></div>
+  <div class="toc-item"><a>8. Quick Reference</a><span>14</span></div>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+<h1>1. Quick Start</h1>
+
+<h3>Before You Begin</h3>
+<p>Ensure you have completed the following setup tasks:</p>
+
+<ul class="checklist">
+  <li>Created document templates for your organization</li>
+  <li>Added the employee to the system with their details</li>
+  <li>Set up company policies (optional but recommended)</li>
+</ul>
+
+<h3>Basic Workflow</h3>
+
+<div class="workflow-diagram">
+  <div class="workflow-step">
+    <div class="number">1</div>
+    <div class="label">Create Templates</div>
+  </div>
+  <div class="workflow-arrow">→</div>
+  <div class="workflow-step">
+    <div class="number">2</div>
+    <div class="label">Add Employee</div>
+  </div>
+  <div class="workflow-arrow">→</div>
+  <div class="workflow-step">
+    <div class="number">3</div>
+    <div class="label">Start Onboarding</div>
+  </div>
+  <div class="workflow-arrow">→</div>
+  <div class="workflow-step">
+    <div class="number">4</div>
+    <div class="label">Send ESS Invite</div>
+  </div>
+  <div class="workflow-arrow">→</div>
+  <div class="workflow-step">
+    <div class="number">5</div>
+    <div class="label">Monitor Progress</div>
+  </div>
+</div>
+
+<div class="tip-box">
+  <h4>Pro Tip</h4>
+  <p>Set up all your document templates before starting any onboarding. This ensures every employee receives consistent, professional documentation.</p>
+</div>
+
+<h1>2. Document Templates</h1>
+
+<h3>What Are Document Templates?</h3>
+<p>Document templates are reusable documents (contracts, NDAs, policies) that automatically populate with employee-specific data. Instead of manually editing each document, you create one template and the system fills in employee details automatically.</p>
+
+<h3>Accessing Document Templates</h3>
+<table class="nav-table">
+  <tr>
+    <td>Navigation</td>
+    <td>Employee Management → Document Templates</td>
+  </tr>
+</table>
+
+<h3>Creating a New Template</h3>
+<ol>
+  <li>Click <strong>+ New Template</strong></li>
+  <li>Fill in the template details:
+    <ul>
+      <li><strong>Template Name:</strong> A descriptive name (e.g., "Standard Employment Contract 2024")</li>
+      <li><strong>Template Type:</strong> Select the document type</li>
+      <li><strong>Description:</strong> Brief description for your reference</li>
+    </ul>
+  </li>
+  <li><strong>Write your document content</strong> using the rich text editor:
+    <ul>
+      <li>Use the toolbar to format text (bold, italic, headers, lists)</li>
+      <li>The editor works like Microsoft Word or Google Docs</li>
+    </ul>
+  </li>
+  <li><strong>Insert placeholders</strong> by clicking the blue buttons</li>
+  <li>Click <strong>Create Template</strong></li>
+</ol>
+
+<h3>Available Placeholders</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Placeholder</th>
+      <th>Description</th>
+      <th>Example Output</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="placeholder">{{employee_name}}</span></td>
+      <td>Full name (First + Last)</td>
+      <td>John Doe</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">{{employee_first_name}}</span></td>
+      <td>First name only</td>
+      <td>John</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">{{job_title}}</span></td>
+      <td>Position title</td>
+      <td>Software Engineer</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">{{department}}</span></td>
+      <td>Department name</td>
+      <td>Engineering</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">{{hire_date}}</span></td>
+      <td>Employment start date</td>
+      <td>15/01/2026</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">{{company_name}}</span></td>
+      <td>Company name</td>
+      <td>Acme Corporation Ltd</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">{{salary}}</span></td>
+      <td>Basic salary</td>
+      <td>NGN 500,000</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">{{manager_name}}</span></td>
+      <td>Line manager name</td>
+      <td>Jane Smith</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">{{current_date}}</span></td>
+      <td>Today's date</td>
+      <td>07/01/2026</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">{{probation_end_date}}</span></td>
+      <td>Probation period end</td>
+      <td>15/04/2026</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Template Types</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Type</th>
+      <th>Used For</th>
+      <th>Onboarding Phase</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Offer Letter</td>
+      <td>Initial job offer</td>
+      <td>Phase 1</td>
+    </tr>
+    <tr>
+      <td>Employment Contract</td>
+      <td>Terms of employment</td>
+      <td>Phase 1</td>
+    </tr>
+    <tr>
+      <td>NDA</td>
+      <td>Non-disclosure agreement</td>
+      <td>Phase 1</td>
+    </tr>
+    <tr>
+      <td>NDPA Consent</td>
+      <td>Data protection consent</td>
+      <td>Phase 1</td>
+    </tr>
+    <tr>
+      <td>Code of Conduct</td>
+      <td>Company behavior standards</td>
+      <td>Phase 1</td>
+    </tr>
+    <tr>
+      <td>Job Description</td>
+      <td>Role responsibilities</td>
+      <td>Phase 2</td>
+    </tr>
+    <tr>
+      <td>Org Chart</td>
+      <td>Reporting structure</td>
+      <td>Phase 2</td>
+    </tr>
+    <tr>
+      <td>Key Contacts</td>
+      <td>Important contacts list</td>
+      <td>Phase 2</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Example Template</h3>
+<div class="code-block">EMPLOYMENT CONTRACT
+
+This Employment Contract is entered into on {{current_date}} between:
+
+EMPLOYER: {{company_name}}
+EMPLOYEE: {{employee_name}}
+
+1. POSITION
+You are appointed as {{job_title}} in the {{department}} department,
+reporting to {{manager_name}}.
+
+2. COMMENCEMENT
+Your employment begins on {{hire_date}}.
+
+3. REMUNERATION
+Your gross monthly salary is {{salary}}, payable on the last
+working day of each month.
+
+4. PROBATION
+You will be on probation until {{probation_end_date}}.
+
+Please sign below to confirm acceptance of these terms.
+
+_______________________
+{{employee_name}}
+Date: _______________</div>
+
+<h1>3. Starting Employee Onboarding</h1>
+
+<h3>Prerequisites</h3>
+<p>Before starting onboarding, ensure the employee exists in the system with at least:</p>
+<ul>
+  <li>Full Name</li>
+  <li>Email Address</li>
+  <li>Job Title</li>
+  <li>Department</li>
+  <li>Hire Date</li>
+</ul>
+
+<table class="nav-table">
+  <tr>
+    <td>Add Employee</td>
+    <td>Employees → + Add Employee</td>
+  </tr>
+</table>
+
+<h3>Starting the Onboarding Process</h3>
+<ol>
+  <li>Navigate to <strong>Employee Management → Onboarding Workflow</strong></li>
+  <li>Click <strong>+ Start Onboarding</strong></li>
+  <li>Select the employee from the dropdown list
+    <ul>
+      <li>Only employees not already in onboarding will appear</li>
+    </ul>
+  </li>
+  <li>Click <strong>Start Onboarding</strong></li>
+</ol>
+
+<div class="success-box">
+  <p>The system will automatically create an onboarding record, generate documents for each phase based on your templates, and set the employee's status to "Preboarding".</p>
+</div>
+
+<h3>Sending ESS Invitation</h3>
+<p>After starting onboarding, the employee needs access to the Employee Self-Service (ESS) portal:</p>
+<ol>
+  <li>In the Onboarding Workflow page, find the employee</li>
+  <li>Click <strong>View Details</strong></li>
+  <li>Click <strong>Send ESS Invite</strong></li>
+</ol>
+
+<p>The employee will receive an email with:</p>
+<ul>
+  <li>Link to the ESS portal</li>
+  <li>Instructions to set up their password</li>
+  <li>Their onboarding tasks</li>
+</ul>
+
+<h1>4. Monitoring Progress</h1>
+
+<h3>Onboarding Dashboard</h3>
+<table class="nav-table">
+  <tr>
+    <td>Navigation</td>
+    <td>Employee Management → Onboarding Workflow</td>
+  </tr>
+</table>
+
+<p>The dashboard displays:</p>
+<ul>
+  <li><strong>All employees</strong> currently in onboarding</li>
+  <li><strong>Current phase</strong> for each employee</li>
+  <li><strong>Progress percentage</strong></li>
+  <li><strong>Status</strong> (In Progress, Blocked, Completed)</li>
+</ul>
+
+<h3>Viewing Employee Details</h3>
+<p>Click on any employee row to see:</p>
+<ul>
+  <li>Document completion status for each phase</li>
+  <li>Which documents are pending/signed/acknowledged</li>
+  <li>Profile completion percentage</li>
+</ul>
+
+<h3>Refresh Documents</h3>
+<p>If templates were updated after onboarding started:</p>
+<ol>
+  <li>Open the employee's onboarding details</li>
+  <li>Click <strong>Refresh Documents</strong></li>
+  <li>New documents will be created based on current templates</li>
+</ol>
+
+<h1>5. The 5 Onboarding Phases</h1>
+
+<div class="phase-card hard-gate">
+  <h4><span class="phase-number">1</span> Document Signing (Hard Gate)</h4>
+  <p><strong>What employees do:</strong></p>
+  <ul>
+    <li>Sign Offer Letter</li>
+    <li>Sign Employment Contract</li>
+    <li>Sign NDA</li>
+    <li>Acknowledge NDPA (Data Protection)</li>
+    <li>Acknowledge Code of Conduct</li>
+  </ul>
+  <div class="warning-box">
+    <h4>Hard Gate</h4>
+    <p>Employee cannot proceed to Phase 2 until ALL Phase 1 documents are completed.</p>
+  </div>
+</div>
+
+<div class="phase-card">
+  <h4><span class="phase-number">2</span> Role Clarity</h4>
+  <p><strong>What employees do:</strong></p>
+  <ul>
+    <li>Review and acknowledge Job Description</li>
+    <li>Review Organizational Chart</li>
+    <li>Review Key Contacts</li>
+  </ul>
+  <p>This phase helps employees understand their role and reporting structure.</p>
+</div>
+
+<div class="phase-card hard-gate">
+  <h4><span class="phase-number">3</span> Employee File (Hard Gate)</h4>
+  <p><strong>What employees do:</strong></p>
+  <ul>
+    <li>Complete their profile (minimum 80% required)</li>
+    <li>Upload required documents:
+      <ul>
+        <li>Passport photographs</li>
+        <li>Educational certificates</li>
+        <li>Government ID (NIN, Driver's License)</li>
+        <li>Professional certifications (if applicable)</li>
+      </ul>
+    </li>
+  </ul>
+  <div class="warning-box">
+    <h4>Hard Gate</h4>
+    <p>Phase 3 must be verified by HR before employee can proceed.</p>
+  </div>
+</div>
+
+<div class="phase-card">
+  <h4><span class="phase-number">4</span> Policy Acknowledgments</h4>
+  <p><strong>What employees do:</strong></p>
+  <ul>
+    <li>Read and acknowledge company policies</li>
+    <li>Policies are pulled from the Compliance module</li>
+  </ul>
+  <div class="tip-box">
+    <h4>Setting Up Policies</h4>
+    <p>Navigate to Compliance & Training → Policies to add your company policies. Policies marked as active will automatically appear in Phase 4.</p>
+  </div>
+</div>
+
+<div class="phase-card">
+  <h4><span class="phase-number">5</span> Complete</h4>
+  <p><strong>What happens:</strong></p>
+  <ul>
+    <li>Onboarding is marked complete</li>
+    <li>Employee status changes to "Active"</li>
+    <li>Probation check-in tasks are auto-scheduled (30, 60, 90 days)</li>
+  </ul>
+</div>
+
+<h1>6. Employee Experience (ESS)</h1>
+
+<h3>What Employees See</h3>
+<p>When employees log into ESS, they see:</p>
+<ol>
+  <li><strong>My Onboarding</strong> - Their personalized onboarding wizard</li>
+  <li><strong>Progress bar</strong> - Overall completion percentage</li>
+  <li><strong>Phase tabs</strong> - Navigate between phases (locked phases show padlock)</li>
+  <li><strong>Document list</strong> - Documents to sign/acknowledge/upload</li>
+</ol>
+
+<h3>Employee Actions</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Document Type</th>
+      <th>Employee Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Requires Signature</td>
+      <td>Click View → Review → Sign Document (draw signature)</td>
+    </tr>
+    <tr>
+      <td>Requires Acknowledgment</td>
+      <td>Click View → Read → Click "I Acknowledge"</td>
+    </tr>
+    <tr>
+      <td>Requires Upload</td>
+      <td>Click Upload → Select file → Submit</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Document Status Badges</h3>
+<p>
+  <span class="badge badge-yellow">Pending</span> Not yet completed<br><br>
+  <span class="badge badge-green">Signed</span> Signature submitted<br><br>
+  <span class="badge badge-green">Acknowledged</span> Document acknowledged<br><br>
+  <span class="badge badge-blue">Uploaded</span> File uploaded, awaiting HR verification<br><br>
+  <span class="badge badge-green">Verified</span> HR has verified the upload<br><br>
+  <span class="badge badge-red">Rejected</span> HR rejected, needs re-upload
+</p>
+
+<h1>7. Troubleshooting</h1>
+
+<h3>"No templates found for document type"</h3>
+<p><strong>Problem:</strong> Generic placeholder content appears instead of your template.</p>
+<p><strong>Solution:</strong></p>
+<ol>
+  <li>Go to Document Templates</li>
+  <li>Create a new template</li>
+  <li>Select the correct Template Type</li>
+  <li>Ensure "Active" is checked</li>
+</ol>
+
+<h3>"Employee not appearing in onboarding list"</h3>
+<p><strong>Problem:</strong> Employee doesn't show when starting new onboarding.</p>
+<p><strong>Possible causes:</strong></p>
+<ul>
+  <li>Employee is already in onboarding (check existing list)</li>
+  <li>Employee record is missing required fields</li>
+  <li>Employee status is not "Preboarding" or "Active"</li>
+</ul>
+
+<h3>"Documents showing 0 created"</h3>
+<p><strong>Problem:</strong> Clicking "Refresh Documents" shows 0 documents created.</p>
+<p><strong>Solution:</strong> Documents may already exist. Check the employee's document list in their onboarding details.</p>
+
+<h3>"Employee can't see their onboarding"</h3>
+<p><strong>Problem:</strong> Employee logs into ESS but sees "Onboarding Not Started."</p>
+<p><strong>Possible causes:</strong></p>
+<ol>
+  <li>Onboarding wasn't started - Go to Onboarding Workflow and start it</li>
+  <li>ESS invite not sent - Send the ESS invitation</li>
+  <li>Employee logged in with wrong account - Verify email address</li>
+</ol>
+
+<h3>"Employee stuck on a phase"</h3>
+<p><strong>Problem:</strong> Employee completed all documents but can't proceed.</p>
+<p><strong>Check:</strong></p>
+<ul>
+  <li>For Phase 1 & 3 (hard gates): All documents must be completed</li>
+  <li>For Phase 3: Profile must be 80%+ complete</li>
+  <li>For Phase 3: HR must verify uploaded documents</li>
+</ul>
+
+<h1>8. Quick Reference</h1>
+
+<h3>Key Navigation Paths</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Task</th>
+      <th>Navigation Path</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Create document templates</td>
+      <td>Employee Management → Document Templates</td>
+    </tr>
+    <tr>
+      <td>Start employee onboarding</td>
+      <td>Employee Management → Onboarding Workflow → + Start Onboarding</td>
+    </tr>
+    <tr>
+      <td>View onboarding progress</td>
+      <td>Employee Management → Onboarding Workflow</td>
+    </tr>
+    <tr>
+      <td>Manage policies</td>
+      <td>Compliance & Training → Policies</td>
+    </tr>
+    <tr>
+      <td>Add new employees</td>
+      <td>Employees → + Add Employee</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Best Practices</h3>
+<ol>
+  <li><strong>Set Up Templates First</strong> - Create all document templates before starting any onboarding for consistency.</li>
+  <li><strong>Use Meaningful Template Names</strong> - Include version or date: "Employment Contract v2024"</li>
+  <li><strong>Test the Flow</strong> - Create a test employee and go through the entire process yourself.</li>
+  <li><strong>Keep Policies Updated</strong> - Regularly review and update policies in the Compliance module.</li>
+  <li><strong>Monitor Dashboard Daily</strong> - Check for stuck employees and verify uploads promptly.</li>
+</ol>
+
+<div class="footer">
+  <p><strong>ConsultPro Onboarding System</strong></p>
+  <p>Document Version 1.0 | January 2026</p>
+  <p>Powered by Rozitech</p>
+</div>
+
+</div>
+
+</body>
+</html>

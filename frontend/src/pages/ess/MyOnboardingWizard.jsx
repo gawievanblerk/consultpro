@@ -66,8 +66,10 @@ export default function MyOnboardingWizard() {
       setProfileCompletion(profileRes.data.data);
 
       // Set active phase based on current onboarding phase
+      // current_phase is an integer in DB, convert to 'phase1' format
       if (onboardingRes.data.data?.onboarding?.current_phase) {
-        setActivePhase(onboardingRes.data.data.onboarding.current_phase);
+        const phase = onboardingRes.data.data.onboarding.current_phase;
+        setActivePhase(typeof phase === 'number' ? `phase${phase}` : phase);
       }
     } catch (err) {
       setError('Failed to fetch onboarding data');
@@ -212,7 +214,7 @@ export default function MyOnboardingWizard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
       </div>
     );
   }
@@ -255,7 +257,7 @@ export default function MyOnboardingWizard() {
       )}
 
       {/* Overall Progress */}
-      <div className="bg-gradient-to-r from-primary to-accent p-6 rounded-lg text-white">
+      <div className="bg-gradient-to-r from-primary-600 to-accent-500 p-6 rounded-lg text-white">
         <h2 className="text-lg font-semibold mb-2">Overall Progress</h2>
         <div className="flex items-center space-x-4">
           <div className="flex-1">
@@ -294,11 +296,11 @@ export default function MyOnboardingWizard() {
                 onClick={() => !isLocked && setActivePhase(phaseKey)}
                 disabled={isLocked}
                 className={`flex flex-col items-center px-4 py-2 min-w-[100px] ${
-                  isActive ? 'text-primary' : isCompleted ? 'text-green-600' : isLocked ? 'text-gray-300' : 'text-gray-500'
+                  isActive ? 'text-primary-600' : isCompleted ? 'text-green-600' : isLocked ? 'text-gray-300' : 'text-gray-500'
                 }`}
               >
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${
-                  isActive ? 'bg-primary text-white' :
+                  isActive ? 'bg-primary-600 text-white' :
                   isCompleted ? 'bg-green-100 text-green-600' :
                   isLocked ? 'bg-gray-100' : 'bg-gray-100'
                 }`}>
@@ -324,7 +326,7 @@ export default function MyOnboardingWizard() {
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b bg-gray-50">
           <div className="flex items-center">
-            <div className="text-primary mr-3">
+            <div className="text-primary-600 mr-3">
               {getPhaseIcon(PHASE_INFO[activePhase]?.icon)}
             </div>
             <div>
@@ -389,15 +391,48 @@ export default function MyOnboardingWizard() {
             </div>
           ) : (
             documents.byPhase[activePhase].map((doc) => (
-              <div key={doc.id} className="px-6 py-4 flex items-center">
-                <div className="mr-4">{getStatusIcon(doc.status)}</div>
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900">{doc.document_name}</div>
-                  <div className="text-sm text-gray-500">
-                    {doc.requires_signature && 'Requires signature'}
-                    {doc.requires_acknowledgment && !doc.requires_signature && 'Requires acknowledgment'}
-                    {doc.requires_upload && 'Requires upload'}
-                    {doc.is_required && <span className="ml-2 text-red-600">(Required)</span>}
+              <div key={doc.id} className="px-6 py-4 flex items-start hover:bg-gray-50">
+                <div className="mr-4 mt-1">{getStatusIcon(doc.status)}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900">
+                    {doc.document_title || doc.document_name || doc.policy_name || 'Document'}
+                  </div>
+                  <div className="text-sm text-gray-500 flex items-center flex-wrap gap-2">
+                    {doc.requires_signature && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                        Sign
+                      </span>
+                    )}
+                    {doc.requires_acknowledgment && !doc.requires_signature && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        Acknowledge
+                      </span>
+                    )}
+                    {doc.requires_upload && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                        Upload
+                      </span>
+                    )}
+                    {doc.is_required && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                        Required
+                      </span>
+                    )}
+                    {doc.status === 'signed' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Signed
+                      </span>
+                    )}
+                    {doc.status === 'acknowledged' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Acknowledged
+                      </span>
+                    )}
+                    {doc.status === 'verified' && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        Verified
+                      </span>
+                    )}
                   </div>
                   {doc.status === 'rejected' && doc.rejection_reason && (
                     <div className="text-sm text-red-600 mt-1">
@@ -410,43 +445,35 @@ export default function MyOnboardingWizard() {
                     </div>
                   )}
                 </div>
-                <div className="ml-4 flex items-center space-x-2">
-                  {/* View button */}
-                  {(doc.requires_signature || doc.requires_acknowledgment || doc.policy_id) && doc.status === 'pending' && (
+                <div className="ml-4 flex items-center justify-end space-x-3 flex-shrink-0">
+                  {/* Status badge */}
+                  {doc.status !== 'pending' && (
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                      doc.status === 'signed' ? 'bg-green-100 text-green-800' :
+                      doc.status === 'acknowledged' ? 'bg-green-100 text-green-800' :
+                      doc.status === 'verified' ? 'bg-green-100 text-green-800' :
+                      doc.status === 'uploaded' ? 'bg-blue-100 text-blue-800' :
+                      doc.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                    </span>
+                  )}
+
+                  {/* View button - show for docs that need viewing/action */}
+                  {(doc.requires_signature || doc.requires_acknowledgment || doc.policy_id) && (
                     <button
                       onClick={() => handleViewDocument(doc)}
-                      className="px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
+                      className="px-4 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50"
                     >
                       View
                     </button>
                   )}
 
-                  {/* Sign button */}
-                  {doc.requires_signature && doc.status === 'pending' && (
-                    <button
-                      onClick={() => handleSignDocument(doc)}
-                      disabled={processing === doc.id}
-                      className="px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary/90 disabled:opacity-50"
-                    >
-                      {processing === doc.id ? 'Signing...' : 'Sign'}
-                    </button>
-                  )}
-
-                  {/* Acknowledge button */}
-                  {doc.requires_acknowledgment && !doc.requires_signature && doc.status === 'pending' && (
-                    <button
-                      onClick={() => handleAcknowledgeDocument(doc)}
-                      disabled={processing === doc.id}
-                      className="px-3 py-1 bg-accent text-white text-sm rounded hover:bg-accent/90 disabled:opacity-50"
-                    >
-                      {processing === doc.id ? 'Processing...' : 'Acknowledge'}
-                    </button>
-                  )}
-
                   {/* Upload button */}
                   {doc.requires_upload && ['pending', 'rejected'].includes(doc.status) && (
-                    <label className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 cursor-pointer">
-                      {processing === doc.id ? 'Uploading...' : 'Upload'}
+                    <label className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 cursor-pointer">
+                      {processing === doc.id ? '...' : 'Upload'}
                       <input
                         type="file"
                         className="hidden"
@@ -469,7 +496,7 @@ export default function MyOnboardingWizard() {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b">
               <h3 className="text-lg font-semibold">Sign Document</h3>
-              <p className="text-sm text-gray-500">{selectedDocument.document_name}</p>
+              <p className="text-sm text-gray-500">{selectedDocument.document_title || selectedDocument.document_name}</p>
             </div>
 
             {/* Document content preview */}
@@ -503,7 +530,22 @@ export default function MyOnboardingWizard() {
             <div className="px-6 py-4 border-b flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">{documentContent.name}</h3>
-                <p className="text-sm text-gray-500">{documentContent.type}</p>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="text-sm text-gray-500">{documentContent.type}</span>
+                  {selectedDocument?.status && (
+                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                      selectedDocument.status === 'signed' ? 'bg-green-100 text-green-800' :
+                      selectedDocument.status === 'acknowledged' ? 'bg-green-100 text-green-800' :
+                      selectedDocument.status === 'verified' ? 'bg-green-100 text-green-800' :
+                      selectedDocument.status === 'uploaded' ? 'bg-blue-100 text-blue-800' :
+                      selectedDocument.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      selectedDocument.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedDocument.status.charAt(0).toUpperCase() + selectedDocument.status.slice(1)}
+                    </span>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -523,7 +565,7 @@ export default function MyOnboardingWizard() {
                   href={documentContent.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="text-primary-600 hover:underline"
                 >
                   Open Document in New Tab
                 </a>
@@ -531,18 +573,48 @@ export default function MyOnboardingWizard() {
                 <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: documentContent.content || 'No content available' }} />
               )}
             </div>
-            {documentContent.requiresAcknowledgment && selectedDocument?.status === 'pending' && (
-              <div className="px-6 py-4 border-t bg-gray-50 flex justify-end">
-                <button
-                  onClick={() => {
-                    handleAcknowledgeDocument(selectedDocument);
-                    setDocumentContent(null);
-                  }}
-                  disabled={processing === selectedDocument?.id}
-                  className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50"
-                >
-                  {processing === selectedDocument?.id ? 'Processing...' : 'I Acknowledge'}
-                </button>
+            {/* Action buttons based on document requirements and status */}
+            {selectedDocument?.status === 'pending' && (
+              <div className="px-6 py-4 border-t bg-gray-50 flex justify-end space-x-3">
+                {/* Sign button - opens signature modal */}
+                {selectedDocument.requires_signature && (
+                  <button
+                    onClick={() => {
+                      setShowSignatureModal(true);
+                    }}
+                    disabled={processing === selectedDocument?.id}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    Sign Document
+                  </button>
+                )}
+                {/* Acknowledge button */}
+                {selectedDocument.requires_acknowledgment && !selectedDocument.requires_signature && (
+                  <button
+                    onClick={() => {
+                      handleAcknowledgeDocument(selectedDocument);
+                      setDocumentContent(null);
+                    }}
+                    disabled={processing === selectedDocument?.id}
+                    className="px-4 py-2 bg-accent-500 text-white rounded-lg hover:bg-accent-600 disabled:opacity-50"
+                  >
+                    {processing === selectedDocument?.id ? 'Processing...' : 'I Acknowledge'}
+                  </button>
+                )}
+              </div>
+            )}
+            {/* Show completion message for already processed documents */}
+            {selectedDocument?.status && selectedDocument.status !== 'pending' && (
+              <div className="px-6 py-4 border-t bg-gray-50">
+                <div className="flex items-center text-green-700">
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="text-sm font-medium">
+                    This document has been {selectedDocument.status}
+                    {selectedDocument.acknowledged_at && ` on ${new Date(selectedDocument.acknowledged_at).toLocaleDateString()}`}
+                  </span>
+                </div>
               </div>
             )}
           </div>

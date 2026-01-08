@@ -15,7 +15,11 @@ import {
   EnvelopeIcon,
   FunnelIcon,
   ArrowUpTrayIcon,
-  PaperAirplaneIcon
+  PaperAirplaneIcon,
+  ExclamationTriangleIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 
 const statusColors = {
@@ -34,6 +38,61 @@ const statusLabels = {
   probation: 'Probation'
 };
 
+// Field name to user-friendly label mapping
+const fieldLabels = {
+  firstName: 'First Name',
+  lastName: 'Last Name',
+  middleName: 'Middle Name',
+  email: 'Email',
+  phone: 'Phone',
+  dateOfBirth: 'Date of Birth',
+  gender: 'Gender',
+  jobTitle: 'Job Title',
+  department: 'Department',
+  hireDate: 'Hire Date',
+  employmentType: 'Employment Type',
+  employmentStatus: 'Employment Status',
+  salary: 'Salary',
+  salaryCurrency: 'Currency',
+  companyId: 'Company'
+};
+
+// Map which step each field belongs to (1-indexed)
+const fieldToStep = {
+  firstName: 1,
+  lastName: 1,
+  middleName: 1,
+  email: 1,
+  phone: 1,
+  dateOfBirth: 1,
+  gender: 1,
+  jobTitle: 2,
+  department: 2,
+  hireDate: 2,
+  employmentType: 2,
+  employmentStatus: 2,
+  salary: 2,
+  salaryCurrency: 2,
+  nin: 3,
+  bvn: 3,
+  taxId: 3,
+  pensionPin: 3,
+  pensionPfa: 3,
+  nhfNumber: 3,
+  nhisNumber: 3,
+  bankName: 4,
+  bankAccountNumber: 4,
+  bankAccountName: 4
+};
+
+// Wizard steps configuration
+const WIZARD_STEPS = [
+  { id: 1, name: 'Basic Info', description: 'Personal details', requiredFields: ['firstName', 'lastName'] },
+  { id: 2, name: 'Employment', description: 'Job details', requiredFields: [] },
+  { id: 3, name: 'Compliance', description: 'Nigeria statutory', requiredFields: [] },
+  { id: 4, name: 'Banking', description: 'Payment details', requiredFields: [] }
+];
+
 function Employees() {
   const { toast } = useToast();
   const { confirm } = useConfirm();
@@ -47,7 +106,8 @@ function Employees() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic');
+  const [currentStep, setCurrentStep] = useState(1);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -170,23 +230,125 @@ function Employees() {
         nhisNumber: ''
       });
     }
-    setActiveTab('basic');
+    setCurrentStep(1);
+    setFieldErrors({});
     setModalOpen(true);
   };
 
   const handleCloseModal = () => {
+    setFieldErrors({});
+    setCurrentStep(1);
     setModalOpen(false);
     setEditingEmployee(null);
   };
 
+  // Client-side validation before API call
+  const validateForm = () => {
+    const errors = {};
+
+    if (!formData.firstName?.trim()) {
+      errors.firstName = 'First name is required';
+    }
+    if (!formData.lastName?.trim()) {
+      errors.lastName = 'Last name is required';
+    }
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    return errors;
+  };
+
+  // Parse API validation errors into field errors
+  const parseApiErrors = (apiErrors) => {
+    const errors = {};
+    if (Array.isArray(apiErrors)) {
+      apiErrors.forEach(err => {
+        // express-validator returns 'path' or 'param' for field name
+        const fieldName = err.path || err.param;
+        if (fieldName) {
+          errors[fieldName] = err.msg || 'Invalid value';
+        }
+      });
+    }
+    return errors;
+  };
+
+  // Get steps that have errors
+  const getStepsWithErrors = () => {
+    const steps = new Set();
+    Object.keys(fieldErrors).forEach(field => {
+      const step = fieldToStep[field];
+      if (step) steps.add(step);
+    });
+    return steps;
+  };
+
+  // Validate current step before proceeding
+  const validateCurrentStep = () => {
+    const currentStepConfig = WIZARD_STEPS.find(s => s.id === currentStep);
+    const errors = {};
+
+    // Check required fields for current step
+    if (currentStepConfig?.requiredFields) {
+      currentStepConfig.requiredFields.forEach(field => {
+        if (!formData[field]?.trim()) {
+          errors[field] = `${fieldLabels[field] || field} is required`;
+        }
+      });
+    }
+
+    // Additional validation for step 1
+    if (currentStep === 1) {
+      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = 'Please enter a valid email address';
+      }
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Go to next step
+  const handleNextStep = () => {
+    if (validateCurrentStep()) {
+      if (currentStep < WIZARD_STEPS.length) {
+        setCurrentStep(currentStep + 1);
+      }
+    }
+  };
+
+  // Go to previous step
+  const handlePrevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+      setFieldErrors({}); // Clear errors when going back
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    // Client-side validation first
+    const clientErrors = validateForm();
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      // Navigate to the first step with errors
+      const firstErrorField = Object.keys(clientErrors)[0];
+      const targetStep = fieldToStep[firstErrorField] || 1;
+      setCurrentStep(targetStep);
+      toast.error('Please fix the highlighted errors');
+      return;
+    }
+
     setSaving(true);
     try {
       // For new employees, use selected company; for edits, use existing company
       const companyId = editingEmployee?.company_id || selectedCompany?.id;
 
       if (!companyId) {
+        setFieldErrors({ companyId: 'Please select a company first' });
         toast.error('Please select a company first');
         setSaving(false);
         return;
@@ -208,9 +370,43 @@ function Employees() {
       handleCloseModal();
     } catch (error) {
       console.error('Failed to save employee:', error);
-      toast.error(error.response?.data?.error || 'Failed to save employee');
+
+      // Parse validation errors from API
+      if (error.response?.data?.errors) {
+        const apiFieldErrors = parseApiErrors(error.response.data.errors);
+        setFieldErrors(apiFieldErrors);
+
+        // Navigate to the first step with errors
+        const firstErrorField = Object.keys(apiFieldErrors)[0];
+        if (firstErrorField) {
+          const targetStep = fieldToStep[firstErrorField] || 1;
+          setCurrentStep(targetStep);
+        }
+
+        // Build error message
+        const errorCount = Object.keys(apiFieldErrors).length;
+        const fieldNames = Object.keys(apiFieldErrors)
+          .map(f => fieldLabels[f] || f)
+          .slice(0, 3)
+          .join(', ');
+        toast.error(`Please fix ${errorCount} error(s): ${fieldNames}${errorCount > 3 ? '...' : ''}`);
+      } else {
+        toast.error(error.response?.data?.error || 'Failed to save employee');
+      }
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Clear error for a specific field when user changes it
+  const handleFieldChange = (field, value) => {
+    setFormData({ ...formData, [field]: value });
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => {
+        const updated = { ...prev };
+        delete updated[field];
+        return updated;
+      });
     }
   };
 
@@ -489,91 +685,115 @@ function Employees() {
         ]}
       />
 
-      <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingEmployee ? 'Edit Employee' : 'Add Employee'} size="xl">
+      <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingEmployee ? 'Edit Employee' : 'Add New Employee'} size="xl">
         <form onSubmit={handleSubmit}>
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 mb-4">
-            <button
-              type="button"
-              onClick={() => setActiveTab('basic')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'basic' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Basic Info
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('employment')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'employment' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Employment
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('compliance')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'compliance' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Nigeria Compliance
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('banking')}
-              className={`px-4 py-2 text-sm font-medium ${activeTab === 'banking' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Banking
-            </button>
+          {/* Wizard Step Indicator */}
+          <div className="mb-6 px-2">
+            <div className="flex items-center justify-between">
+              {WIZARD_STEPS.map((step, idx) => (
+                <div key={step.id} className="flex items-center">
+                  <div className="flex flex-col items-center">
+                    <div className={`
+                      w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all
+                      ${currentStep > step.id ? 'bg-green-500 text-white' :
+                        currentStep === step.id ? 'bg-accent-600 text-white ring-4 ring-accent-100' :
+                        getStepsWithErrors().has(step.id) ? 'bg-red-100 text-red-600 border-2 border-red-300' :
+                        'bg-gray-100 text-gray-400'}
+                    `}>
+                      {currentStep > step.id ? <CheckCircleIcon className="h-6 w-6" /> : step.id}
+                    </div>
+                    <div className="mt-2 text-center">
+                      <div className={`text-xs font-medium ${currentStep === step.id ? 'text-accent-600' : 'text-gray-500'}`}>
+                        {step.name}
+                      </div>
+                      <div className="text-xs text-gray-400 hidden sm:block">{step.description}</div>
+                    </div>
+                  </div>
+                  {idx < WIZARD_STEPS.length - 1 && (
+                    <div className={`w-12 sm:w-20 h-1 mx-2 mt-[-20px] rounded ${currentStep > step.id ? 'bg-green-500' : 'bg-gray-200'}`} />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Basic Info Tab */}
-          {activeTab === 'basic' && (
+          {/* Error Banner for Current Step */}
+          {Object.keys(fieldErrors).length > 0 && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <ExclamationTriangleIcon className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-red-800">Please fix the following to continue:</h4>
+                  <ul className="mt-2 text-sm text-red-700 space-y-1">
+                    {Object.entries(fieldErrors).map(([field, error]) => (
+                      <li key={field}>
+                        <strong>{fieldLabels[field] || field}:</strong> {error}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 1: Basic Info */}
+          {currentStep === 1 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label">First Name *</label>
+                  <label className={`form-label ${fieldErrors.firstName ? 'text-red-600' : ''}`}>First Name *</label>
                   <input
                     type="text"
-                    required
                     value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('firstName', e.target.value)}
+                    className={`form-input ${fieldErrors.firstName ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.firstName && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.firstName}</p>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Middle Name</label>
                   <input
                     type="text"
                     value={formData.middleName}
-                    onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
+                    onChange={(e) => handleFieldChange('middleName', e.target.value)}
                     className="form-input"
                   />
                 </div>
                 <div>
-                  <label className="form-label">Last Name *</label>
+                  <label className={`form-label ${fieldErrors.lastName ? 'text-red-600' : ''}`}>Last Name *</label>
                   <input
                     type="text"
-                    required
                     value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('lastName', e.target.value)}
+                    className={`form-input ${fieldErrors.lastName ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.lastName && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.lastName}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Email</label>
+                  <label className={`form-label ${fieldErrors.email ? 'text-red-600' : ''}`}>Email</label>
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('email', e.target.value)}
+                    className={`form-input ${fieldErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                     placeholder="Required for ESS access"
                   />
+                  {fieldErrors.email && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Phone</label>
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => handleFieldChange('phone', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -584,7 +804,7 @@ function Employees() {
                   <input
                     type="date"
                     value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                    onChange={(e) => handleFieldChange('dateOfBirth', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -592,7 +812,7 @@ function Employees() {
                   <label className="form-label">Gender</label>
                   <select
                     value={formData.gender}
-                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                    onChange={(e) => handleFieldChange('gender', e.target.value)}
                     className="form-input"
                   >
                     <option value="">Select...</option>
@@ -604,61 +824,70 @@ function Employees() {
             </div>
           )}
 
-          {/* Employment Tab */}
-          {activeTab === 'employment' && (
+          {/* Step 2: Employment */}
+          {currentStep === 2 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Job Title *</label>
+                  <label className={`form-label ${fieldErrors.jobTitle ? 'text-red-600' : ''}`}>Job Title *</label>
                   <input
                     type="text"
-                    required
                     value={formData.jobTitle}
-                    onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('jobTitle', e.target.value)}
+                    className={`form-input ${fieldErrors.jobTitle ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.jobTitle && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.jobTitle}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="form-label">Department *</label>
+                  <label className={`form-label ${fieldErrors.department ? 'text-red-600' : ''}`}>Department *</label>
                   <input
                     type="text"
-                    required
                     value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('department', e.target.value)}
+                    className={`form-input ${fieldErrors.department ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.department && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.department}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label">Hire Date *</label>
+                  <label className={`form-label ${fieldErrors.hireDate ? 'text-red-600' : ''}`}>Hire Date *</label>
                   <input
                     type="date"
-                    required
                     value={formData.hireDate}
-                    onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('hireDate', e.target.value)}
+                    className={`form-input ${fieldErrors.hireDate ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {fieldErrors.hireDate && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.hireDate}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="form-label">Employment Type</label>
+                  <label className={`form-label ${fieldErrors.employmentType ? 'text-red-600' : ''}`}>Employment Type</label>
                   <select
                     value={formData.employmentType}
-                    onChange={(e) => setFormData({ ...formData, employmentType: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('employmentType', e.target.value)}
+                    className={`form-input ${fieldErrors.employmentType ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   >
                     <option value="full_time">Full Time</option>
                     <option value="part_time">Part Time</option>
                     <option value="contract">Contract</option>
                     <option value="intern">Intern</option>
                   </select>
+                  {fieldErrors.employmentType && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.employmentType}</p>
+                  )}
                 </div>
                 <div>
-                  <label className="form-label">Status</label>
+                  <label className={`form-label ${fieldErrors.employmentStatus ? 'text-red-600' : ''}`}>Status</label>
                   <select
                     value={formData.employmentStatus}
-                    onChange={(e) => setFormData({ ...formData, employmentStatus: e.target.value })}
-                    className="form-input"
+                    onChange={(e) => handleFieldChange('employmentStatus', e.target.value)}
+                    className={`form-input ${fieldErrors.employmentStatus ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
                   >
                     <option value="active">Active</option>
                     <option value="probation">Probation</option>
@@ -666,6 +895,9 @@ function Employees() {
                     <option value="suspended">Suspended</option>
                     <option value="terminated">Terminated</option>
                   </select>
+                  {fieldErrors.employmentStatus && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.employmentStatus}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -674,7 +906,7 @@ function Employees() {
                   <input
                     type="number"
                     value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                    onChange={(e) => handleFieldChange('salary', e.target.value)}
                     className="form-input"
                     placeholder="Monthly salary"
                   />
@@ -683,7 +915,7 @@ function Employees() {
                   <label className="form-label">Currency</label>
                   <select
                     value={formData.salaryCurrency}
-                    onChange={(e) => setFormData({ ...formData, salaryCurrency: e.target.value })}
+                    onChange={(e) => handleFieldChange('salaryCurrency', e.target.value)}
                     className="form-input"
                   >
                     <option value="NGN">NGN - Nigerian Naira</option>
@@ -696,8 +928,8 @@ function Employees() {
             </div>
           )}
 
-          {/* Nigeria Compliance Tab */}
-          {activeTab === 'compliance' && (
+          {/* Step 3: Nigeria Compliance */}
+          {currentStep === 3 && (
             <div className="space-y-4">
               <p className="text-sm text-gray-500 mb-4">Nigerian statutory compliance information</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -706,7 +938,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.nin}
-                    onChange={(e) => setFormData({ ...formData, nin: e.target.value })}
+                    onChange={(e) => handleFieldChange('nin', e.target.value)}
                     className="form-input"
                     placeholder="11-digit NIN"
                     maxLength={11}
@@ -717,7 +949,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.bvn}
-                    onChange={(e) => setFormData({ ...formData, bvn: e.target.value })}
+                    onChange={(e) => handleFieldChange('bvn', e.target.value)}
                     className="form-input"
                     placeholder="11-digit BVN"
                     maxLength={11}
@@ -730,7 +962,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.taxId}
-                    onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                    onChange={(e) => handleFieldChange('taxId', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -739,7 +971,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.pensionPin}
-                    onChange={(e) => setFormData({ ...formData, pensionPin: e.target.value })}
+                    onChange={(e) => handleFieldChange('pensionPin', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -750,7 +982,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.pensionPfa}
-                    onChange={(e) => setFormData({ ...formData, pensionPfa: e.target.value })}
+                    onChange={(e) => handleFieldChange('pensionPfa', e.target.value)}
                     className="form-input"
                     placeholder="e.g. ARM Pension"
                   />
@@ -760,7 +992,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.nhfNumber}
-                    onChange={(e) => setFormData({ ...formData, nhfNumber: e.target.value })}
+                    onChange={(e) => handleFieldChange('nhfNumber', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -769,7 +1001,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.nhisNumber}
-                    onChange={(e) => setFormData({ ...formData, nhisNumber: e.target.value })}
+                    onChange={(e) => handleFieldChange('nhisNumber', e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -777,8 +1009,8 @@ function Employees() {
             </div>
           )}
 
-          {/* Banking Tab */}
-          {activeTab === 'banking' && (
+          {/* Step 4: Banking */}
+          {currentStep === 4 && (
             <div className="space-y-4">
               <p className="text-sm text-gray-500 mb-4">Bank details for payroll</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -787,7 +1019,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.bankName}
-                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                    onChange={(e) => handleFieldChange('bankName', e.target.value)}
                     className="form-input"
                     placeholder="e.g. Access Bank"
                   />
@@ -797,7 +1029,7 @@ function Employees() {
                   <input
                     type="text"
                     value={formData.bankAccountNumber}
-                    onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
+                    onChange={(e) => handleFieldChange('bankAccountNumber', e.target.value)}
                     className="form-input"
                     placeholder="10-digit NUBAN"
                     maxLength={10}
@@ -809,7 +1041,7 @@ function Employees() {
                 <input
                   type="text"
                   value={formData.bankAccountName}
-                  onChange={(e) => setFormData({ ...formData, bankAccountName: e.target.value })}
+                  onChange={(e) => handleFieldChange('bankAccountName', e.target.value)}
                   className="form-input"
                   placeholder="Name on bank account"
                 />
@@ -817,11 +1049,47 @@ function Employees() {
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
-            <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? 'Saving...' : (editingEmployee ? 'Update' : 'Create')}
-            </button>
+          {/* Wizard Navigation Footer */}
+          <div className="flex justify-between items-center pt-4 mt-6 border-t">
+            <div>
+              {currentStep > 1 ? (
+                <button
+                  type="button"
+                  onClick={handlePrevStep}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <ArrowLeftIcon className="h-4 w-4" />
+                  Back
+                </button>
+              ) : (
+                <button type="button" onClick={handleCloseModal} className="btn-secondary">
+                  Cancel
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                Step {currentStep} of {WIZARD_STEPS.length}
+              </span>
+            </div>
+
+            <div>
+              {currentStep < WIZARD_STEPS.length ? (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  className="inline-flex items-center gap-2 px-6 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition-colors"
+                >
+                  Next
+                  <ArrowRightIcon className="h-4 w-4" />
+                </button>
+              ) : (
+                <button type="submit" disabled={saving} className="btn-primary px-6">
+                  {saving ? 'Saving...' : (editingEmployee ? 'Update Employee' : 'Create Employee')}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </Modal>

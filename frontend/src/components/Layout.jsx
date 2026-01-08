@@ -32,7 +32,8 @@ import {
   StarIcon,
   UserMinusIcon,
   RocketLaunchIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  DocumentDuplicateIcon
 } from '@heroicons/react/24/outline';
 
 // Navigation config with user_type filtering
@@ -82,19 +83,20 @@ const navigation = [
     { name: 'Training', href: '/dashboard/training-modules', icon: AcademicCapIcon },
   ]},
   { name: 'My Compliance', userTypes: ['employee'], children: [
+    { name: 'My Onboarding', href: '/dashboard/my-onboarding-wizard', icon: RocketLaunchIcon },
     { name: 'Policy Library', href: '/dashboard/policy-library', icon: BookOpenIcon },
     { name: 'My Training', href: '/dashboard/my-training', icon: AcademicCapIcon },
     { name: 'My Certificates', href: '/dashboard/my-certificates', icon: TrophyIcon },
   ]},
   { name: 'Employee Management', userTypes: ['consultant', 'staff', 'company_admin'], children: [
     { name: 'Onboarding Workflow', href: '/dashboard/onboarding-workflow', icon: RocketLaunchIcon },
+    { name: 'Document Templates', href: '/dashboard/document-templates', icon: DocumentDuplicateIcon },
     { name: 'Onboarding Checklists', href: '/dashboard/onboarding-admin', icon: ClipboardDocumentListIcon },
     { name: 'Probation Check-ins', href: '/dashboard/probation', icon: ClockIcon },
     { name: 'Performance', href: '/dashboard/performance', icon: StarIcon },
     { name: 'Disciplinary', href: '/dashboard/disciplinary', icon: ShieldExclamationIcon },
     { name: 'Exit Management', href: '/dashboard/exit-management', icon: UserMinusIcon },
   ]},
-  { name: 'My Onboarding', href: '/dashboard/my-onboarding-wizard', icon: RocketLaunchIcon, userTypes: ['employee'] },
   { name: 'Tasks', href: '/dashboard/tasks', icon: CheckCircleIcon, userTypes: ['consultant', 'staff', 'company_admin'] },
   { name: 'Settings', roles: ['admin'], userTypes: ['consultant', 'company_admin'], children: [
     { name: 'Users', href: '/dashboard/users', icon: UserCircleIcon },

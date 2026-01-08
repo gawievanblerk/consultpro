@@ -1165,4 +1165,549 @@ async function updatePhaseStatus(employeeId, phase) {
   }
 }
 
+/**
+ * POST /api/onboarding-workflow/employees/:employeeId/refresh-documents
+ * Regenerate missing documents for an existing onboarding
+ */
+router.post('/employees/:employeeId/refresh-documents', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { employeeId } = req.params;
+
+    // Get existing onboarding with tenant_id from onboarding record
+    const onboardingResult = await client.query(`
+      SELECT eo.*, e.company_id
+      FROM employee_onboarding eo
+      JOIN employees e ON eo.employee_id = e.id
+      WHERE eo.employee_id = $1
+    `, [employeeId]);
+
+    if (onboardingResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'No onboarding found for this employee' });
+    }
+
+    const onboarding = onboardingResult.rows[0];
+    const companyId = onboarding.company_id;
+    const tenantId = onboarding.tenant_id;
+
+    console.log('[Refresh Docs] employeeId:', employeeId, 'tenantId:', tenantId, 'companyId:', companyId, 'onboardingId:', onboarding.id);
+
+    // Default phase config
+    const phaseConfig = {
+      phase1: {
+        documents: [
+          { type: 'offer_letter', label: 'Offer Letter', action: 'sign', required: true },
+          { type: 'employment_contract', label: 'Employment Contract', action: 'sign', required: true },
+          { type: 'nda', label: 'Non-Disclosure Agreement', action: 'sign', required: true },
+          { type: 'ndpa_consent', label: 'NDPA Notice & Consent', action: 'acknowledge', required: true },
+          { type: 'code_of_conduct', label: 'Code of Conduct', action: 'acknowledge', required: true }
+        ],
+        due_days: 2
+      },
+      phase2: {
+        documents: [
+          { type: 'job_description', label: 'Job Description', action: 'acknowledge', required: true },
+          { type: 'org_chart', label: 'Organizational Chart', action: 'acknowledge', required: true },
+          { type: 'key_contacts', label: 'Key Contacts & Escalation Map', action: 'acknowledge', required: false }
+        ],
+        due_days: 3
+      },
+      phase3: {
+        documents: [
+          { type: 'passport_photos', label: 'Passport Photographs', action: 'upload', required: true },
+          { type: 'educational_certs', label: 'Educational Certificates', action: 'upload', required: true },
+          { type: 'professional_certs', label: 'Professional Certifications', action: 'upload', required: false },
+          { type: 'government_id', label: 'Government-Issued ID', action: 'upload', required: true },
+          { type: 'bank_details', label: 'Bank Account Verification', action: 'upload', required: true }
+        ],
+        due_days: 5
+      }
+    };
+
+    await client.query('BEGIN');
+
+    let createdCount = 0;
+
+    // Create documents for phases 1-3
+    for (const [phaseKey, phaseData] of Object.entries(phaseConfig)) {
+      if (!phaseData.documents) continue;
+
+      const phaseNum = parseInt(phaseKey.replace('phase', ''));
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + (phaseData.due_days || 5));
+
+      for (const doc of phaseData.documents) {
+        // Check if document already exists for this employee AND tenant
+        const existingDoc = await client.query(
+          'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND document_type = $2 AND tenant_id = $3',
+          [employeeId, doc.type, tenantId]
+        );
+
+        if (existingDoc.rows.length === 0) {
+          await client.query(`
+            INSERT INTO onboarding_documents (
+              tenant_id, company_id, employee_id, onboarding_id,
+              document_type, document_title, document_category, phase,
+              requires_signature, requires_acknowledgment, requires_upload,
+              is_required, status, due_date
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13)
+          `, [
+            tenantId,
+            companyId,
+            employeeId,
+            onboarding.id,
+            doc.type,
+            doc.label,
+            `phase${phaseNum}_${doc.action === 'sign' ? 'signing' : doc.action === 'acknowledge' ? 'acknowledgment' : 'employee_file'}`,
+            phaseNum,
+            doc.action === 'sign',
+            doc.action === 'acknowledge',
+            doc.action === 'upload',
+            doc.required !== false,
+            dueDate
+          ]);
+          createdCount++;
+        }
+      }
+    }
+
+    // Add Phase 4 policy documents (skip if policies table has different schema)
+    let policies = { rows: [] };
+    try {
+      policies = await client.query(`
+        SELECT id, title FROM policies
+        WHERE tenant_id = $1 AND (company_id = $2 OR company_id IS NULL)
+        AND requires_acknowledgment = true
+      `, [tenantId, companyId]);
+    } catch (policyError) {
+      console.log('Skipping Phase 4 policies - table schema may differ:', policyError.message);
+    }
+
+    for (const policy of policies.rows) {
+      const existingDoc = await client.query(
+        'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND policy_id = $2 AND tenant_id = $3',
+        [employeeId, policy.id, tenantId]
+      );
+
+      if (existingDoc.rows.length === 0) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 5);
+
+        await client.query(`
+          INSERT INTO onboarding_documents (
+            tenant_id, company_id, employee_id, onboarding_id,
+            document_type, document_title, document_category, phase,
+            requires_acknowledgment, is_required, policy_id, status, due_date
+          ) VALUES ($1, $2, $3, $4, 'policy', $5, 'phase4_acknowledgment', 4, true, true, $6, 'pending', $7)
+        `, [tenantId, companyId, employeeId, onboarding.id, policy.title, policy.id, dueDate]);
+        createdCount++;
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: `Created ${createdCount} missing document(s)`,
+      documentsCreated: createdCount
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error refreshing documents:', error);
+    res.status(500).json({ success: false, error: 'Failed to refresh documents' });
+  } finally {
+    client.release();
+  }
+});
+
+// ============================================================================
+// BULK DOCUMENT ASSIGNMENT
+// ============================================================================
+
+/**
+ * GET /api/onboarding-workflow/document-types
+ * Get available document types for assignment
+ */
+router.get('/document-types', async (req, res) => {
+  try {
+    // Return standard document types that can be assigned
+    const documentTypes = [
+      // Phase 1: Document Signing
+      { type: 'offer_letter', title: 'Offer Letter', phase: 1, requires_signature: true },
+      { type: 'employment_contract', title: 'Employment Contract', phase: 1, requires_signature: true },
+      { type: 'nda', title: 'Non-Disclosure Agreement', phase: 1, requires_signature: true },
+      { type: 'code_of_conduct', title: 'Code of Conduct', phase: 1, requires_acknowledgment: true },
+      { type: 'ndpa_consent', title: 'NDPA Notice & Consent', phase: 1, requires_signature: true },
+      // Phase 2: Role Clarity
+      { type: 'job_description', title: 'Job Description', phase: 2, requires_acknowledgment: true },
+      { type: 'org_chart', title: 'Organization Chart', phase: 2, requires_acknowledgment: true },
+      { type: 'key_contacts', title: 'Key Contacts & Escalation', phase: 2, requires_acknowledgment: true },
+      // Phase 3: Employee File
+      { type: 'passport_photo', title: 'Passport Photograph', phase: 3, requires_upload: true },
+      { type: 'government_id', title: 'Government ID', phase: 3, requires_upload: true },
+      { type: 'educational_cert', title: 'Educational Certificates', phase: 3, requires_upload: true },
+      { type: 'professional_cert', title: 'Professional Certifications', phase: 3, requires_upload: true },
+      { type: 'bank_details', title: 'Bank Account Details', phase: 3, requires_upload: true },
+      // Custom
+      { type: 'custom', title: 'Custom Document', phase: 1, requires_acknowledgment: true }
+    ];
+
+    res.json({ success: true, data: documentTypes });
+  } catch (error) {
+    console.error('Error fetching document types:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch document types' });
+  }
+});
+
+/**
+ * POST /api/onboarding-workflow/bulk-assign-documents
+ * Assign documents to multiple employees at once
+ */
+router.post('/bulk-assign-documents', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const tenantId = req.tenant_id || req.user?.org;
+    const userId = req.user.id;
+    const { employee_ids, documents, due_days = 7 } = req.body;
+
+    // Validate input
+    if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'Please select at least one employee' });
+    }
+
+    if (!documents || !Array.isArray(documents) || documents.length === 0) {
+      return res.status(400).json({ success: false, error: 'Please select at least one document type' });
+    }
+
+    await client.query('BEGIN');
+
+    const results = {
+      success: [],
+      skipped: [],
+      failed: []
+    };
+
+    // Process each employee
+    for (const employeeId of employee_ids) {
+      try {
+        // Get employee and check if they have onboarding started
+        const employeeResult = await client.query(`
+          SELECT e.id, e.company_id, e.first_name, e.last_name, e.hire_date,
+                 eo.id as onboarding_id, c.tenant_id
+          FROM employees e
+          JOIN companies c ON e.company_id = c.id
+          LEFT JOIN employee_onboarding eo ON e.id = eo.employee_id
+          WHERE e.id = $1 AND e.deleted_at IS NULL
+        `, [employeeId]);
+
+        if (employeeResult.rows.length === 0) {
+          results.failed.push({
+            employee_id: employeeId,
+            reason: 'Employee not found'
+          });
+          continue;
+        }
+
+        const employee = employeeResult.rows[0];
+        const effectiveTenantId = tenantId || employee.tenant_id;
+
+        // If no onboarding record exists, create one
+        let onboardingId = employee.onboarding_id;
+        if (!onboardingId) {
+          const onboardingResult = await client.query(`
+            INSERT INTO employee_onboarding (
+              tenant_id, company_id, employee_id,
+              current_phase, overall_status, started_at
+            ) VALUES ($1, $2, $3, 1, 'in_progress', NOW())
+            RETURNING id
+          `, [effectiveTenantId, employee.company_id, employeeId]);
+          onboardingId = onboardingResult.rows[0].id;
+
+          // Update employee status
+          await client.query(`
+            UPDATE employees SET employment_status = 'preboarding', updated_at = NOW()
+            WHERE id = $1
+          `, [employeeId]);
+        }
+
+        // Create documents for this employee
+        const hireDate = employee.hire_date || new Date();
+        const dueDate = new Date(hireDate);
+        dueDate.setDate(dueDate.getDate() + due_days);
+
+        let documentsCreated = 0;
+
+        for (const doc of documents) {
+          // Check if document already exists
+          const existingDoc = await client.query(`
+            SELECT id FROM onboarding_documents
+            WHERE employee_id = $1 AND document_type = $2
+          `, [employeeId, doc.type]);
+
+          if (existingDoc.rows.length > 0) {
+            continue; // Skip - already exists
+          }
+
+          // Determine category based on phase
+          let category = 'phase1_signing';
+          if (doc.phase === 2) category = 'phase2_acknowledgment';
+          else if (doc.phase === 3) category = 'phase3_employee_file';
+          else if (doc.phase === 4) category = 'phase4_acknowledgment';
+
+          await client.query(`
+            INSERT INTO onboarding_documents (
+              tenant_id, company_id, employee_id, onboarding_id,
+              document_type, document_title, document_category, phase, sort_order,
+              requires_signature, requires_acknowledgment, requires_upload, is_required,
+              due_date, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'pending')
+          `, [
+            effectiveTenantId, employee.company_id, employeeId, onboardingId,
+            doc.type, doc.title || doc.type, category, doc.phase || 1, documentsCreated,
+            doc.requires_signature || false,
+            doc.requires_acknowledgment || false,
+            doc.requires_upload || false,
+            doc.is_required !== false,
+            dueDate
+          ]);
+
+          documentsCreated++;
+        }
+
+        results.success.push({
+          employee_id: employeeId,
+          employee_name: `${employee.first_name} ${employee.last_name}`,
+          documents_created: documentsCreated
+        });
+
+      } catch (empError) {
+        console.error(`Error processing employee ${employeeId}:`, empError);
+        results.failed.push({
+          employee_id: employeeId,
+          reason: empError.message
+        });
+      }
+    }
+
+    await client.query('COMMIT');
+
+    const totalCreated = results.success.reduce((sum, r) => sum + r.documents_created, 0);
+
+    res.json({
+      success: true,
+      message: `Assigned ${totalCreated} document(s) to ${results.success.length} employee(s)`,
+      data: results
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error in bulk document assignment:', error);
+    res.status(500).json({ success: false, error: 'Failed to assign documents' });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * POST /api/onboarding-workflow/bulk-start-onboarding
+ * Start onboarding for multiple employees at once
+ */
+router.post('/bulk-start-onboarding', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const tenantId = req.tenant_id || req.user?.org;
+    const { employee_ids, workflow_id } = req.body;
+
+    if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'Please select at least one employee' });
+    }
+
+    await client.query('BEGIN');
+
+    const results = {
+      success: [],
+      skipped: [],
+      failed: []
+    };
+
+    for (const employeeId of employee_ids) {
+      try {
+        // Check if already has onboarding
+        const existingResult = await client.query(
+          'SELECT id FROM employee_onboarding WHERE employee_id = $1',
+          [employeeId]
+        );
+
+        if (existingResult.rows.length > 0) {
+          results.skipped.push({
+            employee_id: employeeId,
+            reason: 'Already has onboarding'
+          });
+          continue;
+        }
+
+        // Get employee details
+        const employeeResult = await client.query(`
+          SELECT e.*, c.tenant_id
+          FROM employees e
+          JOIN companies c ON e.company_id = c.id
+          WHERE e.id = $1 AND e.deleted_at IS NULL
+        `, [employeeId]);
+
+        if (employeeResult.rows.length === 0) {
+          results.failed.push({
+            employee_id: employeeId,
+            reason: 'Employee not found'
+          });
+          continue;
+        }
+
+        const employee = employeeResult.rows[0];
+        const effectiveTenantId = tenantId || employee.tenant_id;
+
+        // Get workflow (default if not specified)
+        let workflowQuery = `
+          SELECT * FROM onboarding_workflows
+          WHERE tenant_id = $1 AND deleted_at IS NULL AND is_active = true
+        `;
+        const workflowParams = [effectiveTenantId];
+
+        if (workflow_id) {
+          workflowQuery += ' AND id = $2';
+          workflowParams.push(workflow_id);
+        } else {
+          workflowQuery += ` AND (company_id = $2 OR company_id IS NULL) AND is_default = true`;
+          workflowParams.push(employee.company_id);
+        }
+
+        workflowQuery += ' LIMIT 1';
+
+        const workflowResult = await client.query(workflowQuery, workflowParams);
+
+        let workflow = workflowResult.rows[0];
+        let phaseConfig;
+
+        if (!workflow) {
+          // Default phase configuration
+          phaseConfig = {
+            phase1: {
+              name: 'Document Signing',
+              due_days: 3,
+              hard_gate: true,
+              documents: [
+                { type: 'offer_letter', title: 'Offer Letter', requires_signature: true },
+                { type: 'employment_contract', title: 'Employment Contract', requires_signature: true },
+                { type: 'nda', title: 'Non-Disclosure Agreement', requires_signature: true },
+                { type: 'code_of_conduct', title: 'Code of Conduct', requires_acknowledgment: true }
+              ]
+            },
+            phase2: {
+              name: 'Role Clarity',
+              due_days: 5,
+              hard_gate: false,
+              documents: [
+                { type: 'job_description', title: 'Job Description', requires_acknowledgment: true },
+                { type: 'org_chart', title: 'Organization Chart', requires_acknowledgment: true }
+              ]
+            },
+            phase3: {
+              name: 'Employee File',
+              due_days: 7,
+              hard_gate: true,
+              documents: [
+                { type: 'passport_photo', title: 'Passport Photograph', requires_upload: true },
+                { type: 'government_id', title: 'Government ID', requires_upload: true },
+                { type: 'educational_cert', title: 'Educational Certificates', requires_upload: true },
+                { type: 'bank_details', title: 'Bank Account Details', requires_upload: true }
+              ]
+            },
+            phase4: { name: 'Policy Acknowledgments', due_days: 10, hard_gate: false, documents: [] },
+            phase5: { name: 'Complete', due_days: 14, hard_gate: false, documents: [] }
+          };
+          workflow = { id: null };
+        } else {
+          phaseConfig = workflow.phase_config;
+        }
+
+        // Create onboarding record
+        const onboardingResult = await client.query(`
+          INSERT INTO employee_onboarding (
+            tenant_id, company_id, employee_id, workflow_id,
+            current_phase, overall_status, started_at
+          ) VALUES ($1, $2, $3, $4, 1, 'in_progress', NOW())
+          RETURNING *
+        `, [effectiveTenantId, employee.company_id, employeeId, workflow.id]);
+
+        const onboarding = onboardingResult.rows[0];
+        const hireDate = employee.hire_date || new Date();
+
+        // Create documents
+        for (const [phaseKey, config] of Object.entries(phaseConfig)) {
+          const phaseNum = parseInt(phaseKey.replace('phase', ''));
+          const dueDays = config.due_days || 7;
+          const dueDate = new Date(hireDate);
+          dueDate.setDate(dueDate.getDate() + dueDays);
+
+          if (config.documents) {
+            for (const [idx, doc] of config.documents.entries()) {
+              await client.query(`
+                INSERT INTO onboarding_documents (
+                  tenant_id, company_id, employee_id, onboarding_id,
+                  document_type, document_title, document_category, phase, sort_order,
+                  requires_signature, requires_acknowledgment, requires_upload, is_required,
+                  due_date
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+              `, [
+                effectiveTenantId, employee.company_id, employeeId, onboarding.id,
+                doc.type, doc.title,
+                phaseNum === 1 ? 'phase1_signing' : (phaseNum === 2 ? 'phase2_acknowledgment' : 'phase3_employee_file'),
+                phaseNum, idx,
+                doc.requires_signature || false,
+                doc.requires_acknowledgment || false,
+                doc.requires_upload || false,
+                doc.is_required !== false,
+                dueDate
+              ]);
+            }
+          }
+        }
+
+        // Update employee status
+        await client.query(`
+          UPDATE employees SET employment_status = 'preboarding', updated_at = NOW()
+          WHERE id = $1
+        `, [employeeId]);
+
+        results.success.push({
+          employee_id: employeeId,
+          employee_name: `${employee.first_name} ${employee.last_name}`,
+          onboarding_id: onboarding.id
+        });
+
+      } catch (empError) {
+        console.error(`Error starting onboarding for ${employeeId}:`, empError);
+        results.failed.push({
+          employee_id: employeeId,
+          reason: empError.message
+        });
+      }
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: `Started onboarding for ${results.success.length} employee(s)`,
+      data: results
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error in bulk start onboarding:', error);
+    res.status(500).json({ success: false, error: 'Failed to start onboarding' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;

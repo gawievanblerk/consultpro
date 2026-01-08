@@ -145,7 +145,7 @@ async function initializeOnboarding(tenantId, companyId, employeeId, workflowId 
           const docResult = await client.query(`
             INSERT INTO onboarding_documents (
               tenant_id, company_id, employee_id, onboarding_id,
-              document_type, document_name, document_category, phase,
+              document_type, document_title, document_category, phase,
               requires_signature, requires_acknowledgment, requires_upload,
               is_required, status, due_date
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending', $13)
@@ -190,7 +190,7 @@ async function initializeOnboarding(tenantId, companyId, employeeId, workflowId 
         await client.query(`
           INSERT INTO onboarding_documents (
             tenant_id, company_id, employee_id, onboarding_id,
-            document_type, document_name, document_category, phase,
+            document_type, document_title, document_category, phase,
             requires_acknowledgment, is_required, policy_id, status, due_date
           ) VALUES ($1, $2, $3, $4, 'policy', $5, 'phase4_acknowledgment', 4, true, true, $6, 'pending', $7)
         `, [tenantId, companyId, employeeId, onboarding.id, policy.name, policy.id, dueDate]);
@@ -237,27 +237,27 @@ async function checkHardGates(tenantId, employeeId) {
 
   // Gate 1: Phase 1 documents (all required signed/acknowledged)
   const phase1Docs = await pool.query(`
-    SELECT document_type, document_name, status, is_required
+    SELECT document_type, document_title, status, is_required
     FROM onboarding_documents
     WHERE employee_id = $1 AND phase = 1 AND is_required = true
   `, [employeeId]);
 
   for (const doc of phase1Docs.rows) {
     if (!['signed', 'acknowledged'].includes(doc.status)) {
-      errors.push(`Phase 1: ${doc.document_name} not completed (status: ${doc.status})`);
+      errors.push(`Phase 1: ${doc.document_title} not completed (status: ${doc.status})`);
     }
   }
 
   // Gate 2: Phase 3 documents (all required uploaded and verified)
   const phase3Docs = await pool.query(`
-    SELECT document_type, document_name, status, is_required
+    SELECT document_type, document_title, status, is_required
     FROM onboarding_documents
     WHERE employee_id = $1 AND phase = 3 AND is_required = true
   `, [employeeId]);
 
   for (const doc of phase3Docs.rows) {
     if (!['verified', 'uploaded'].includes(doc.status)) {
-      errors.push(`Phase 3: ${doc.document_name} not completed (status: ${doc.status})`);
+      errors.push(`Phase 3: ${doc.document_title} not completed (status: ${doc.status})`);
     }
   }
 
@@ -292,10 +292,9 @@ async function calculateProfileCompletion(employeeId) {
     SELECT
       first_name, last_name, email, phone,
       date_of_birth, gender, marital_status,
-      address, city, state, country,
-      national_id, tax_id,
+      address_line1, city, state_of_residence, country,
+      nin, tax_id, bvn,
       bank_name, bank_account_number, bank_account_name,
-      emergency_contact_name, emergency_contact_phone,
       job_title, department, reports_to, hire_date
     FROM employees WHERE id = $1
   `, [employeeId]);
@@ -309,16 +308,13 @@ async function calculateProfileCompletion(employeeId) {
     // Personal Info (30%)
     first_name: 5, last_name: 5, email: 5,
     phone: 3, date_of_birth: 3, gender: 2,
-    marital_status: 2, national_id: 5,
+    marital_status: 2, nin: 5,
 
     // Address (15%)
-    address: 5, city: 3, state: 3, country: 4,
+    address_line1: 5, city: 3, state_of_residence: 3, country: 4,
 
     // Banking (20%)
     bank_name: 7, bank_account_number: 7, bank_account_name: 6,
-
-    // Emergency Contact (15%)
-    emergency_contact_name: 8, emergency_contact_phone: 7,
 
     // Employment (20%)
     job_title: 5, department: 5, hire_date: 5, tax_id: 5
@@ -520,6 +516,20 @@ async function activateEmployee(tenantId, employeeId, activatedBy) {
  */
 async function getOnboardingProgress(tenantId, employeeId) {
   console.log('[getOnboardingProgress] Looking for employeeId:', employeeId, 'tenantId:', tenantId);
+
+  // Debug: Check if ANY onboarding records exist for this employee
+  const debugCheck = await pool.query(
+    'SELECT id, employee_id, overall_status, created_at FROM employee_onboarding WHERE employee_id = $1',
+    [employeeId]
+  );
+  console.log('[getOnboardingProgress] Debug - Direct employee_onboarding check:', debugCheck.rows);
+
+  // Also check if employee exists
+  const employeeCheck = await pool.query(
+    'SELECT id, first_name, last_name, email FROM employees WHERE id = $1',
+    [employeeId]
+  );
+  console.log('[getOnboardingProgress] Debug - Employee record:', employeeCheck.rows);
 
   // Query by employee_id only (it's unique) - tenant_id was causing mismatches
   const onboardingResult = await pool.query(`
