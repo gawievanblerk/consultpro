@@ -456,6 +456,179 @@ router.post('/policy-acknowledgements/:id/acknowledge', async (req, res) => {
 });
 
 // ============================================================================
+// BULK ASSIGNMENT
+// ============================================================================
+
+// POST /api/onboarding-checklist/bulk-assign - Bulk assign policies or documents to multiple employees
+router.post('/bulk-assign', async (req, res) => {
+  try {
+    const tenantId = req.tenant_id || req.user?.org;
+    const userId = req.user.id;
+    const { employee_ids, item_ids, item_type } = req.body;
+
+    // Validate input
+    if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'employee_ids array is required' });
+    }
+    if (!item_ids || !Array.isArray(item_ids) || item_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'item_ids array is required' });
+    }
+    if (!item_type || !['policy', 'document'].includes(item_type)) {
+      return res.status(400).json({ success: false, error: 'item_type must be "policy" or "document"' });
+    }
+
+    let assigned = 0;
+    let skipped = 0;
+    const errors = [];
+
+    if (item_type === 'policy') {
+      // Bulk assign policies
+      for (const employeeId of employee_ids) {
+        // Get employee's company_id for the policy acknowledgement
+        const empResult = await pool.query(`
+          SELECT e.company_id, con.tenant_id
+          FROM employees e
+          JOIN companies c ON e.company_id = c.id
+          JOIN consultants con ON c.consultant_id = con.id
+          WHERE e.id = $1 AND e.deleted_at IS NULL
+        `, [employeeId]);
+
+        if (empResult.rows.length === 0) {
+          errors.push(`Employee ${employeeId} not found`);
+          continue;
+        }
+
+        const companyId = empResult.rows[0].company_id;
+        const empTenantId = empResult.rows[0].tenant_id;
+
+        for (const policyId of item_ids) {
+          try {
+            // Check if already assigned
+            const existing = await pool.query(
+              'SELECT id FROM policy_acknowledgements WHERE employee_id = $1 AND policy_id = $2',
+              [employeeId, policyId]
+            );
+
+            if (existing.rows.length > 0) {
+              skipped++;
+              continue;
+            }
+
+            // Create policy acknowledgement
+            await pool.query(`
+              INSERT INTO policy_acknowledgements (tenant_id, company_id, employee_id, policy_id, status, created_by)
+              VALUES ($1, $2, $3, $4, 'pending', $5)
+            `, [empTenantId, companyId, employeeId, policyId, userId]);
+
+            assigned++;
+          } catch (err) {
+            if (err.code === '23505') {
+              // Unique constraint - already exists
+              skipped++;
+            } else {
+              console.error(`Error assigning policy ${policyId} to employee ${employeeId}:`, err);
+              errors.push(`Policy ${policyId} to employee ${employeeId}: ${err.message}`);
+            }
+          }
+        }
+      }
+    } else if (item_type === 'document') {
+      // Bulk assign document templates
+      for (const employeeId of employee_ids) {
+        // Get employee's company and tenant
+        const empResult = await pool.query(`
+          SELECT e.company_id, e.first_name, e.last_name, e.job_title, con.tenant_id
+          FROM employees e
+          JOIN companies c ON e.company_id = c.id
+          JOIN consultants con ON c.consultant_id = con.id
+          WHERE e.id = $1 AND e.deleted_at IS NULL
+        `, [employeeId]);
+
+        if (empResult.rows.length === 0) {
+          errors.push(`Employee ${employeeId} not found`);
+          continue;
+        }
+
+        const companyId = empResult.rows[0].company_id;
+        const empTenantId = empResult.rows[0].tenant_id;
+
+        for (const templateId of item_ids) {
+          try {
+            // Get the template
+            const templateResult = await pool.query(
+              'SELECT * FROM document_templates WHERE id = $1',
+              [templateId]
+            );
+
+            if (templateResult.rows.length === 0) {
+              errors.push(`Template ${templateId} not found`);
+              continue;
+            }
+
+            const template = templateResult.rows[0];
+
+            // Check if already assigned (by document_type for this employee)
+            const existing = await pool.query(
+              'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND document_type = $2',
+              [employeeId, template.template_type]
+            );
+
+            if (existing.rows.length > 0) {
+              skipped++;
+              continue;
+            }
+
+            // Create onboarding document from template
+            await pool.query(`
+              INSERT INTO onboarding_documents (
+                tenant_id, company_id, employee_id, document_type, document_title,
+                is_required, requires_signature, requires_acknowledgment,
+                phase, status, created_by
+              )
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10)
+            `, [
+              empTenantId,
+              companyId,
+              employeeId,
+              template.template_type,
+              template.name,
+              true, // is_required
+              template.category === 'onboarding', // requires_signature for onboarding docs
+              true, // requires_acknowledgment
+              1, // phase (default to phase 1)
+              userId
+            ]);
+
+            assigned++;
+          } catch (err) {
+            if (err.code === '23505') {
+              // Unique constraint - already exists
+              skipped++;
+            } else {
+              console.error(`Error assigning template ${templateId} to employee ${employeeId}:`, err);
+              errors.push(`Template ${templateId} to employee ${employeeId}: ${err.message}`);
+            }
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        assigned,
+        skipped,
+        errors: errors.length > 0 ? errors : undefined
+      },
+      message: `Assigned ${assigned} items, skipped ${skipped} (already assigned)`
+    });
+  } catch (error) {
+    console.error('Error in bulk assignment:', error);
+    res.status(500).json({ success: false, error: 'Failed to perform bulk assignment' });
+  }
+});
+
+// ============================================================================
 // ESS - MY ONBOARDING
 // ============================================================================
 
