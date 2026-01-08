@@ -652,11 +652,12 @@ export default function EmployeeImportModal({ isOpen, onClose, onSuccess }) {
                   onDragLeave={handleDrag}
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
+                  onClick={() => !file && fileInputRef.current?.click()}
                   className={`
                     border-2 border-dashed rounded-lg p-8 text-center transition-colors
                     ${dragActive ? 'border-primary-500 bg-primary-50' :
                       file ? 'border-green-500 bg-green-50' :
-                      'border-gray-300 hover:border-gray-400'}
+                      'border-gray-300 hover:border-gray-400 cursor-pointer'}
                   `}
                 >
                   {file ? (

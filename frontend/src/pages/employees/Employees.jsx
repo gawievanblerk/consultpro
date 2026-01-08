@@ -334,10 +334,10 @@ function Employees() {
     const clientErrors = validateForm();
     if (Object.keys(clientErrors).length > 0) {
       setFieldErrors(clientErrors);
-      // Navigate to the first tab with errors
+      // Navigate to the first step with errors
       const firstErrorField = Object.keys(clientErrors)[0];
-      const targetTab = fieldToTab[firstErrorField] || 'basic';
-      setActiveTab(targetTab);
+      const targetStep = fieldToStep[firstErrorField] || 1;
+      setCurrentStep(targetStep);
       toast.error('Please fix the highlighted errors');
       return;
     }
@@ -376,11 +376,11 @@ function Employees() {
         const apiFieldErrors = parseApiErrors(error.response.data.errors);
         setFieldErrors(apiFieldErrors);
 
-        // Navigate to the first tab with errors
+        // Navigate to the first step with errors
         const firstErrorField = Object.keys(apiFieldErrors)[0];
         if (firstErrorField) {
-          const targetTab = fieldToTab[firstErrorField] || 'basic';
-          setActiveTab(targetTab);
+          const targetStep = fieldToStep[firstErrorField] || 1;
+          setCurrentStep(targetStep);
         }
 
         // Build error message
