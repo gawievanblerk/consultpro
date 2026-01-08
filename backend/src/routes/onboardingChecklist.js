@@ -201,14 +201,18 @@ router.post('/checklists', async (req, res) => {
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Error creating onboarding checklist:', error);
+    console.error('Error details - code:', error.code, 'message:', error.message, 'detail:', error.detail);
     // Provide more specific error messages
     if (error.code === '23503') {
-      return res.status(400).json({ success: false, error: 'Invalid employee or company reference' });
+      return res.status(400).json({ success: false, error: `Invalid reference: ${error.detail || 'employee or company not found'}` });
     }
     if (error.code === '23505') {
       return res.status(400).json({ success: false, error: 'A checklist already exists for this employee' });
     }
-    res.status(500).json({ success: false, error: 'Failed to create onboarding checklist' });
+    if (error.code === '42703') {
+      return res.status(400).json({ success: false, error: `Database column error: ${error.message}` });
+    }
+    res.status(500).json({ success: false, error: `Failed to create onboarding checklist: ${error.message}` });
   }
 });
 
