@@ -267,10 +267,10 @@ router.put('/checklists/:id/item', async (req, res) => {
     const result = await pool.query(`
       UPDATE onboarding_checklists
       SET items = $1,
-          status = $2,
-          started_at = CASE WHEN started_at IS NULL AND $2 = 'in_progress' THEN NOW() ELSE started_at END,
-          completed_at = CASE WHEN $2 = 'completed' THEN NOW() ELSE NULL END,
-          completed_by = CASE WHEN $2 = 'completed' THEN $3 ELSE NULL END,
+          status = $2::varchar,
+          started_at = CASE WHEN started_at IS NULL AND $2::varchar = 'in_progress' THEN NOW() ELSE started_at END,
+          completed_at = CASE WHEN $2::varchar = 'completed' THEN NOW() ELSE NULL END,
+          completed_by = CASE WHEN $2::varchar = 'completed' THEN $3 ELSE NULL END,
           updated_at = NOW()
       WHERE id = $4
       RETURNING *
