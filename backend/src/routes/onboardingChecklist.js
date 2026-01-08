@@ -270,7 +270,7 @@ router.put('/checklists/:id/item', async (req, res) => {
           status = $2::varchar,
           started_at = CASE WHEN started_at IS NULL AND $2::varchar = 'in_progress' THEN NOW() ELSE started_at END,
           completed_at = CASE WHEN $2::varchar = 'completed' THEN NOW() ELSE NULL END,
-          completed_by = CASE WHEN $2::varchar = 'completed' THEN $3 ELSE NULL END,
+          completed_by = CASE WHEN $2::varchar = 'completed' THEN $3::uuid ELSE NULL END,
           updated_at = NOW()
       WHERE id = $4
       RETURNING *
