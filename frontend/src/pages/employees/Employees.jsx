@@ -16,7 +16,10 @@ import {
   FunnelIcon,
   ArrowUpTrayIcon,
   PaperAirplaneIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 
 const statusColors = {
@@ -54,33 +57,41 @@ const fieldLabels = {
   companyId: 'Company'
 };
 
-// Map which tab each field belongs to
-const fieldToTab = {
-  firstName: 'basic',
-  lastName: 'basic',
-  middleName: 'basic',
-  email: 'basic',
-  phone: 'basic',
-  dateOfBirth: 'basic',
-  gender: 'basic',
-  jobTitle: 'employment',
-  department: 'employment',
-  hireDate: 'employment',
-  employmentType: 'employment',
-  employmentStatus: 'employment',
-  salary: 'employment',
-  salaryCurrency: 'employment',
-  nin: 'compliance',
-  bvn: 'compliance',
-  taxId: 'compliance',
-  pensionPin: 'compliance',
-  pensionPfa: 'compliance',
-  nhfNumber: 'compliance',
-  nhisNumber: 'compliance',
-  bankName: 'banking',
-  bankAccountNumber: 'banking',
-  bankAccountName: 'banking'
+// Map which step each field belongs to (1-indexed)
+const fieldToStep = {
+  firstName: 1,
+  lastName: 1,
+  middleName: 1,
+  email: 1,
+  phone: 1,
+  dateOfBirth: 1,
+  gender: 1,
+  jobTitle: 2,
+  department: 2,
+  hireDate: 2,
+  employmentType: 2,
+  employmentStatus: 2,
+  salary: 2,
+  salaryCurrency: 2,
+  nin: 3,
+  bvn: 3,
+  taxId: 3,
+  pensionPin: 3,
+  pensionPfa: 3,
+  nhfNumber: 3,
+  nhisNumber: 3,
+  bankName: 4,
+  bankAccountNumber: 4,
+  bankAccountName: 4
 };
+
+// Wizard steps configuration
+const WIZARD_STEPS = [
+  { id: 1, name: 'Basic Info', description: 'Personal details', requiredFields: ['firstName', 'lastName'] },
+  { id: 2, name: 'Employment', description: 'Job details', requiredFields: [] },
+  { id: 3, name: 'Compliance', description: 'Nigeria statutory', requiredFields: [] },
+  { id: 4, name: 'Banking', description: 'Payment details', requiredFields: [] }
+];
 
 function Employees() {
   const { toast } = useToast();
@@ -95,7 +106,7 @@ function Employees() {
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic');
+  const [currentStep, setCurrentStep] = useState(1);
   const [fieldErrors, setFieldErrors] = useState({});
   const [formData, setFormData] = useState({
     firstName: '',
@@ -219,13 +230,14 @@ function Employees() {
         nhisNumber: ''
       });
     }
-    setActiveTab('basic');
+    setCurrentStep(1);
     setFieldErrors({});
     setModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setFieldErrors({});
+    setCurrentStep(1);
     setModalOpen(false);
     setEditingEmployee(null);
   };
@@ -262,14 +274,56 @@ function Employees() {
     return errors;
   };
 
-  // Get tabs that have errors
-  const getTabsWithErrors = () => {
-    const tabs = new Set();
+  // Get steps that have errors
+  const getStepsWithErrors = () => {
+    const steps = new Set();
     Object.keys(fieldErrors).forEach(field => {
-      const tab = fieldToTab[field];
-      if (tab) tabs.add(tab);
+      const step = fieldToStep[field];
+      if (step) steps.add(step);
     });
-    return tabs;
+    return steps;
+  };
+
+  // Validate current step before proceeding
+  const validateCurrentStep = () => {
+    const currentStepConfig = WIZARD_STEPS.find(s => s.id === currentStep);
+    const errors = {};
+
+    // Check required fields for current step
+    if (currentStepConfig?.requiredFields) {
+      currentStepConfig.requiredFields.forEach(field => {
+        if (!formData[field]?.trim()) {
+          errors[field] = `${fieldLabels[field] || field} is required`;
+        }
+      });
+    }
+
+    // Additional validation for step 1
+    if (currentStep === 1) {
+      if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        errors.email = 'Please enter a valid email address';
+      }
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Go to next step
+  const handleNextStep = () => {
+    if (validateCurrentStep()) {
+      if (currentStep < WIZARD_STEPS.length) {
+        setCurrentStep(currentStep + 1);
+      }
+    }
+  };
+
+  // Go to previous step
+  const handlePrevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+      setFieldErrors({}); // Clear errors when going back
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -631,15 +685,45 @@ function Employees() {
         ]}
       />
 
-      <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingEmployee ? 'Edit Employee' : 'Add Employee'} size="xl">
+      <Modal isOpen={modalOpen} onClose={handleCloseModal} title={editingEmployee ? 'Edit Employee' : 'Add New Employee'} size="xl">
         <form onSubmit={handleSubmit}>
-          {/* Error Summary Banner */}
+          {/* Wizard Step Indicator */}
+          <div className="mb-6 px-2">
+            <div className="flex items-center justify-between">
+              {WIZARD_STEPS.map((step, idx) => (
+                <div key={step.id} className="flex items-center">
+                  <div className="flex flex-col items-center">
+                    <div className={`
+                      w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all
+                      ${currentStep > step.id ? 'bg-green-500 text-white' :
+                        currentStep === step.id ? 'bg-accent-600 text-white ring-4 ring-accent-100' :
+                        getStepsWithErrors().has(step.id) ? 'bg-red-100 text-red-600 border-2 border-red-300' :
+                        'bg-gray-100 text-gray-400'}
+                    `}>
+                      {currentStep > step.id ? <CheckCircleIcon className="h-6 w-6" /> : step.id}
+                    </div>
+                    <div className="mt-2 text-center">
+                      <div className={`text-xs font-medium ${currentStep === step.id ? 'text-accent-600' : 'text-gray-500'}`}>
+                        {step.name}
+                      </div>
+                      <div className="text-xs text-gray-400 hidden sm:block">{step.description}</div>
+                    </div>
+                  </div>
+                  {idx < WIZARD_STEPS.length - 1 && (
+                    <div className={`w-12 sm:w-20 h-1 mx-2 mt-[-20px] rounded ${currentStep > step.id ? 'bg-green-500' : 'bg-gray-200'}`} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Error Banner for Current Step */}
           {Object.keys(fieldErrors).length > 0 && (
             <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <ExclamationTriangleIcon className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-red-800">Please fix the following errors:</h4>
+                  <h4 className="font-medium text-red-800">Please fix the following to continue:</h4>
                   <ul className="mt-2 text-sm text-red-700 space-y-1">
                     {Object.entries(fieldErrors).map(([field, error]) => (
                       <li key={field}>
@@ -652,52 +736,8 @@ function Employees() {
             </div>
           )}
 
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 mb-4">
-            <button
-              type="button"
-              onClick={() => setActiveTab('basic')}
-              className={`px-4 py-2 text-sm font-medium flex items-center gap-1 ${activeTab === 'basic' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Basic Info
-              {getTabsWithErrors().has('basic') && (
-                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('employment')}
-              className={`px-4 py-2 text-sm font-medium flex items-center gap-1 ${activeTab === 'employment' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Employment
-              {getTabsWithErrors().has('employment') && (
-                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('compliance')}
-              className={`px-4 py-2 text-sm font-medium flex items-center gap-1 ${activeTab === 'compliance' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Nigeria Compliance
-              {getTabsWithErrors().has('compliance') && (
-                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('banking')}
-              className={`px-4 py-2 text-sm font-medium flex items-center gap-1 ${activeTab === 'banking' ? 'border-b-2 border-accent-500 text-accent-600' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              Banking
-              {getTabsWithErrors().has('banking') && (
-                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-              )}
-            </button>
-          </div>
-
-          {/* Basic Info Tab */}
-          {activeTab === 'basic' && (
+          {/* Step 1: Basic Info */}
+          {currentStep === 1 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -784,8 +824,8 @@ function Employees() {
             </div>
           )}
 
-          {/* Employment Tab */}
-          {activeTab === 'employment' && (
+          {/* Step 2: Employment */}
+          {currentStep === 2 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -888,8 +928,8 @@ function Employees() {
             </div>
           )}
 
-          {/* Nigeria Compliance Tab */}
-          {activeTab === 'compliance' && (
+          {/* Step 3: Nigeria Compliance */}
+          {currentStep === 3 && (
             <div className="space-y-4">
               <p className="text-sm text-gray-500 mb-4">Nigerian statutory compliance information</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -969,8 +1009,8 @@ function Employees() {
             </div>
           )}
 
-          {/* Banking Tab */}
-          {activeTab === 'banking' && (
+          {/* Step 4: Banking */}
+          {currentStep === 4 && (
             <div className="space-y-4">
               <p className="text-sm text-gray-500 mb-4">Bank details for payroll</p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1009,11 +1049,47 @@ function Employees() {
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4 mt-4 border-t">
-            <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
-            <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? 'Saving...' : (editingEmployee ? 'Update' : 'Create')}
-            </button>
+          {/* Wizard Navigation Footer */}
+          <div className="flex justify-between items-center pt-4 mt-6 border-t">
+            <div>
+              {currentStep > 1 ? (
+                <button
+                  type="button"
+                  onClick={handlePrevStep}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <ArrowLeftIcon className="h-4 w-4" />
+                  Back
+                </button>
+              ) : (
+                <button type="button" onClick={handleCloseModal} className="btn-secondary">
+                  Cancel
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">
+                Step {currentStep} of {WIZARD_STEPS.length}
+              </span>
+            </div>
+
+            <div>
+              {currentStep < WIZARD_STEPS.length ? (
+                <button
+                  type="button"
+                  onClick={handleNextStep}
+                  className="inline-flex items-center gap-2 px-6 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition-colors"
+                >
+                  Next
+                  <ArrowRightIcon className="h-4 w-4" />
+                </button>
+              ) : (
+                <button type="submit" disabled={saving} className="btn-primary px-6">
+                  {saving ? 'Saving...' : (editingEmployee ? 'Update Employee' : 'Create Employee')}
+                </button>
+              )}
+            </div>
           </div>
         </form>
       </Modal>
