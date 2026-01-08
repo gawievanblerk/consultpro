@@ -148,10 +148,12 @@ router.post('/checklists', async (req, res) => {
 
     // Always validate employee exists and get company/tenant from the employee record
     // This ensures data consistency regardless of what the frontend sends
+    // Hierarchy: tenants → consultants → companies → employees
     const employeeResult = await pool.query(`
-      SELECT e.id, e.company_id, e.first_name, e.last_name, c.tenant_id, c.id as valid_company
+      SELECT e.id, e.company_id, e.first_name, e.last_name, con.tenant_id, c.id as valid_company
       FROM employees e
       JOIN companies c ON e.company_id = c.id
+      JOIN consultants con ON c.consultant_id = con.id
       WHERE e.id = $1 AND e.deleted_at IS NULL
     `, [employee_id]);
 
