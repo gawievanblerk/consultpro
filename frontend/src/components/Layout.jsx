@@ -91,6 +91,7 @@ const navigation = [
   { name: 'Employee Management', userTypes: ['consultant', 'staff', 'company_admin'], children: [
     { name: 'Onboarding Workflow', href: '/dashboard/onboarding-workflow', icon: RocketLaunchIcon },
     { name: 'Document Templates', href: '/dashboard/document-templates', icon: DocumentDuplicateIcon },
+    { name: 'Content Library', href: '/dashboard/content-library', icon: BookOpenIcon },
     { name: 'Onboarding Checklists', href: '/dashboard/onboarding-admin', icon: ClipboardDocumentListIcon },
     { name: 'Probation Check-ins', href: '/dashboard/probation', icon: ClockIcon },
     { name: 'Performance', href: '/dashboard/performance', icon: StarIcon },

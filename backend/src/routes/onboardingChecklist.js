@@ -1052,7 +1052,7 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
     const userId = req.user?.id || req.user?.sub;
     const impersonatedEmployeeId = req.user?.employee_id;
     const { docId } = req.params;
-    const { signature_data } = req.body;
+    const { signature_data, signature_source = 'canvas' } = req.body;
     const ipAddress = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
@@ -1110,13 +1110,14 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
       UPDATE onboarding_documents
       SET status = $1,
           signature_data = $2,
+          signature_source = $3,
           acknowledged_at = NOW(),
-          ip_address = $3,
-          user_agent = $4,
+          ip_address = $4,
+          user_agent = $5,
           updated_at = NOW()
-      WHERE id = $5
+      WHERE id = $6
       RETURNING *
-    `, [newStatus, signature_data, ipAddress, userAgent, docId]);
+    `, [newStatus, signature_data, signature_source, ipAddress, userAgent, docId]);
 
     // Update phase status
     await onboardingService.updatePhaseStatus(tenantId, employeeId, doc.phase);
