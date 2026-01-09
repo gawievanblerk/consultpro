@@ -156,5 +156,80 @@ consultpro/
 - Test locally before merging
 
 ---
-**Last Updated:** 2025-12-02
-**Status:** MVP Complete - Ready for Testing
+
+## Session Notes (2026-01-08)
+
+### Last Discussion: Employee-Policy Linking
+
+**Question:** Where do we link employees to policies?
+
+**Answer:** Employees are linked to policies through the `policy_acknowledgments` table:
+- Location: `backend/migrations/008_policy_and_training_lms.sql:243-266`
+- Links `employee_id` to `policy_id` with acknowledgment tracking
+- No explicit assignment table (unlike training which has `training_assignments`)
+- Policies with `requires_acknowledgment = true` apply to all employees
+- Missing acknowledgments calculated by cross-join
+
+**Key Files:**
+- `backend/src/routes/compliance.js` - Compliance endpoints
+- `frontend/src/pages/compliance/EmployeeCompliance.jsx` - Employee compliance UI
+- `frontend/src/pages/compliance/Policies.jsx` - Policy management UI
+
+**Potential Future Enhancement:**
+- Consider adding explicit `policy_assignments` table (similar to `training_assignments`) for more granular control over which employees need to acknowledge which policies
+
+---
+
+## Session Notes (2026-01-09)
+
+### Deployments Today
+
+**1. Auto-Migration on Startup**
+- Backend now automatically runs pending migrations when server starts
+- Migrations tracked in `_migrations` table
+- Location: `backend/src/server.js` - `runPendingMigrations()` function
+
+**2. Policy Categories Fix (Migrations 020, 021)**
+- Issue: No categories in dropdown when adding policies
+- Root cause: Categories only seeded for tenants in `tenants` table at migration time
+- Fix: Migration 021 directly seeds categories for CoreHR tenant (701e2f84-9cae-47b7-87e8-1954a23c46e1)
+- 12 categories: Code of Conduct, Leave Policy, Sexual Harassment, IT Security, Health & Safety, Data Protection (NDPR), Pension Compliance, NHF Compliance, Labour Act, Remote Work, Expense Policy, Onboarding
+
+**3. Superadmin Password Update (Migration 022)**
+- Updated superadmin password to CoreHR2024!
+- Login: admin@rozitech.com / CoreHR2024!
+- URL: https://corehr.africa/superadmin/login
+
+**4. E2E Testing Improvements (Migrations 019)**
+- Fixed playwright.config.js to use localhost:5020 with env var override
+- Fixed frontend api.js to auto-detect localhost for local development
+- Fixed superadmin password hash for Admin123! (local testing)
+
+### Production URLs
+- Frontend: https://corehr.africa
+- Backend API: https://api.corehr.africa
+- Superadmin: https://corehr.africa/superadmin/login
+
+### Production Credentials
+- **Superadmin:** admin@rozitech.com / CoreHR2024!
+- **CoreHR Tenant ID:** 701e2f84-9cae-47b7-87e8-1954a23c46e1
+
+### Migration API
+- List migrations: `GET /run-migrations`
+- Run specific: `GET /run-migrations/:name`
+- Force re-run: `GET /run-migrations/:name?force=true`
+
+### New Features Deployed (Pending UAT)
+1. **Signature Upload** - Upload signature images with auto-contrast processing
+2. **Content Library** - Reusable content (job descriptions, KPIs, tasks, clauses)
+3. **Document Editor** - Edit documents after tag filling, with version history
+
+### Key Files Modified Today
+- `backend/src/server.js` - Auto-migration, migrations list
+- `backend/migrations/019-022` - Various fixes
+- `frontend/src/utils/api.js` - Auto-detect localhost
+- `e2e-tests/playwright.config.js` - Local testing config
+
+---
+**Last Updated:** 2026-01-09
+**Status:** MVP Complete - UAT in Progress
