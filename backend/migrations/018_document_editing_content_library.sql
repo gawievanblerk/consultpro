@@ -28,10 +28,12 @@ CREATE TABLE IF NOT EXISTS content_library_categories (
     is_active BOOLEAN DEFAULT true,
     created_by UUID REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-
-    UNIQUE(tenant_id, COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid), name)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Unique index for category names per tenant/company
+CREATE UNIQUE INDEX IF NOT EXISTS idx_content_lib_cat_unique_name
+ON content_library_categories (tenant_id, COALESCE(company_id, '00000000-0000-0000-0000-000000000000'::uuid), name);
 
 -- Content Library Items
 CREATE TABLE IF NOT EXISTS content_library_items (
