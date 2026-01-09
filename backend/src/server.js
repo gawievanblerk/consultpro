@@ -66,7 +66,8 @@ const MIGRATIONS = {
   '018_document_editing_content_library': 'Document editing, content library, and signature enhancements',
   '019_fix_superadmin_password': 'Fix superadmin password hash',
   '020_seed_policy_categories': 'Seed default policy categories for all tenants',
-  '021_seed_corehr_tenant_categories': 'Seed policy categories for CoreHR tenant'
+  '021_seed_corehr_tenant_categories': 'Seed policy categories for CoreHR tenant',
+  '022_update_superadmin_password': 'Update superadmin password'
 };
 
 // GET /run-migrations - List available migrations
