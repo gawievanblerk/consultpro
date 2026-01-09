@@ -1047,13 +1047,67 @@ app.use((req, res) => {
   });
 });
 
+// Auto-run pending migrations on startup
+async function runPendingMigrations() {
+  try {
+    console.log('Checking for pending migrations...');
+
+    // Ensure migrations table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        executed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+
+    // Get executed migrations
+    const executed = await pool.query('SELECT name FROM _migrations');
+    const executedNames = new Set(executed.rows.map(r => r.name));
+
+    // Find pending migrations
+    const pending = Object.keys(MIGRATIONS).filter(name => !executedNames.has(name));
+
+    if (pending.length === 0) {
+      console.log('   No pending migrations');
+      return;
+    }
+
+    console.log(`   Found ${pending.length} pending migration(s): ${pending.join(', ')}`);
+
+    const migrationsDir = path.join(__dirname, '../migrations');
+
+    for (const name of pending) {
+      try {
+        const filePath = path.join(migrationsDir, `${name}.sql`);
+        const sql = fs.readFileSync(filePath, 'utf8');
+
+        await pool.query(sql);
+        await pool.query('INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [name]);
+
+        console.log(`   ✓ Migration ${name} executed successfully`);
+      } catch (err) {
+        console.error(`   ✗ Migration ${name} failed:`, err.message);
+        // Continue with other migrations instead of stopping
+      }
+    }
+
+    console.log('Migration check complete');
+  } catch (error) {
+    console.error('Error running migrations:', error.message);
+  }
+}
+
 // Start server only if not in test mode
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`CoreHR Backend running on port ${PORT}`);
-    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`   Demo Mode: ${DEMO_MODE}`);
-    console.log(`   Database: ${process.env.DATABASE_NAME || 'corehr_dev'}`);
+  // Run migrations before starting server
+  runPendingMigrations().then(() => {
+    app.listen(PORT, () => {
+      console.log(`CoreHR Backend running on port ${PORT}`);
+      console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`   Demo Mode: ${DEMO_MODE}`);
+      console.log(`   Database: ${process.env.DATABASE_NAME || 'corehr_dev'}`);
+    });
   });
 }
 
