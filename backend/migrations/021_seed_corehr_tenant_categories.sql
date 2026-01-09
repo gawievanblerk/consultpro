@@ -2,8 +2,8 @@
 -- Direct insert for tenant 701e2f84-9cae-47b7-87e8-1954a23c46e1
 
 -- First, ensure the tenant exists in tenants table
-INSERT INTO tenants (id, name, slug, is_active)
-VALUES ('701e2f84-9cae-47b7-87e8-1954a23c46e1', 'CoreHR Consulting', 'corehr', true)
+INSERT INTO tenants (id, name, slug)
+VALUES ('701e2f84-9cae-47b7-87e8-1954a23c46e1', 'CoreHR Consulting', 'corehr')
 ON CONFLICT (id) DO NOTHING;
 
 -- Code of Conduct
