@@ -1,7 +1,20 @@
 import axios from 'axios';
 
-// Production API URL - hardcoded for reliability
-const API_URL = 'https://api.corehr.africa';
+// API URL - uses environment variable in production, auto-detect for local development
+const getApiUrl = () => {
+  // Check for environment variable first
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Auto-detect: if running on localhost, use local backend
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:4020';
+  }
+  // Production fallback
+  return 'https://api.corehr.africa';
+};
+
+const API_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_URL,

@@ -63,7 +63,8 @@ const MIGRATIONS = {
   '015_statutory_remittances': 'Statutory remittance tracking (PAYE, Pension, NHF)',
   '016_onboarding_workflow': 'BFI onboarding workflow with hard gates, medical info, probation check-ins',
   '017_test_clone_support': 'Test clone support for onboarding workflow testing',
-  '018_document_editing_content_library': 'Document editing, content library, and signature enhancements'
+  '018_document_editing_content_library': 'Document editing, content library, and signature enhancements',
+  '019_fix_superadmin_password': 'Fix superadmin password hash'
 };
 
 // GET /run-migrations - List available migrations

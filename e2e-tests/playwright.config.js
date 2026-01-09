@@ -3,7 +3,8 @@ const { defineConfig, devices } = require('@playwright/test');
 
 /**
  * CoreHR E2E Test Configuration
- * Tests run against the deployed production system at corehr.africa
+ * Tests run against local Docker deployment or production
+ * Set PLAYWRIGHT_BASE_URL env var to override (default: localhost)
  */
 module.exports = defineConfig({
   testDir: './tests',
@@ -18,7 +19,7 @@ module.exports = defineConfig({
   ],
 
   use: {
-    baseURL: 'https://corehr.africa',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5020',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
