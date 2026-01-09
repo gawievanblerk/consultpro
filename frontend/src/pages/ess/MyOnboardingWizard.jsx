@@ -94,13 +94,14 @@ export default function MyOnboardingWizard() {
     setShowSignatureModal(true);
   };
 
-  const handleSignatureSubmit = async (signatureData) => {
+  const handleSignatureSubmit = async (signatureData, signatureSource = 'canvas') => {
     if (!selectedDocument) return;
 
     setProcessing(selectedDocument.id);
     try {
       await api.post(`/api/onboarding-checklist/my-documents/${selectedDocument.id}/sign`, {
-        signature_data: signatureData
+        signature_data: signatureData,
+        signature_source: signatureSource
       });
       setShowSignatureModal(false);
       setSelectedDocument(null);

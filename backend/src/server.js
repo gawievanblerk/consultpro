@@ -62,7 +62,8 @@ const MIGRATIONS = {
   '014_company_preferences': 'Company selector preferences',
   '015_statutory_remittances': 'Statutory remittance tracking (PAYE, Pension, NHF)',
   '016_onboarding_workflow': 'BFI onboarding workflow with hard gates, medical info, probation check-ins',
-  '017_test_clone_support': 'Test clone support for onboarding workflow testing'
+  '017_test_clone_support': 'Test clone support for onboarding workflow testing',
+  '018_document_editing_content_library': 'Document editing, content library, and signature enhancements'
 };
 
 // GET /run-migrations - List available migrations
@@ -1017,6 +1018,12 @@ app.use('/api/onboarding-workflow', require('./routes/onboardingWorkflow'));
 app.use('/api/medical', require('./routes/medicalInfo'));
 app.use('/api/probation-checkins', require('./routes/probationCheckins'));
 app.use('/api/document-templates', require('./routes/documentTemplates'));
+
+// ============================================================================
+// Content Library and Document Editing
+// ============================================================================
+app.use('/api/content-library', require('./routes/contentLibrary'));
+app.use('/api/document-editor', require('./routes/documentEditor'));
 
 // ============================================================================
 // Error Handlers

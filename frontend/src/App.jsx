@@ -82,6 +82,8 @@ import Disciplinary from './pages/ems/Disciplinary';
 import OnboardingManagement from './pages/ems/OnboardingManagement';
 import OnboardingWorkflowAdmin from './pages/ems/OnboardingWorkflowAdmin';
 import DocumentTemplates from './pages/ems/DocumentTemplates';
+import ContentLibrary from './pages/ems/ContentLibrary';
+import DocumentEditor from './pages/ems/DocumentEditor';
 import MyOnboarding from './pages/ess/MyOnboarding';
 import MyOnboardingWizard from './pages/ess/MyOnboardingWizard';
 
@@ -226,6 +228,8 @@ function App() {
             <Route path="onboarding-workflow" element={<OnboardingWorkflowAdmin />} />
             <Route path="onboarding-admin" element={<OnboardingManagement />} />
             <Route path="document-templates" element={<DocumentTemplates />} />
+            <Route path="content-library" element={<ContentLibrary />} />
+            <Route path="document-editor/:type/:id" element={<DocumentEditor />} />
             <Route path="probation" element={<ProbationManagement />} />
             <Route path="performance" element={<PerformanceReviews />} />
             <Route path="exit-management" element={<ExitManagement />} />
