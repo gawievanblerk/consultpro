@@ -23,10 +23,27 @@ export default function PayrollRunDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [processing, setProcessing] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [departmentFilter, setDepartmentFilter] = useState('');
 
   useEffect(() => {
     fetchRun();
   }, [id]);
+
+  useEffect(() => {
+    if (run?.company_id) {
+      fetchDepartments(run.company_id);
+    }
+  }, [run?.company_id]);
+
+  const fetchDepartments = async (companyId) => {
+    try {
+      const response = await api.get('/api/departments', { params: { company_id: companyId } });
+      setDepartments(response.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch departments:', err);
+    }
+  };
 
   const fetchRun = async () => {
     try {
@@ -127,6 +144,12 @@ export default function PayrollRunDetail() {
   }
 
   const periodName = `${MONTHS[run.pay_period_month - 1]} ${run.pay_period_year}`;
+
+  // Filter payslips by department (payslips store department as name string, not ID)
+  const selectedDepartmentName = departments.find(d => d.id === departmentFilter)?.name;
+  const filteredPayslips = departmentFilter && selectedDepartmentName
+    ? (run.payslips || []).filter(slip => slip.department === selectedDepartmentName)
+    : (run.payslips || []);
 
   return (
     <div className="space-y-6">
@@ -239,8 +262,26 @@ export default function PayrollRunDetail() {
 
       {/* Payslips Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b">
+        <div className="px-6 py-4 border-b flex justify-between items-center">
           <h2 className="text-lg font-semibold">Employee Payslips</h2>
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-600">Filter by Department:</label>
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+            >
+              <option value="">All Departments</option>
+              {departments.map(dept => (
+                <option key={dept.id} value={dept.id}>{dept.name}</option>
+              ))}
+            </select>
+            {departmentFilter && (
+              <span className="text-sm text-gray-500">
+                Showing {filteredPayslips.length} of {(run.payslips || []).length} employees
+              </span>
+            )}
+          </div>
         </div>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -257,18 +298,20 @@ export default function PayrollRunDetail() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {(!run.payslips || run.payslips.length === 0) ? (
+            {filteredPayslips.length === 0 ? (
               <tr>
                 <td colSpan="9" className="px-6 py-8 text-center text-gray-500">
                   {run.status === 'draft' ? (
                     'Click "Process Payroll" to generate payslips for all employees'
+                  ) : departmentFilter ? (
+                    'No employees found in this department'
                   ) : (
                     'No payslips found'
                   )}
                 </td>
               </tr>
             ) : (
-              run.payslips.map((slip) => (
+              filteredPayslips.map((slip) => (
                 <tr key={slip.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">{slip.employee_name}</div>

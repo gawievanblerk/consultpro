@@ -5,22 +5,22 @@ import SignaturePad from '../../components/onboarding/SignaturePad';
 
 const PHASE_INFO = {
   phase1: {
+    name: 'Employee File',
+    description: 'Complete your profile and upload documents',
+    icon: 'folder',
+    hardGate: true
+  },
+  phase2: {
     name: 'Document Signing',
     description: 'Sign essential employment documents',
     icon: 'document',
     hardGate: true
   },
-  phase2: {
+  phase3: {
     name: 'Role Clarity',
     description: 'Understand your role and team structure',
     icon: 'users',
     hardGate: false
-  },
-  phase3: {
-    name: 'Employee File',
-    description: 'Complete your profile and upload documents',
-    icon: 'folder',
-    hardGate: true
   },
   phase4: {
     name: 'Policy Acknowledgments',
@@ -339,8 +339,8 @@ export default function MyOnboardingWizard() {
           </div>
         </div>
 
-        {/* Phase 3: Profile Completion Section */}
-        {activePhase === 'phase3' && profileCompletion && (
+        {/* Phase 1: Profile Completion Section (Employee File) */}
+        {activePhase === 'phase1' && profileCompletion && (
           <div className="px-6 py-4 border-b bg-blue-50">
             <div className="flex items-center justify-between">
               <div>
@@ -350,7 +350,7 @@ export default function MyOnboardingWizard() {
                 </p>
               </div>
               <button
-                onClick={() => navigate('/ess/profile')}
+                onClick={() => navigate('/dashboard/my-profile')}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Complete Profile

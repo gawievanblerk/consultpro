@@ -25,7 +25,7 @@ export default function PublicHeader() {
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
         {/* Logo */}
         <Link to="/" className="flex items-center">
-          <img src="/corehr-logo.svg" alt="CoreHR" className="h-9 w-auto" />
+          <img src="/corehr-logo.png" alt="CoreHR" className="h-9 w-auto" />
         </Link>
 
         {/* Desktop Navigation */}

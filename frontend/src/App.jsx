@@ -33,8 +33,10 @@ import Contacts from './pages/crm/Contacts';
 import Engagements from './pages/crm/Engagements';
 import Leads from './pages/bd/Leads';
 import Pipeline from './pages/bd/Pipeline';
+import BDDashboard from './pages/bd/BDDashboard';
 import Staff from './pages/hr/Staff';
 import Deployments from './pages/hr/Deployments';
+import Departments from './pages/hr/Departments';
 import Employees from './pages/employees/Employees';
 import Companies from './pages/companies/Companies';
 import LeaveRequests from './pages/leave/LeaveRequests';
@@ -86,6 +88,7 @@ import ContentLibrary from './pages/ems/ContentLibrary';
 import DocumentEditor from './pages/ems/DocumentEditor';
 import MyOnboarding from './pages/ess/MyOnboarding';
 import MyOnboardingWizard from './pages/ess/MyOnboardingWizard';
+import ESSProfile from './pages/ess/ESSProfile';
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -181,6 +184,7 @@ function App() {
             <Route path="engagements" element={<Engagements />} />
 
             {/* Business Development Module */}
+            <Route path="bd" element={<BDDashboard />} />
             <Route path="leads" element={<Leads />} />
             <Route path="pipeline" element={<Pipeline />} />
 
@@ -190,6 +194,7 @@ function App() {
 
             {/* Employees Module (Company Admin) */}
             <Route path="employees" element={<Employees />} />
+            <Route path="departments" element={<Departments />} />
 
             {/* Companies Module (Consultant) */}
             <Route path="companies" element={<Companies />} />
@@ -236,6 +241,7 @@ function App() {
             <Route path="disciplinary" element={<Disciplinary />} />
             <Route path="my-onboarding" element={<MyOnboarding />} />
             <Route path="my-onboarding-wizard" element={<MyOnboardingWizard />} />
+            <Route path="my-profile" element={<ESSProfile />} />
 
             {/* Settings/Admin */}
             <Route path="users" element={<Users />} />

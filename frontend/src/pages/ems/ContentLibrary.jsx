@@ -26,6 +26,16 @@ export default function ContentLibrary() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categoryForm, setCategoryForm] = useState({ name: '', description: '', icon: '' });
 
+  // Apply to employee state
+  const [showApplyModal, setShowApplyModal] = useState(false);
+  const [selectedContentItem, setSelectedContentItem] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [employeeDocuments, setEmployeeDocuments] = useState([]);
+  const [selectedDocument, setSelectedDocument] = useState('');
+  const [applying, setApplying] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -174,6 +184,69 @@ export default function ContentLibrary() {
     }
   };
 
+  // Apply to employee handlers
+  const handleOpenApplyModal = async (item) => {
+    setSelectedContentItem(item);
+    setSelectedEmployee(null);
+    setEmployeeDocuments([]);
+    setSelectedDocument('');
+    setShowApplyModal(true);
+
+    // Load employees
+    try {
+      const res = await api.get('/api/employees');
+      setEmployees(res.data.data || res.data || []);
+    } catch (error) {
+      console.error('Error loading employees:', error);
+    }
+  };
+
+  const handleSelectEmployee = async (employee) => {
+    setSelectedEmployee(employee);
+    setSelectedDocument('');
+
+    // Load employee's onboarding documents
+    try {
+      const res = await api.get(`/api/onboarding-workflow/employees/${employee.id}/documents`);
+      // Filter to show only documents that can have content applied (like JDs)
+      const docs = (res.data.data || res.data || []).filter(doc =>
+        ['job_description', 'kpi_document', 'welcome_letter', 'offer_letter'].includes(doc.document_type)
+      );
+      setEmployeeDocuments(docs);
+    } catch (error) {
+      console.error('Error loading employee documents:', error);
+      setEmployeeDocuments([]);
+    }
+  };
+
+  const handleApplyContent = async () => {
+    if (!selectedDocument) {
+      alert('Please select a document to apply the content to');
+      return;
+    }
+
+    setApplying(true);
+    try {
+      await api.post(`/api/content-library/items/${selectedContentItem.id}/apply-to-document`, {
+        onboarding_document_id: selectedDocument
+      });
+      setShowApplyModal(false);
+      alert('Content applied successfully! The employee\'s document has been updated.');
+      loadItems(); // Refresh to update usage count
+    } catch (error) {
+      console.error('Error applying content:', error);
+      alert(error.response?.data?.error || 'Failed to apply content');
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const filteredEmployees = employees.filter(emp =>
+    !employeeSearch ||
+    (emp.first_name + ' ' + emp.last_name).toLowerCase().includes(employeeSearch.toLowerCase()) ||
+    emp.employee_id?.toLowerCase().includes(employeeSearch.toLowerCase())
+  );
+
   const quillModules = {
     toolbar: [
       [{ 'header': [1, 2, 3, false] }],
@@ -320,6 +393,15 @@ export default function ContentLibrary() {
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleOpenApplyModal(item)}
+                      className="p-1 text-gray-400 hover:text-green-600"
+                      title="Apply to Employee"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                       </svg>
                     </button>
                     {!item.is_system && (
@@ -538,6 +620,139 @@ export default function ContentLibrary() {
                 className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
               >
                 Create Category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Apply to Employee Modal */}
+      {showApplyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <h2 className="text-xl font-bold">Apply Content to Employee</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Applying: <span className="font-medium text-gray-700">{selectedContentItem?.name}</span>
+              </p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Step 1: Select Employee */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">1. Select Employee</h3>
+                <input
+                  type="text"
+                  placeholder="Search employees..."
+                  value={employeeSearch}
+                  onChange={(e) => setEmployeeSearch(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3"
+                />
+                <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                  {filteredEmployees.length === 0 ? (
+                    <p className="p-4 text-gray-500 text-center">No employees found</p>
+                  ) : (
+                    filteredEmployees.map(emp => (
+                      <button
+                        key={emp.id}
+                        onClick={() => handleSelectEmployee(emp)}
+                        className={`w-full text-left px-4 py-3 border-b last:border-b-0 hover:bg-gray-50 ${
+                          selectedEmployee?.id === emp.id ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''
+                        }`}
+                      >
+                        <div className="font-medium text-gray-900">
+                          {emp.first_name} {emp.last_name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {emp.employee_id} • {emp.job_title || 'No title'}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Step 2: Select Document */}
+              {selectedEmployee && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                    2. Select Document for {selectedEmployee.first_name}
+                  </h3>
+                  {employeeDocuments.length === 0 ? (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
+                      <p className="font-medium">No applicable documents found</p>
+                      <p className="text-sm mt-1">
+                        This employee doesn't have any documents that can be updated (e.g., Job Description, KPIs).
+                        Make sure the employee has onboarding documents assigned.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {employeeDocuments.map(doc => (
+                        <label
+                          key={doc.id}
+                          className={`flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${
+                            selectedDocument === doc.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="document"
+                            value={doc.id}
+                            checked={selectedDocument === doc.id}
+                            onChange={(e) => setSelectedDocument(e.target.value)}
+                            className="mr-3"
+                          />
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {doc.document_title || doc.document_type.replace(/_/g, ' ')}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              Type: {doc.document_type.replace(/_/g, ' ')} •
+                              Status: <span className={`font-medium ${
+                                doc.status === 'completed' ? 'text-green-600' :
+                                doc.status === 'pending' ? 'text-yellow-600' : 'text-gray-600'
+                              }`}>{doc.status}</span>
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Preview */}
+              {selectedDocument && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="text-sm text-blue-800">
+                    <span className="font-semibold">Ready to apply:</span> The content from "{selectedContentItem?.name}"
+                    will replace the current content of the selected document for {selectedEmployee?.first_name} {selectedEmployee?.last_name}.
+                    Previous content will be saved in version history.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowApplyModal(false);
+                  setSelectedEmployee(null);
+                  setEmployeeDocuments([]);
+                  setSelectedDocument('');
+                  setEmployeeSearch('');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApplyContent}
+                disabled={!selectedDocument || applying}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {applying ? 'Applying...' : 'Apply Content'}
               </button>
             </div>
           </div>

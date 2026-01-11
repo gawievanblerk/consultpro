@@ -235,7 +235,7 @@ async function checkHardGates(tenantId, employeeId) {
   const onboarding = onboardingResult.rows[0];
   const errors = [];
 
-  // Gate 1: Phase 1 documents (all required signed/acknowledged)
+  // Gate 1: Phase 1 documents - Employee File (all required uploaded and verified)
   const phase1Docs = await pool.query(`
     SELECT document_type, document_title, status, is_required
     FROM onboarding_documents
@@ -243,21 +243,21 @@ async function checkHardGates(tenantId, employeeId) {
   `, [employeeId]);
 
   for (const doc of phase1Docs.rows) {
-    if (!['signed', 'acknowledged'].includes(doc.status)) {
+    if (!['verified', 'uploaded'].includes(doc.status)) {
       errors.push(`Phase 1: ${doc.document_title} not completed (status: ${doc.status})`);
     }
   }
 
-  // Gate 2: Phase 3 documents (all required uploaded and verified)
-  const phase3Docs = await pool.query(`
+  // Gate 2: Phase 2 documents - Document Signing (all required signed/acknowledged)
+  const phase2Docs = await pool.query(`
     SELECT document_type, document_title, status, is_required
     FROM onboarding_documents
-    WHERE employee_id = $1 AND phase = 3 AND is_required = true
+    WHERE employee_id = $1 AND phase = 2 AND is_required = true
   `, [employeeId]);
 
-  for (const doc of phase3Docs.rows) {
-    if (!['verified', 'uploaded'].includes(doc.status)) {
-      errors.push(`Phase 3: ${doc.document_title} not completed (status: ${doc.status})`);
+  for (const doc of phase2Docs.rows) {
+    if (!['signed', 'acknowledged'].includes(doc.status)) {
+      errors.push(`Phase 2: ${doc.document_title} not completed (status: ${doc.status})`);
     }
   }
 

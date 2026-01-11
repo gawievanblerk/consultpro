@@ -616,7 +616,7 @@ router.post('/employees/:employeeId/start', async (req, res) => {
             phase: phaseNum,
             document_type: doc.type,
             document_title: doc.title,
-            document_category: phaseNum === 1 ? 'phase1_signing' : (phaseNum === 2 ? 'phase2_acknowledgment' : 'phase3_employee_file'),
+            document_category: phaseNum === 1 ? 'phase1_employee_file' : (phaseNum === 2 ? 'phase2_signing' : 'phase3_acknowledgment'),
             requires_signature: doc.requires_signature || false,
             requires_acknowledgment: doc.requires_acknowledgment || false,
             requires_upload: doc.requires_upload || false,
@@ -722,21 +722,20 @@ router.post('/employees/:employeeId/activate', async (req, res) => {
       }
     }
 
-    // Gate 2: Phase 3 completion (employee file complete)
-    const phase3Config = phaseConfig.phase3;
-    if (phase3Config?.hard_gate) {
+    // Gate 2: Phase 1 completion (employee file complete - uploads)
+    if (phase1Config?.hard_gate) {
       // Check uploads are verified
-      const phase3DocsResult = await client.query(`
+      const phase1DocsResult = await client.query(`
         SELECT * FROM onboarding_documents
-        WHERE onboarding_id = $1 AND phase = 3 AND is_required = true AND requires_upload = true
+        WHERE onboarding_id = $1 AND phase = 1 AND is_required = true AND requires_upload = true
       `, [onboarding.id]);
 
-      const unverifiedDocs = phase3DocsResult.rows.filter(doc => doc.status !== 'verified');
+      const unverifiedDocs = phase1DocsResult.rows.filter(doc => doc.status !== 'verified');
 
       if (unverifiedDocs.length > 0) {
         blockers.push({
-          phase: 3,
-          message: `${unverifiedDocs.length} document upload(s) not verified in Phase 3`,
+          phase: 1,
+          message: `${unverifiedDocs.length} document upload(s) not verified in Phase 1`,
           documents: unverifiedDocs.map(d => d.document_title)
         });
       }
@@ -744,7 +743,7 @@ router.post('/employees/:employeeId/activate', async (req, res) => {
       // Check employee file marked complete
       if (!onboarding.employee_file_complete) {
         blockers.push({
-          phase: 3,
+          phase: 1,
           message: 'Employee file not marked as complete by HR'
         });
       }
@@ -1332,24 +1331,24 @@ router.get('/document-types', async (req, res) => {
   try {
     // Return standard document types that can be assigned
     const documentTypes = [
-      // Phase 1: Document Signing
-      { type: 'offer_letter', title: 'Offer Letter', phase: 1, requires_signature: true },
-      { type: 'employment_contract', title: 'Employment Contract', phase: 1, requires_signature: true },
-      { type: 'nda', title: 'Non-Disclosure Agreement', phase: 1, requires_signature: true },
-      { type: 'code_of_conduct', title: 'Code of Conduct', phase: 1, requires_acknowledgment: true },
-      { type: 'ndpa_consent', title: 'NDPA Notice & Consent', phase: 1, requires_signature: true },
-      // Phase 2: Role Clarity
-      { type: 'job_description', title: 'Job Description', phase: 2, requires_acknowledgment: true },
-      { type: 'org_chart', title: 'Organization Chart', phase: 2, requires_acknowledgment: true },
-      { type: 'key_contacts', title: 'Key Contacts & Escalation', phase: 2, requires_acknowledgment: true },
-      // Phase 3: Employee File
-      { type: 'passport_photo', title: 'Passport Photograph', phase: 3, requires_upload: true },
-      { type: 'government_id', title: 'Government ID', phase: 3, requires_upload: true },
-      { type: 'educational_cert', title: 'Educational Certificates', phase: 3, requires_upload: true },
-      { type: 'professional_cert', title: 'Professional Certifications', phase: 3, requires_upload: true },
-      { type: 'bank_details', title: 'Bank Account Details', phase: 3, requires_upload: true },
+      // Phase 1: Employee File (Profile + Uploads)
+      { type: 'passport_photo', title: 'Passport Photograph', phase: 1, requires_upload: true },
+      { type: 'government_id', title: 'Government ID', phase: 1, requires_upload: true },
+      { type: 'educational_cert', title: 'Educational Certificates', phase: 1, requires_upload: true },
+      { type: 'professional_cert', title: 'Professional Certifications', phase: 1, requires_upload: true },
+      { type: 'bank_details', title: 'Bank Account Details', phase: 1, requires_upload: true },
+      // Phase 2: Document Signing
+      { type: 'offer_letter', title: 'Offer Letter', phase: 2, requires_signature: true },
+      { type: 'employment_contract', title: 'Employment Contract', phase: 2, requires_signature: true },
+      { type: 'nda', title: 'Non-Disclosure Agreement', phase: 2, requires_signature: true },
+      { type: 'code_of_conduct', title: 'Code of Conduct', phase: 2, requires_acknowledgment: true },
+      { type: 'ndpa_consent', title: 'NDPA Notice & Consent', phase: 2, requires_signature: true },
+      // Phase 3: Role Clarity
+      { type: 'job_description', title: 'Job Description', phase: 3, requires_acknowledgment: true },
+      { type: 'org_chart', title: 'Organization Chart', phase: 3, requires_acknowledgment: true },
+      { type: 'key_contacts', title: 'Key Contacts & Escalation', phase: 3, requires_acknowledgment: true },
       // Custom
-      { type: 'custom', title: 'Custom Document', phase: 1, requires_acknowledgment: true }
+      { type: 'custom', title: 'Custom Document', phase: 2, requires_acknowledgment: true }
     ];
 
     res.json({ success: true, data: documentTypes });
@@ -1449,9 +1448,9 @@ router.post('/bulk-assign-documents', async (req, res) => {
           }
 
           // Determine category based on phase
-          let category = 'phase1_signing';
-          if (doc.phase === 2) category = 'phase2_acknowledgment';
-          else if (doc.phase === 3) category = 'phase3_employee_file';
+          let category = 'phase1_employee_file';
+          if (doc.phase === 2) category = 'phase2_signing';
+          else if (doc.phase === 3) category = 'phase3_acknowledgment';
           else if (doc.phase === 4) category = 'phase4_acknowledgment';
 
           await client.query(`
@@ -1660,7 +1659,7 @@ router.post('/bulk-start-onboarding', async (req, res) => {
               `, [
                 effectiveTenantId, employee.company_id, employeeId, onboarding.id,
                 doc.type, doc.title,
-                phaseNum === 1 ? 'phase1_signing' : (phaseNum === 2 ? 'phase2_acknowledgment' : 'phase3_employee_file'),
+                phaseNum === 1 ? 'phase1_employee_file' : (phaseNum === 2 ? 'phase2_signing' : 'phase3_acknowledgment'),
                 phaseNum, idx,
                 doc.requires_signature || false,
                 doc.requires_acknowledgment || false,

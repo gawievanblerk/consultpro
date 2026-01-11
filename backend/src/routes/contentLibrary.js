@@ -520,4 +520,143 @@ router.get('/types', async (req, res) => {
   res.json({ success: true, data: types });
 });
 
+/**
+ * POST /api/content-library/items/:id/apply-to-document
+ * Apply a content library item to an onboarding document
+ */
+router.post('/items/:id/apply-to-document', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const tenantId = req.tenant_id || req.user?.org;
+    const userId = req.user.id;
+    const { id } = req.params;
+    const { onboarding_document_id } = req.body;
+
+    if (!onboarding_document_id) {
+      return res.status(400).json({ success: false, error: 'Onboarding document ID is required' });
+    }
+
+    await client.query('BEGIN');
+
+    // Get the content library item
+    const itemResult = await client.query(
+      'SELECT * FROM content_library_items WHERE id = $1 AND tenant_id = $2 AND is_active = true',
+      [id, tenantId]
+    );
+
+    if (itemResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Content library item not found' });
+    }
+
+    const item = itemResult.rows[0];
+
+    // Get the onboarding document
+    const docResult = await client.query(
+      'SELECT * FROM onboarding_documents WHERE id = $1 AND tenant_id = $2',
+      [onboarding_document_id, tenantId]
+    );
+
+    if (docResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Onboarding document not found' });
+    }
+
+    const doc = docResult.rows[0];
+
+    // Store previous content for version history
+    if (doc.document_content) {
+      await client.query(`
+        INSERT INTO document_versions (
+          tenant_id, document_id, document_type, version_number,
+          content, changed_by, change_summary
+        ) VALUES ($1, $2, 'onboarding_document', COALESCE(
+          (SELECT MAX(version_number) FROM document_versions WHERE document_id = $2), 0
+        ) + 1, $3, $4, $5)
+      `, [tenantId, onboarding_document_id, doc.document_content, userId, 'Content replaced from library']);
+    }
+
+    // Update the document with content from library
+    const updateResult = await client.query(`
+      UPDATE onboarding_documents
+      SET document_content = $1,
+          document_title = COALESCE($2, document_title),
+          content_library_item_id = $3,
+          updated_at = NOW()
+      WHERE id = $4 AND tenant_id = $5
+      RETURNING *
+    `, [item.content, item.name, item.id, onboarding_document_id, tenantId]);
+
+    // Increment usage count for the content library item
+    await client.query(
+      'UPDATE content_library_items SET usage_count = COALESCE(usage_count, 0) + 1, last_used_at = NOW() WHERE id = $1',
+      [id]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Content applied successfully',
+      data: {
+        document: updateResult.rows[0],
+        content_item: item
+      }
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error applying content to document:', error);
+    res.status(500).json({ success: false, error: 'Failed to apply content' });
+  } finally {
+    client.release();
+  }
+});
+
+/**
+ * GET /api/content-library/items-for-document/:type
+ * Get content library items suitable for a specific document type
+ */
+router.get('/items-for-document/:type', async (req, res) => {
+  try {
+    const tenantId = req.tenant_id || req.user?.org;
+    const { type } = req.params;
+    const { company_id } = req.query;
+
+    // Map document types to content types
+    const typeMapping = {
+      'job_description': 'job_description',
+      'org_chart': 'boilerplate',
+      'key_contacts': 'boilerplate',
+      'offer_letter': 'boilerplate',
+      'employment_contract': 'clause',
+      'nda': 'clause',
+      'code_of_conduct': 'snippet'
+    };
+
+    const contentType = typeMapping[type] || 'boilerplate';
+
+    let query = `
+      SELECT i.*, c.name as category_name
+      FROM content_library_items i
+      LEFT JOIN content_library_categories c ON i.category_id = c.id
+      WHERE i.tenant_id = $1 AND i.is_active = true
+        AND (i.content_type = $2 OR i.content_type = 'boilerplate')
+    `;
+    const params = [tenantId, contentType];
+
+    if (company_id) {
+      query += ` AND (i.company_id = $3 OR i.company_id IS NULL)`;
+      params.push(company_id);
+    }
+
+    query += ` ORDER BY i.usage_count DESC, i.name LIMIT 50`;
+
+    const result = await pool.query(query, params);
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Error fetching items for document:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch items' });
+  }
+});
+
 module.exports = router;

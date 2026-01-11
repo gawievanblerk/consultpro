@@ -65,7 +65,7 @@ function Login() {
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div>
             <img
-              src="/corehr-logo-light.svg"
+              src="/corehr-logo-light.png"
               alt="CoreHR"
               className="h-12"
             />
@@ -96,7 +96,7 @@ function Login() {
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-10">
             <img
-              src="/corehr-logo.svg"
+              src="/corehr-logo.png"
               alt="CoreHR"
               className="h-10 mx-auto"
             />

@@ -67,7 +67,11 @@ const MIGRATIONS = {
   '019_fix_superadmin_password': 'Fix superadmin password hash',
   '020_seed_policy_categories': 'Seed default policy categories for all tenants',
   '021_seed_corehr_tenant_categories': 'Seed policy categories for CoreHR tenant',
-  '022_update_superadmin_password': 'Update superadmin password'
+  '022_update_superadmin_password': 'Update superadmin password',
+  '023_departments': 'Departments table and employee department FK',
+  '024_seed_default_departments': 'Seed default departments for all companies',
+  '025_reorder_onboarding_phases': 'Reorder onboarding phases (Employee File first)',
+  '026_seed_default_policies': 'Seed default policies for compliance assignments'
 };
 
 // GET /run-migrations - List available migrations
@@ -995,6 +999,7 @@ app.use('/api/users', require('./routes/users'));
 // ============================================================================
 app.use('/api/companies', require('./routes/companies'));
 app.use('/api/employees', require('./routes/employees'));
+app.use('/api/departments', require('./routes/departments'));
 
 // ============================================================================
 // Policy & Training LMS Routes

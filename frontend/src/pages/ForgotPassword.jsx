@@ -30,7 +30,7 @@ function ForgotPassword() {
         {/* Logo and title */}
         <div className="text-center mb-8">
           <img
-            src="/corehr-logo-light.svg"
+            src="/corehr-logo-light.png"
             alt="CoreHR"
             className="h-10 mx-auto"
           />
