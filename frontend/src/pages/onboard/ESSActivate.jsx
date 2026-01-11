@@ -135,7 +135,7 @@ function ESSActivate() {
         {/* Header */}
         <div className="bg-accent-600 px-8 py-6 text-center">
           <img
-            src="/corehr-logo-light.svg"
+            src="/corehr-logo-light.png"
             alt="CoreHR"
             className="h-10 mx-auto mb-4"
           />

@@ -62,7 +62,16 @@ const MIGRATIONS = {
   '014_company_preferences': 'Company selector preferences',
   '015_statutory_remittances': 'Statutory remittance tracking (PAYE, Pension, NHF)',
   '016_onboarding_workflow': 'BFI onboarding workflow with hard gates, medical info, probation check-ins',
-  '017_test_clone_support': 'Test clone support for onboarding workflow testing'
+  '017_test_clone_support': 'Test clone support for onboarding workflow testing',
+  '018_document_editing_content_library': 'Document editing, content library, and signature enhancements',
+  '019_fix_superadmin_password': 'Fix superadmin password hash',
+  '020_seed_policy_categories': 'Seed default policy categories for all tenants',
+  '021_seed_corehr_tenant_categories': 'Seed policy categories for CoreHR tenant',
+  '022_update_superadmin_password': 'Update superadmin password',
+  '023_departments': 'Departments table and employee department FK',
+  '024_seed_default_departments': 'Seed default departments for all companies',
+  '025_reorder_onboarding_phases': 'Reorder onboarding phases (Employee File first)',
+  '026_seed_default_policies': 'Seed default policies for compliance assignments'
 };
 
 // GET /run-migrations - List available migrations
@@ -990,6 +999,7 @@ app.use('/api/users', require('./routes/users'));
 // ============================================================================
 app.use('/api/companies', require('./routes/companies'));
 app.use('/api/employees', require('./routes/employees'));
+app.use('/api/departments', require('./routes/departments'));
 
 // ============================================================================
 // Policy & Training LMS Routes
@@ -1019,6 +1029,12 @@ app.use('/api/probation-checkins', require('./routes/probationCheckins'));
 app.use('/api/document-templates', require('./routes/documentTemplates'));
 
 // ============================================================================
+// Content Library and Document Editing
+// ============================================================================
+app.use('/api/content-library', require('./routes/contentLibrary'));
+app.use('/api/document-editor', require('./routes/documentEditor'));
+
+// ============================================================================
 // Error Handlers
 // ============================================================================
 
@@ -1039,13 +1055,67 @@ app.use((req, res) => {
   });
 });
 
+// Auto-run pending migrations on startup
+async function runPendingMigrations() {
+  try {
+    console.log('Checking for pending migrations...');
+
+    // Ensure migrations table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        executed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+
+    // Get executed migrations
+    const executed = await pool.query('SELECT name FROM _migrations');
+    const executedNames = new Set(executed.rows.map(r => r.name));
+
+    // Find pending migrations
+    const pending = Object.keys(MIGRATIONS).filter(name => !executedNames.has(name));
+
+    if (pending.length === 0) {
+      console.log('   No pending migrations');
+      return;
+    }
+
+    console.log(`   Found ${pending.length} pending migration(s): ${pending.join(', ')}`);
+
+    const migrationsDir = path.join(__dirname, '../migrations');
+
+    for (const name of pending) {
+      try {
+        const filePath = path.join(migrationsDir, `${name}.sql`);
+        const sql = fs.readFileSync(filePath, 'utf8');
+
+        await pool.query(sql);
+        await pool.query('INSERT INTO _migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING', [name]);
+
+        console.log(`   ✓ Migration ${name} executed successfully`);
+      } catch (err) {
+        console.error(`   ✗ Migration ${name} failed:`, err.message);
+        // Continue with other migrations instead of stopping
+      }
+    }
+
+    console.log('Migration check complete');
+  } catch (error) {
+    console.error('Error running migrations:', error.message);
+  }
+}
+
 // Start server only if not in test mode
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`CoreHR Backend running on port ${PORT}`);
-    console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`   Demo Mode: ${DEMO_MODE}`);
-    console.log(`   Database: ${process.env.DATABASE_NAME || 'corehr_dev'}`);
+  // Run migrations before starting server
+  runPendingMigrations().then(() => {
+    app.listen(PORT, () => {
+      console.log(`CoreHR Backend running on port ${PORT}`);
+      console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`   Demo Mode: ${DEMO_MODE}`);
+      console.log(`   Database: ${process.env.DATABASE_NAME || 'corehr_dev'}`);
+    });
   });
 }
 

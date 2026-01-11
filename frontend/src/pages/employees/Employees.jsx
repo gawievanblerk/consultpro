@@ -99,9 +99,11 @@ function Employees() {
   const { user, isConsultant } = useAuth();
   const { selectedCompany, isCompanyMode } = useCompany();
   const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
   const [modalOpen, setModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
@@ -118,6 +120,8 @@ function Employees() {
     gender: '',
     jobTitle: '',
     department: '',
+    departmentId: '',
+    reportsTo: '',
     hireDate: '',
     employmentType: 'full_time',
     employmentStatus: 'active',
@@ -148,7 +152,24 @@ function Employees() {
 
   useEffect(() => {
     fetchEmployees();
+    if (selectedCompany?.id) {
+      fetchDepartments();
+    }
   }, [statusFilter, selectedCompany]);
+
+  const fetchDepartments = async () => {
+    if (!selectedCompany?.id) return;
+    try {
+      const response = await api.get('/api/departments', {
+        params: { company_id: selectedCompany.id }
+      });
+      if (response.data.success) {
+        setDepartments(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch departments:', error);
+    }
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -185,6 +206,8 @@ function Employees() {
         gender: employee.gender || '',
         jobTitle: employee.job_title || '',
         department: employee.department || '',
+        departmentId: employee.department_id || '',
+        reportsTo: employee.reports_to || '',
         hireDate: employee.hire_date ? employee.hire_date.split('T')[0] : '',
         employmentType: employee.employment_type || 'full_time',
         employmentStatus: employee.employment_status || 'active',
@@ -213,6 +236,8 @@ function Employees() {
         gender: '',
         jobTitle: '',
         department: '',
+        departmentId: '',
+        reportsTo: '',
         hireDate: new Date().toISOString().split('T')[0],
         employmentType: 'full_time',
         employmentStatus: 'active',
@@ -511,12 +536,17 @@ function Employees() {
     }
   };
 
-  const filteredEmployees = employees.filter(emp =>
-    `${emp.first_name} ${emp.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-    emp.email?.toLowerCase().includes(search.toLowerCase()) ||
-    emp.employee_number?.toLowerCase().includes(search.toLowerCase()) ||
-    emp.department?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredEmployees = employees.filter(emp => {
+    const matchesSearch =
+      `${emp.first_name} ${emp.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+      emp.email?.toLowerCase().includes(search.toLowerCase()) ||
+      emp.employee_number?.toLowerCase().includes(search.toLowerCase()) ||
+      emp.department?.toLowerCase().includes(search.toLowerCase());
+
+    const matchesDepartment = departmentFilter === 'all' || emp.department_id === departmentFilter;
+
+    return matchesSearch && matchesDepartment;
+  });
 
   return (
     <div className="space-y-6">
@@ -551,6 +581,16 @@ function Employees() {
           </div>
           <div className="flex items-center gap-2">
             <FunnelIcon className="h-5 w-5 text-gray-400" />
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="form-input"
+            >
+              <option value="all">All Departments</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>{dept.name}</option>
+              ))}
+            </select>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -841,16 +881,42 @@ function Employees() {
                   )}
                 </div>
                 <div>
-                  <label className={`form-label ${fieldErrors.department ? 'text-red-600' : ''}`}>Department *</label>
-                  <input
-                    type="text"
-                    value={formData.department}
-                    onChange={(e) => handleFieldChange('department', e.target.value)}
-                    className={`form-input ${fieldErrors.department ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
-                  />
-                  {fieldErrors.department && (
-                    <p className="mt-1 text-sm text-red-600">{fieldErrors.department}</p>
+                  <label className={`form-label ${fieldErrors.departmentId ? 'text-red-600' : ''}`}>Department</label>
+                  <select
+                    value={formData.departmentId}
+                    onChange={(e) => {
+                      const deptId = e.target.value;
+                      const dept = departments.find(d => d.id === deptId);
+                      handleFieldChange('departmentId', deptId);
+                      handleFieldChange('department', dept?.name || '');
+                    }}
+                    className={`form-input ${fieldErrors.departmentId ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : ''}`}
+                  >
+                    <option value="">Select a department</option>
+                    {departments.map((dept) => (
+                      <option key={dept.id} value={dept.id}>{dept.name}</option>
+                    ))}
+                  </select>
+                  {fieldErrors.departmentId && (
+                    <p className="mt-1 text-sm text-red-600">{fieldErrors.departmentId}</p>
                   )}
+                </div>
+                <div>
+                  <label className="form-label">Reports To</label>
+                  <select
+                    value={formData.reportsTo}
+                    onChange={(e) => handleFieldChange('reportsTo', e.target.value)}
+                    className="form-input"
+                  >
+                    <option value="">Select manager</option>
+                    {employees
+                      .filter(emp => emp.id !== editingEmployee?.id)
+                      .map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.first_name} {emp.last_name} - {emp.job_title || 'No title'}
+                        </option>
+                      ))}
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

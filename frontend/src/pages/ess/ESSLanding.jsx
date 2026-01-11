@@ -40,7 +40,7 @@ export default function ESSLanding() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src="/corehr-logo.svg" alt="CoreHR" className="h-9 w-auto" />
+              <img src="/corehr-logo.png" alt="CoreHR" className="h-9 w-auto" />
               <span className="text-lg font-semibold text-primary-900">Employee Portal</span>
             </div>
             <Link

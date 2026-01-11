@@ -152,7 +152,7 @@ function ConsultantOnboard() {
         {/* Header */}
         <div className="text-center mb-8">
           <img
-            src="/corehr-logo.svg"
+            src="/corehr-logo.png"
             alt="CoreHR"
             className="h-10 mx-auto mb-4"
           />

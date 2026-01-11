@@ -35,7 +35,7 @@ export default function PublicFooter() {
           {/* Brand */}
           <div className="col-span-2 lg:col-span-1">
             <Link to="/" className="flex items-center">
-              <img src="/corehr-logo-light.svg" alt="CoreHR" className="h-9 w-auto" />
+              <img src="/corehr-logo-light.png" alt="CoreHR" className="h-9 w-auto" />
             </Link>
             <p className="mt-4 text-sm text-primary-400 leading-relaxed">
               Modern consulting management platform for HR and staffing professionals.

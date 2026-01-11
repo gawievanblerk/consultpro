@@ -207,6 +207,7 @@ router.post('/', [
       employmentStatus = 'active',
       jobTitle,
       department,
+      departmentId,
       reportsTo,
       hireDate,
       confirmationDate,
@@ -234,7 +235,7 @@ router.post('/', [
         email, phone, date_of_birth, gender, marital_status,
         nationality, state_of_origin, lga_of_origin,
         address_line1, address_line2, city, state_of_residence,
-        employment_type, employment_status, job_title, department, reports_to,
+        employment_type, employment_status, job_title, department, department_id, reports_to,
         hire_date, confirmation_date, salary, salary_currency, pay_frequency,
         bank_name, bank_account_number, bank_account_name, bank_code,
         nin, bvn, tax_id, pension_pin, pension_pfa, pension_pfa_code,
@@ -242,7 +243,7 @@ router.post('/', [
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
         $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
-        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41
+        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42
       )
       RETURNING *
     `, [
@@ -250,7 +251,7 @@ router.post('/', [
       email, phone, dateOfBirth, gender, maritalStatus,
       nationality, stateOfOrigin, lgaOfOrigin,
       addressLine1, addressLine2, city, stateOfResidence,
-      employmentType, employmentStatus, jobTitle, department, reportsTo,
+      employmentType, employmentStatus, jobTitle, department, departmentId || null, reportsTo,
       hireDate, confirmationDate, salary, salaryCurrency, payFrequency,
       bankName, bankAccountNumber, bankAccountName, bankCode,
       nin, bvn, taxId, pensionPin, pensionPfa, pensionPfaCode,
@@ -335,7 +336,7 @@ router.put('/:id', [
       'date_of_birth', 'gender', 'marital_status', 'nationality',
       'state_of_origin', 'lga_of_origin', 'address_line1', 'address_line2',
       'city', 'state_of_residence', 'employment_type', 'employment_status',
-      'job_title', 'department', 'reports_to', 'hire_date', 'confirmation_date',
+      'job_title', 'department', 'department_id', 'reports_to', 'hire_date', 'confirmation_date',
       'termination_date', 'termination_reason', 'salary', 'salary_currency',
       'pay_frequency', 'bank_name', 'bank_account_number', 'bank_account_name',
       'bank_code', 'nin', 'bvn', 'tax_id', 'pension_pin', 'pension_pfa',
@@ -349,6 +350,7 @@ router.put('/:id', [
       addressLine1: 'address_line1', addressLine2: 'address_line2',
       stateOfResidence: 'state_of_residence', employmentType: 'employment_type',
       employmentStatus: 'employment_status', jobTitle: 'job_title',
+      departmentId: 'department_id',
       reportsTo: 'reports_to', hireDate: 'hire_date', confirmationDate: 'confirmation_date',
       terminationDate: 'termination_date', terminationReason: 'termination_reason',
       salaryCurrency: 'salary_currency', payFrequency: 'pay_frequency',
@@ -910,6 +912,9 @@ router.get('/ess/profile', async (req, res) => {
       SELECT
         e.id, e.employee_number, e.first_name, e.last_name, e.middle_name,
         e.email, e.phone, e.date_of_birth, e.gender, e.marital_status,
+        e.nin, e.tax_id, e.bvn,
+        e.address_line1, e.address_line2, e.city, e.state_of_residence, e.country,
+        e.bank_name, e.bank_account_number, e.bank_account_name,
         e.job_title, e.department, e.hire_date, e.employment_type,
         c.legal_name as company_name
       FROM employees e
@@ -930,14 +935,24 @@ router.get('/ess/profile', async (req, res) => {
 
 /**
  * PUT /api/employees/ess/profile
- * Employee updates limited fields
+ * Employee updates their profile for onboarding completion
  */
 router.put('/ess/profile', [
   body('phone').optional().trim(),
+  body('dateOfBirth').optional(),
+  body('gender').optional().trim(),
+  body('maritalStatus').optional().trim(),
+  body('nin').optional().trim(),
   body('addressLine1').optional().trim(),
   body('addressLine2').optional().trim(),
   body('city').optional().trim(),
-  body('stateOfResidence').optional().trim()
+  body('stateOfResidence').optional().trim(),
+  body('country').optional().trim(),
+  body('bankName').optional().trim(),
+  body('bankAccountNumber').optional().trim(),
+  body('bankAccountName').optional().trim(),
+  body('bvn').optional().trim(),
+  body('taxId').optional().trim()
 ], async (req, res) => {
   try {
     if (req.user.userType !== 'employee' || !req.employee) {
@@ -947,12 +962,22 @@ router.put('/ess/profile', [
       });
     }
 
-    // Employees can only update limited fields
-    const allowedFields = ['phone', 'address_line1', 'address_line2', 'city', 'state_of_residence'];
+    // Fields employees can update for profile completion
+    const allowedFields = [
+      'phone', 'date_of_birth', 'gender', 'marital_status', 'nin',
+      'address_line1', 'address_line2', 'city', 'state_of_residence', 'country',
+      'bank_name', 'bank_account_number', 'bank_account_name', 'bvn', 'tax_id'
+    ];
     const fieldMap = {
+      dateOfBirth: 'date_of_birth',
+      maritalStatus: 'marital_status',
       addressLine1: 'address_line1',
       addressLine2: 'address_line2',
-      stateOfResidence: 'state_of_residence'
+      stateOfResidence: 'state_of_residence',
+      bankName: 'bank_name',
+      bankAccountNumber: 'bank_account_number',
+      bankAccountName: 'bank_account_name',
+      taxId: 'tax_id'
     };
 
     const updates = [];
@@ -978,7 +1003,9 @@ router.put('/ess/profile', [
       UPDATE employees
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex} AND deleted_at IS NULL
-      RETURNING id, phone, address_line1, address_line2, city, state_of_residence
+      RETURNING id, phone, date_of_birth, gender, marital_status, nin,
+        address_line1, address_line2, city, state_of_residence, country,
+        bank_name, bank_account_number, bank_account_name, bvn, tax_id
     `, params);
 
     res.json({ success: true, data: result.rows[0] });

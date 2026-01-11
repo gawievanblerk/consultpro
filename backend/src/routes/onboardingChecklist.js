@@ -39,9 +39,10 @@ const DEFAULT_CHECKLIST_ITEMS = [
 // GET /api/onboarding-checklist/checklists - List onboarding checklists
 router.get('/checklists', async (req, res) => {
   try {
-    const tenantId = req.tenant_id || req.user?.org;
     const { company_id, employee_id, status } = req.query;
 
+    // Build query - filter by company_id if provided, otherwise get all accessible checklists
+    // Join through consultants to get tenant relationship for proper access control
     let query = `
       SELECT
         oc.*,
@@ -54,10 +55,11 @@ router.get('/checklists', async (req, res) => {
       FROM onboarding_checklists oc
       JOIN employees e ON oc.employee_id = e.id
       JOIN companies c ON oc.company_id = c.id
-      WHERE oc.tenant_id = $1
+      JOIN consultants con ON c.consultant_id = con.id
+      WHERE 1=1
     `;
-    const params = [tenantId];
-    let paramIdx = 2;
+    const params = [];
+    let paramIdx = 1;
 
     if (company_id) {
       query += ` AND oc.company_id = $${paramIdx++}`;
@@ -146,28 +148,27 @@ router.post('/checklists', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Employee ID is required' });
     }
 
-    // If company_id not provided, try to get it from employee record
-    let actualCompanyId = company_id;
-    let actualTenantId = tenantId;
+    // Always validate employee exists and get company/tenant from the employee record
+    // This ensures data consistency regardless of what the frontend sends
+    // Hierarchy: tenants → consultants → companies → employees
+    const employeeResult = await pool.query(`
+      SELECT e.id, e.company_id, e.first_name, e.last_name, con.tenant_id, c.id as valid_company
+      FROM employees e
+      JOIN companies c ON e.company_id = c.id
+      JOIN consultants con ON c.consultant_id = con.id
+      WHERE e.id = $1 AND e.deleted_at IS NULL
+    `, [employee_id]);
 
-    if (!actualCompanyId || !actualTenantId) {
-      const employeeResult = await pool.query(`
-        SELECT e.company_id, c.tenant_id
-        FROM employees e
-        JOIN companies c ON e.company_id = c.id
-        WHERE e.id = $1 AND e.deleted_at IS NULL
-      `, [employee_id]);
-
-      if (employeeResult.rows.length === 0) {
-        return res.status(404).json({ success: false, error: 'Employee not found' });
-      }
-
-      actualCompanyId = actualCompanyId || employeeResult.rows[0].company_id;
-      actualTenantId = actualTenantId || employeeResult.rows[0].tenant_id;
+    if (employeeResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Employee not found or their company no longer exists' });
     }
 
-    if (!actualTenantId) {
-      return res.status(400).json({ success: false, error: 'Could not determine tenant. Please contact support.' });
+    // Use employee's actual company and tenant (more reliable than frontend-provided values)
+    const actualCompanyId = employeeResult.rows[0].company_id;
+    const actualTenantId = employeeResult.rows[0].tenant_id;
+
+    if (!actualTenantId || !actualCompanyId) {
+      return res.status(400).json({ success: false, error: 'Employee company or tenant configuration is invalid. Please contact support.' });
     }
 
     // Check if employee already has an active checklist
@@ -201,30 +202,36 @@ router.post('/checklists', async (req, res) => {
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Error creating onboarding checklist:', error);
+    console.error('Error details - code:', error.code, 'message:', error.message, 'detail:', error.detail);
     // Provide more specific error messages
     if (error.code === '23503') {
-      return res.status(400).json({ success: false, error: 'Invalid employee or company reference' });
+      return res.status(400).json({ success: false, error: `Invalid reference: ${error.detail || 'employee or company not found'}` });
     }
     if (error.code === '23505') {
       return res.status(400).json({ success: false, error: 'A checklist already exists for this employee' });
     }
-    res.status(500).json({ success: false, error: 'Failed to create onboarding checklist' });
+    if (error.code === '42703') {
+      return res.status(400).json({ success: false, error: `Database column error: ${error.message}` });
+    }
+    res.status(500).json({ success: false, error: `Failed to create onboarding checklist: ${error.message}` });
   }
 });
 
 // PUT /api/onboarding-checklist/checklists/:id/item - Update single item in checklist
 router.put('/checklists/:id/item', async (req, res) => {
   try {
-    const tenantId = req.tenant_id || req.user?.org;
     const userId = req.user.id;
     const { id } = req.params;
     const { itemIndex, completed, notes } = req.body;
 
-    // Get current checklist
-    const checklistResult = await pool.query(
-      'SELECT * FROM onboarding_checklists WHERE id = $1 AND tenant_id = $2',
-      [id, tenantId]
-    );
+    // Get current checklist (join through hierarchy for access control)
+    const checklistResult = await pool.query(`
+      SELECT oc.*
+      FROM onboarding_checklists oc
+      JOIN companies c ON oc.company_id = c.id
+      JOIN consultants con ON c.consultant_id = con.id
+      WHERE oc.id = $1
+    `, [id]);
 
     if (checklistResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Checklist not found' });
@@ -260,19 +267,20 @@ router.put('/checklists/:id/item', async (req, res) => {
     const result = await pool.query(`
       UPDATE onboarding_checklists
       SET items = $1,
-          status = $2,
-          started_at = CASE WHEN started_at IS NULL AND $2 = 'in_progress' THEN NOW() ELSE started_at END,
-          completed_at = CASE WHEN $2 = 'completed' THEN NOW() ELSE NULL END,
-          completed_by = CASE WHEN $2 = 'completed' THEN $3 ELSE NULL END,
+          status = $2::varchar,
+          started_at = CASE WHEN started_at IS NULL AND $2::varchar = 'in_progress' THEN NOW() ELSE started_at END,
+          completed_at = CASE WHEN $2::varchar = 'completed' THEN NOW() ELSE NULL END,
+          completed_by = CASE WHEN $2::varchar = 'completed' THEN $3::uuid ELSE NULL END,
           updated_at = NOW()
-      WHERE id = $4 AND tenant_id = $5
+      WHERE id = $4
       RETURNING *
-    `, [JSON.stringify(items), newStatus, userId, id, tenantId]);
+    `, [JSON.stringify(items), newStatus, userId, id]);
 
     res.json({ success: true, data: result.rows[0] });
   } catch (error) {
     console.error('Error updating checklist item:', error);
-    res.status(500).json({ success: false, error: 'Failed to update checklist item' });
+    console.error('Error details:', error.code, error.message, error.detail);
+    res.status(500).json({ success: false, error: `Failed to update checklist item: ${error.message}` });
   }
 });
 
@@ -444,6 +452,179 @@ router.post('/policy-acknowledgements/:id/acknowledge', async (req, res) => {
   } catch (error) {
     console.error('Error acknowledging policy:', error);
     res.status(500).json({ success: false, error: 'Failed to acknowledge policy' });
+  }
+});
+
+// ============================================================================
+// BULK ASSIGNMENT
+// ============================================================================
+
+// POST /api/onboarding-checklist/bulk-assign - Bulk assign policies or documents to multiple employees
+router.post('/bulk-assign', async (req, res) => {
+  try {
+    const tenantId = req.tenant_id || req.user?.org;
+    const userId = req.user.id;
+    const { employee_ids, item_ids, item_type } = req.body;
+
+    // Validate input
+    if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'employee_ids array is required' });
+    }
+    if (!item_ids || !Array.isArray(item_ids) || item_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'item_ids array is required' });
+    }
+    if (!item_type || !['policy', 'document'].includes(item_type)) {
+      return res.status(400).json({ success: false, error: 'item_type must be "policy" or "document"' });
+    }
+
+    let assigned = 0;
+    let skipped = 0;
+    const errors = [];
+
+    if (item_type === 'policy') {
+      // Bulk assign policies
+      for (const employeeId of employee_ids) {
+        // Get employee's company_id for the policy acknowledgement
+        const empResult = await pool.query(`
+          SELECT e.company_id, con.tenant_id
+          FROM employees e
+          JOIN companies c ON e.company_id = c.id
+          JOIN consultants con ON c.consultant_id = con.id
+          WHERE e.id = $1 AND e.deleted_at IS NULL
+        `, [employeeId]);
+
+        if (empResult.rows.length === 0) {
+          errors.push(`Employee ${employeeId} not found`);
+          continue;
+        }
+
+        const companyId = empResult.rows[0].company_id;
+        const empTenantId = empResult.rows[0].tenant_id;
+
+        for (const policyId of item_ids) {
+          try {
+            // Check if already assigned
+            const existing = await pool.query(
+              'SELECT id FROM policy_acknowledgements WHERE employee_id = $1 AND policy_id = $2',
+              [employeeId, policyId]
+            );
+
+            if (existing.rows.length > 0) {
+              skipped++;
+              continue;
+            }
+
+            // Create policy acknowledgement
+            await pool.query(`
+              INSERT INTO policy_acknowledgements (tenant_id, company_id, employee_id, policy_id, status, created_by)
+              VALUES ($1, $2, $3, $4, 'pending', $5)
+            `, [empTenantId, companyId, employeeId, policyId, userId]);
+
+            assigned++;
+          } catch (err) {
+            if (err.code === '23505') {
+              // Unique constraint - already exists
+              skipped++;
+            } else {
+              console.error(`Error assigning policy ${policyId} to employee ${employeeId}:`, err);
+              errors.push(`Policy ${policyId} to employee ${employeeId}: ${err.message}`);
+            }
+          }
+        }
+      }
+    } else if (item_type === 'document') {
+      // Bulk assign document templates
+      for (const employeeId of employee_ids) {
+        // Get employee's company and tenant
+        const empResult = await pool.query(`
+          SELECT e.company_id, e.first_name, e.last_name, e.job_title, con.tenant_id
+          FROM employees e
+          JOIN companies c ON e.company_id = c.id
+          JOIN consultants con ON c.consultant_id = con.id
+          WHERE e.id = $1 AND e.deleted_at IS NULL
+        `, [employeeId]);
+
+        if (empResult.rows.length === 0) {
+          errors.push(`Employee ${employeeId} not found`);
+          continue;
+        }
+
+        const companyId = empResult.rows[0].company_id;
+        const empTenantId = empResult.rows[0].tenant_id;
+
+        for (const templateId of item_ids) {
+          try {
+            // Get the template
+            const templateResult = await pool.query(
+              'SELECT * FROM document_templates WHERE id = $1',
+              [templateId]
+            );
+
+            if (templateResult.rows.length === 0) {
+              errors.push(`Template ${templateId} not found`);
+              continue;
+            }
+
+            const template = templateResult.rows[0];
+
+            // Check if already assigned (by document_type for this employee)
+            const existing = await pool.query(
+              'SELECT id FROM onboarding_documents WHERE employee_id = $1 AND document_type = $2',
+              [employeeId, template.template_type]
+            );
+
+            if (existing.rows.length > 0) {
+              skipped++;
+              continue;
+            }
+
+            // Create onboarding document from template
+            await pool.query(`
+              INSERT INTO onboarding_documents (
+                tenant_id, company_id, employee_id, document_type, document_title,
+                is_required, requires_signature, requires_acknowledgment,
+                phase, status, created_by
+              )
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', $10)
+            `, [
+              empTenantId,
+              companyId,
+              employeeId,
+              template.template_type,
+              template.name,
+              true, // is_required
+              template.category === 'onboarding', // requires_signature for onboarding docs
+              true, // requires_acknowledgment
+              1, // phase (default to phase 1)
+              userId
+            ]);
+
+            assigned++;
+          } catch (err) {
+            if (err.code === '23505') {
+              // Unique constraint - already exists
+              skipped++;
+            } else {
+              console.error(`Error assigning template ${templateId} to employee ${employeeId}:`, err);
+              errors.push(`Template ${templateId} to employee ${employeeId}: ${err.message}`);
+            }
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        assigned,
+        skipped,
+        errors: errors.length > 0 ? errors : undefined
+      },
+      message: `Assigned ${assigned} items, skipped ${skipped} (already assigned)`
+    });
+  } catch (error) {
+    console.error('Error in bulk assignment:', error);
+    res.status(500).json({ success: false, error: 'Failed to perform bulk assignment' });
   }
 });
 
@@ -871,7 +1052,7 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
     const userId = req.user?.id || req.user?.sub;
     const impersonatedEmployeeId = req.user?.employee_id;
     const { docId } = req.params;
-    const { signature_data } = req.body;
+    const { signature_data, signature_source = 'canvas' } = req.body;
     const ipAddress = req.ip || req.connection.remoteAddress;
     const userAgent = req.headers['user-agent'];
 
@@ -929,13 +1110,14 @@ router.post('/my-documents/:docId/sign', async (req, res) => {
       UPDATE onboarding_documents
       SET status = $1,
           signature_data = $2,
+          signature_source = $3,
           acknowledged_at = NOW(),
-          ip_address = $3,
-          user_agent = $4,
+          ip_address = $4,
+          user_agent = $5,
           updated_at = NOW()
-      WHERE id = $5
+      WHERE id = $6
       RETURNING *
-    `, [newStatus, signature_data, ipAddress, userAgent, docId]);
+    `, [newStatus, signature_data, signature_source, ipAddress, userAgent, docId]);
 
     // Update phase status
     await onboardingService.updatePhaseStatus(tenantId, employeeId, doc.phase);

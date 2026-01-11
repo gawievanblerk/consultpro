@@ -423,4 +423,125 @@ router.get('/task-status', async (req, res) => {
   }
 });
 
+// GET /api/dashboard/consultant-overview - Get consultant's companies and employees overview
+// This endpoint uses consultant_id (which equals tenant_id in the JWT) to aggregate data
+router.get('/consultant-overview', async (req, res) => {
+  try {
+    const consultantId = req.tenant_id;
+
+    // Run all queries in parallel for performance
+    const [
+      companiesResult,
+      employeesResult,
+      employeesByStatusResult,
+      companiesByIndustryResult,
+      recentActivityResult
+    ] = await Promise.all([
+      // Company counts by status
+      pool.query(
+        `SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE status = 'active') as active,
+          COUNT(*) FILTER (WHERE status = 'onboarding') as onboarding,
+          COUNT(*) FILTER (WHERE status = 'suspended') as suspended
+         FROM companies
+         WHERE consultant_id = $1 AND deleted_at IS NULL`,
+        [consultantId]
+      ),
+      // Employee counts
+      pool.query(
+        `SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE e.ess_enabled = true) as ess_enabled,
+          COUNT(*) FILTER (WHERE e.ess_activated_at IS NOT NULL) as ess_activated
+         FROM employees e
+         JOIN companies c ON e.company_id = c.id
+         WHERE c.consultant_id = $1 AND e.deleted_at IS NULL AND c.deleted_at IS NULL`,
+        [consultantId]
+      ),
+      // Employees by status
+      pool.query(
+        `SELECT
+          COALESCE(e.employment_status, 'active') as status,
+          COUNT(*) as count
+         FROM employees e
+         JOIN companies c ON e.company_id = c.id
+         WHERE c.consultant_id = $1 AND e.deleted_at IS NULL AND c.deleted_at IS NULL
+         GROUP BY e.employment_status
+         ORDER BY count DESC`,
+        [consultantId]
+      ),
+      // Companies by industry
+      pool.query(
+        `SELECT
+          COALESCE(industry, 'Other') as industry,
+          COUNT(*) as count
+         FROM companies
+         WHERE consultant_id = $1 AND deleted_at IS NULL
+         GROUP BY industry
+         ORDER BY count DESC
+         LIMIT 6`,
+        [consultantId]
+      ),
+      // Recent activity
+      pool.query(
+        `SELECT
+          af.id,
+          af.activity_type,
+          af.title,
+          af.description,
+          af.created_at,
+          c.legal_name as company_name,
+          c.trading_name
+         FROM activity_feed af
+         LEFT JOIN companies c ON af.company_id = c.id
+         WHERE af.consultant_id = $1
+         ORDER BY af.created_at DESC
+         LIMIT 10`,
+        [consultantId]
+      )
+    ]);
+
+    const companiesData = companiesResult.rows[0];
+    const employeesData = employeesResult.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        companies: {
+          total: parseInt(companiesData.total) || 0,
+          active: parseInt(companiesData.active) || 0,
+          onboarding: parseInt(companiesData.onboarding) || 0,
+          suspended: parseInt(companiesData.suspended) || 0
+        },
+        employees: {
+          total: parseInt(employeesData.total) || 0,
+          essEnabled: parseInt(employeesData.ess_enabled) || 0,
+          essActivated: parseInt(employeesData.ess_activated) || 0
+        },
+        employeesByStatus: employeesByStatusResult.rows.map(r => ({
+          status: r.status || 'active',
+          count: parseInt(r.count)
+        })),
+        companiesByIndustry: companiesByIndustryResult.rows.map(r => ({
+          industry: r.industry,
+          count: parseInt(r.count)
+        })),
+        recentActivity: recentActivityResult.rows.map(r => ({
+          id: r.id,
+          type: r.activity_type,
+          title: r.title,
+          description: r.description,
+          companyName: r.trading_name || r.company_name,
+          createdAt: r.created_at
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Consultant overview error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch consultant overview' });
+  }
+});
+
 module.exports = router;

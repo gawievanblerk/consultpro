@@ -9,39 +9,32 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
   BarElement,
   ArcElement,
   Title,
   Tooltip,
-  Legend,
-  Filler
+  Legend
 } from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { Bar, Doughnut } from 'react-chartjs-2';
 import {
   BuildingOfficeIcon,
   UsersIcon,
-  BanknotesIcon,
-  ChartBarIcon,
-  ArrowTrendingUpIcon,
+  UserGroupIcon,
   ClockIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  ArrowRightIcon
+  PlusIcon,
+  ArrowRightIcon,
+  BuildingOffice2Icon,
+  CheckBadgeIcon
 } from '@heroicons/react/24/outline';
 
 ChartJS.register(
   CategoryScale,
   LinearScale,
-  PointElement,
-  LineElement,
   BarElement,
   ArcElement,
   Title,
   Tooltip,
-  Legend,
-  Filler
+  Legend
 );
 
 function Dashboard() {
@@ -52,15 +45,9 @@ function Dashboard() {
   if (isEmployee) {
     return <Navigate to="/dashboard/my-onboarding-wizard" replace />;
   }
-  const [stats, setStats] = useState(null);
+
+  const [data, setData] = useState(null);
   const [showWizard, setShowWizard] = useState(true);
-  const [recentTasks, setRecentTasks] = useState([]);
-  const [pipelineData, setPipelineData] = useState([]);
-  const [revenueTrend, setRevenueTrend] = useState([]);
-  const [clientBreakdown, setClientBreakdown] = useState([]);
-  const [staffUtilization, setStaffUtilization] = useState(null);
-  const [invoiceAging, setInvoiceAging] = useState(null);
-  const [taskStatus, setTaskStatus] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -69,47 +56,15 @@ function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const [
-        statsRes,
-        tasksRes,
-        pipelineRes,
-        revenueTrendRes,
-        clientBreakdownRes,
-        staffUtilRes,
-        agingRes,
-        taskStatusRes
-      ] = await Promise.all([
-        api.get('/api/dashboard/stats'),
-        api.get('/api/tasks/my'),
-        api.get('/api/dashboard/pipeline-summary'),
-        api.get('/api/dashboard/revenue-trend'),
-        api.get('/api/dashboard/client-breakdown'),
-        api.get('/api/dashboard/staff-utilization'),
-        api.get('/api/dashboard/invoice-aging'),
-        api.get('/api/dashboard/task-status')
-      ]);
-
-      if (statsRes.data.success) setStats(statsRes.data.data);
-      if (tasksRes.data.success) setRecentTasks(tasksRes.data.data.slice(0, 5));
-      if (pipelineRes.data.success) setPipelineData(pipelineRes.data.data);
-      if (revenueTrendRes.data.success) setRevenueTrend(revenueTrendRes.data.data);
-      if (clientBreakdownRes.data.success) setClientBreakdown(clientBreakdownRes.data.data);
-      if (staffUtilRes.data.success) setStaffUtilization(staffUtilRes.data.data);
-      if (agingRes.data.success) setInvoiceAging(agingRes.data.data);
-      if (taskStatusRes.data.success) setTaskStatus(taskStatusRes.data.data);
+      const response = await api.get('/api/dashboard/consultant-overview');
+      if (response.data.success) {
+        setData(response.data.data);
+      }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0
-    }).format(amount || 0);
   };
 
   if (loading) {
@@ -120,92 +75,13 @@ function Dashboard() {
     );
   }
 
-  // Chart configurations with minimalist styling
+  // Chart configurations
   const chartColors = {
     primary: '#4f46e5',
     primaryLight: '#6366f1',
     accent: '#4f46e5',
     grid: '#f1f5f9',
     text: '#64748b'
-  };
-
-  const revenueChartData = {
-    labels: revenueTrend.map(r => r.month),
-    datasets: [{
-      label: 'Revenue',
-      data: revenueTrend.map(r => r.revenue),
-      borderColor: chartColors.primary,
-      backgroundColor: 'rgba(15, 23, 42, 0.05)',
-      fill: true,
-      tension: 0.4,
-      borderWidth: 2,
-      pointBackgroundColor: chartColors.primary,
-      pointBorderColor: '#fff',
-      pointBorderWidth: 2,
-      pointRadius: 4,
-      pointHoverRadius: 6
-    }]
-  };
-
-  const revenueChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: '#4f46e5',
-        titleFont: { size: 12, weight: '500' },
-        bodyFont: { size: 12 },
-        padding: 12,
-        cornerRadius: 8,
-        callbacks: {
-          label: (context) => formatCurrency(context.raw)
-        }
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: { color: chartColors.grid, drawBorder: false },
-        ticks: {
-          color: chartColors.text,
-          font: { size: 11 },
-          callback: (value) => formatCurrency(value)
-        }
-      },
-      x: {
-        grid: { display: false },
-        ticks: { color: chartColors.text, font: { size: 11 } }
-      }
-    }
-  };
-
-  const pipelineChartData = {
-    labels: pipelineData.map(p => p.stage),
-    datasets: [{
-      label: 'Leads',
-      data: pipelineData.map(p => parseInt(p.count)),
-      backgroundColor: ['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe'],
-      borderRadius: 4
-    }]
-  };
-
-  const pipelineChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    indexAxis: 'y',
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        backgroundColor: '#4f46e5',
-        padding: 12,
-        cornerRadius: 8
-      }
-    },
-    scales: {
-      x: { grid: { color: chartColors.grid, drawBorder: false }, ticks: { color: chartColors.text } },
-      y: { grid: { display: false }, ticks: { color: chartColors.text, font: { size: 11 } } }
-    }
   };
 
   const doughnutOptions = {
@@ -220,52 +96,101 @@ function Dashboard() {
     cutout: '65%'
   };
 
-  const clientChartData = {
-    labels: clientBreakdown.map(c => c.tier.charAt(0).toUpperCase() + c.tier.slice(1)),
+  const employeesByStatusData = {
+    labels: data?.employeesByStatus?.map(e =>
+      (e.status || 'Active').charAt(0).toUpperCase() + (e.status || 'active').slice(1).replace('_', ' ')
+    ) || [],
     datasets: [{
-      data: clientBreakdown.map(c => c.count),
-      backgroundColor: ['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe'],
+      data: data?.employeesByStatus?.map(e => e.count) || [],
+      backgroundColor: ['#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#fbbf24', '#ef4444'],
       borderWidth: 0
     }]
   };
 
-  const taskChartData = {
-    labels: taskStatus.map(t => t.status.charAt(0).toUpperCase() + t.status.slice(1).replace('_', ' ')),
+  const companiesByIndustryData = {
+    labels: data?.companiesByIndustry?.map(c => c.industry) || [],
     datasets: [{
-      data: taskStatus.map(t => t.count),
-      backgroundColor: ['#fbbf24', '#6366f1', '#4f46e5', '#ef4444'],
-      borderWidth: 0
+      label: 'Companies',
+      data: data?.companiesByIndustry?.map(c => c.count) || [],
+      backgroundColor: '#4f46e5',
+      borderRadius: 4
     }]
+  };
+
+  const industryChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      tooltip: { backgroundColor: '#4f46e5', padding: 12, cornerRadius: 8 }
+    },
+    scales: {
+      x: { grid: { color: chartColors.grid, drawBorder: false }, ticks: { color: chartColors.text } },
+      y: { grid: { display: false }, ticks: { color: chartColors.text, font: { size: 11 } } }
+    }
   };
 
   const statCards = [
     {
-      name: 'Active Clients',
-      value: stats?.clients?.active || 0,
-      total: stats?.clients?.total || 0,
+      name: 'Active Companies',
+      value: data?.companies?.active || 0,
+      subtext: `${data?.companies?.total || 0} total`,
       icon: BuildingOfficeIcon,
-      href: '/clients'
+      href: '/dashboard/companies',
+      color: 'accent'
     },
     {
-      name: 'Open Leads',
-      value: stats?.leads?.open || 0,
+      name: 'Total Employees',
+      value: data?.employees?.total || 0,
+      subtext: `Across all companies`,
       icon: UsersIcon,
-      href: '/leads'
+      href: '/dashboard/employees',
+      color: 'accent'
     },
     {
-      name: 'Staff Deployed',
-      value: staffUtilization?.deployed || 0,
-      subtext: `${staffUtilization?.utilizationRate || 0}% utilization`,
-      icon: UsersIcon,
-      href: '/staff'
+      name: 'ESS Enabled',
+      value: data?.employees?.essEnabled || 0,
+      subtext: `${data?.employees?.total > 0 ? Math.round((data?.employees?.essEnabled / data?.employees?.total) * 100) : 0}% of employees`,
+      icon: CheckBadgeIcon,
+      href: '/dashboard/employees',
+      color: 'success'
     },
     {
-      name: 'Outstanding',
-      value: formatCurrency(stats?.invoices?.pendingAmount),
-      icon: BanknotesIcon,
-      href: '/invoices'
+      name: 'Onboarding',
+      value: data?.companies?.onboarding || 0,
+      subtext: 'Companies in setup',
+      icon: ClockIcon,
+      href: '/dashboard/companies',
+      color: 'warning'
     }
   ];
+
+  const getActivityIcon = (type) => {
+    switch (type) {
+      case 'company_created':
+        return <BuildingOffice2Icon className="h-4 w-4" />;
+      case 'employee_created':
+      case 'employee_invited':
+        return <UsersIcon className="h-4 w-4" />;
+      default:
+        return <ClockIcon className="h-4 w-4" />;
+    }
+  };
+
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-NG', { month: 'short', day: 'numeric' });
+  };
 
   return (
     <div className="space-y-8">
@@ -274,7 +199,7 @@ function Dashboard() {
         <div>
           <h1 className="text-2xl font-semibold text-primary-900 tracking-tight">Dashboard</h1>
           <p className="mt-1 text-primary-500">
-            Overview of your consulting operations
+            Overview of your HR consulting operations
           </p>
         </div>
         <HelpButton onClick={() => showHelp('dashboard')} />
@@ -300,238 +225,136 @@ function Dashboard() {
                 {stat.subtext && (
                   <p className="mt-1 text-xs text-primary-400">{stat.subtext}</p>
                 )}
-                {stat.total && (
-                  <p className="mt-1 text-xs text-primary-400">of {stat.total} total</p>
-                )}
               </div>
-              <div className="p-2 bg-accent-50 rounded-lg group-hover:bg-accent-100 transition-colors">
-                <stat.icon className="h-5 w-5 text-accent-600" />
+              <div className={`p-2 rounded-lg transition-colors ${
+                stat.color === 'success' ? 'bg-success-50 group-hover:bg-success-100' :
+                stat.color === 'warning' ? 'bg-warning-50 group-hover:bg-warning-100' :
+                'bg-accent-50 group-hover:bg-accent-100'
+              }`}>
+                <stat.icon className={`h-5 w-5 ${
+                  stat.color === 'success' ? 'text-success-600' :
+                  stat.color === 'warning' ? 'text-warning-600' :
+                  'text-accent-600'
+                }`} />
               </div>
             </div>
           </Link>
         ))}
       </div>
 
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Trend */}
-        <div className="bg-white rounded-xl border border-primary-100">
-          <div className="px-6 py-5 border-b border-primary-100">
-            <div className="flex items-center gap-2">
-              <ArrowTrendingUpIcon className="h-5 w-5 text-primary-400" />
-              <h2 className="font-semibold text-primary-900">Revenue Trend</h2>
-            </div>
-            <p className="mt-1 text-sm text-primary-400">Last 6 months</p>
-          </div>
-          <div className="p-6">
-            <div className="h-64">
-              <Line data={revenueChartData} options={revenueChartOptions} />
-            </div>
-          </div>
-        </div>
-
-        {/* Pipeline Funnel */}
-        <div className="bg-white rounded-xl border border-primary-100">
-          <div className="px-6 py-5 border-b border-primary-100">
-            <div className="flex items-center gap-2">
-              <ChartBarIcon className="h-5 w-5 text-primary-400" />
-              <h2 className="font-semibold text-primary-900">Pipeline</h2>
-            </div>
-            <p className="mt-1 text-sm text-primary-400">Lead distribution by stage</p>
-          </div>
-          <div className="p-6">
-            <div className="h-64">
-              {pipelineData.length > 0 ? (
-                <Bar data={pipelineChartData} options={pipelineChartOptions} />
-              ) : (
-                <div className="flex items-center justify-center h-full text-primary-400">No pipeline data</div>
-              )}
-            </div>
-            <Link
-              to="/pipeline"
-              className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-900 transition-colors"
-            >
-              View pipeline <ArrowRightIcon className="w-4 h-4" />
-            </Link>
-          </div>
+      {/* Quick Actions */}
+      <div className="bg-white rounded-xl border border-primary-100 p-6">
+        <h2 className="font-semibold text-primary-900 mb-4">Quick Actions</h2>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/dashboard/companies/new"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition-colors"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Add Company
+          </Link>
+          <Link
+            to="/dashboard/employees"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors"
+          >
+            <UserGroupIcon className="h-4 w-4" />
+            Manage Employees
+          </Link>
+          <Link
+            to="/dashboard/payroll"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary-100 text-primary-700 rounded-lg hover:bg-primary-200 transition-colors"
+          >
+            <BuildingOfficeIcon className="h-4 w-4" />
+            Run Payroll
+          </Link>
         </div>
       </div>
 
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Client Distribution */}
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Employees by Status */}
         <div className="bg-white rounded-xl border border-primary-100">
           <div className="px-6 py-5 border-b border-primary-100">
-            <h2 className="font-semibold text-primary-900">Client Distribution</h2>
-            <p className="mt-1 text-sm text-primary-400">By tier</p>
-          </div>
-          <div className="p-6">
-            <div className="h-52">
-              {clientBreakdown.length > 0 ? (
-                <Doughnut data={clientChartData} options={doughnutOptions} />
-              ) : (
-                <div className="flex items-center justify-center h-full text-primary-400">No client data</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Task Status */}
-        <div className="bg-white rounded-xl border border-primary-100">
-          <div className="px-6 py-5 border-b border-primary-100">
-            <h2 className="font-semibold text-primary-900">Task Status</h2>
+            <h2 className="font-semibold text-primary-900">Employees by Status</h2>
             <p className="mt-1 text-sm text-primary-400">Current distribution</p>
           </div>
           <div className="p-6">
-            <div className="h-52">
-              {taskStatus.length > 0 ? (
-                <Doughnut data={taskChartData} options={doughnutOptions} />
+            <div className="h-64">
+              {data?.employeesByStatus?.length > 0 ? (
+                <Doughnut data={employeesByStatusData} options={doughnutOptions} />
               ) : (
-                <div className="flex items-center justify-center h-full text-primary-400">No task data</div>
+                <div className="flex items-center justify-center h-full text-primary-400">
+                  No employee data yet
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Staff Utilization */}
+        {/* Companies by Industry */}
         <div className="bg-white rounded-xl border border-primary-100">
           <div className="px-6 py-5 border-b border-primary-100">
-            <h2 className="font-semibold text-primary-900">Staff Utilization</h2>
-            <p className="mt-1 text-sm text-primary-400">Current deployment</p>
+            <h2 className="font-semibold text-primary-900">Companies by Industry</h2>
+            <p className="mt-1 text-sm text-primary-400">Distribution across sectors</p>
           </div>
           <div className="p-6">
-            <div className="space-y-6">
-              <div className="text-center">
-                <p className="text-5xl font-semibold text-primary-900 tracking-tight">
-                  {staffUtilization?.utilizationRate || 0}%
-                </p>
-                <p className="mt-2 text-sm text-primary-400">Utilization Rate</p>
-              </div>
-              <div>
-                <div className="w-full bg-accent-100 rounded-full h-2">
-                  <div
-                    className="bg-accent-600 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${staffUtilization?.utilizationRate || 0}%` }}
-                  />
+            <div className="h-64">
+              {data?.companiesByIndustry?.length > 0 ? (
+                <Bar data={companiesByIndustryData} options={industryChartOptions} />
+              ) : (
+                <div className="flex items-center justify-center h-full text-primary-400">
+                  No company data yet
                 </div>
-                <div className="flex justify-between mt-3 text-sm">
-                  <span className="text-accent-600 font-medium">{staffUtilization?.deployed || 0} Deployed</span>
-                  <span className="text-primary-400">{staffUtilization?.available || 0} Available</span>
-                </div>
-              </div>
+              )}
             </div>
+            <Link
+              to="/dashboard/companies"
+              className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-900 transition-colors"
+            >
+              View all companies <ArrowRightIcon className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </div>
 
-      {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Invoice Aging */}
-        <div className="bg-white rounded-xl border border-primary-100">
-          <div className="px-6 py-5 border-b border-primary-100">
-            <div className="flex items-center gap-2">
-              <ExclamationTriangleIcon className="h-5 w-5 text-warning-500" />
-              <h2 className="font-semibold text-primary-900">Invoice Aging</h2>
-            </div>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-4 gap-3">
-              <div className="text-center p-4 bg-accent-50 rounded-lg">
-                <p className="text-xs font-medium text-accent-600 mb-1">Current</p>
-                <p className="text-2xl font-semibold text-accent-700">
-                  {invoiceAging?.current?.count || 0}
-                </p>
-                <p className="text-xs text-accent-600 mt-1">
-                  {formatCurrency(invoiceAging?.current?.amount)}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-warning-50 rounded-lg">
-                <p className="text-xs font-medium text-warning-600 mb-1">1-30 Days</p>
-                <p className="text-2xl font-semibold text-warning-700">
-                  {invoiceAging?.['1-30']?.count || 0}
-                </p>
-                <p className="text-xs text-warning-600 mt-1">
-                  {formatCurrency(invoiceAging?.['1-30']?.amount)}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-orange-50 rounded-lg">
-                <p className="text-xs font-medium text-orange-600 mb-1">31-60 Days</p>
-                <p className="text-2xl font-semibold text-orange-700">
-                  {invoiceAging?.['31-60']?.count || 0}
-                </p>
-                <p className="text-xs text-orange-600 mt-1">
-                  {formatCurrency(invoiceAging?.['31-60']?.amount)}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-danger-50 rounded-lg">
-                <p className="text-xs font-medium text-danger-600 mb-1">60+ Days</p>
-                <p className="text-2xl font-semibold text-danger-700">
-                  {invoiceAging?.['60+']?.count || 0}
-                </p>
-                <p className="text-xs text-danger-600 mt-1">
-                  {formatCurrency(invoiceAging?.['60+']?.amount)}
-                </p>
-              </div>
-            </div>
-            <Link
-              to="/invoices"
-              className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-900 transition-colors"
-            >
-              View all invoices <ArrowRightIcon className="w-4 h-4" />
-            </Link>
-          </div>
+      {/* Recent Activity */}
+      <div className="bg-white rounded-xl border border-primary-100">
+        <div className="px-6 py-5 border-b border-primary-100">
+          <h2 className="font-semibold text-primary-900">Recent Activity</h2>
+          <p className="mt-1 text-sm text-primary-400">Latest updates across your companies</p>
         </div>
-
-        {/* My Tasks */}
-        <div className="bg-white rounded-xl border border-primary-100">
-          <div className="px-6 py-5 border-b border-primary-100">
-            <div className="flex items-center gap-2">
-              <CheckCircleIcon className="h-5 w-5 text-primary-400" />
-              <h2 className="font-semibold text-primary-900">My Tasks</h2>
-            </div>
-          </div>
-          <div className="p-6">
-            <div className="space-y-2">
-              {recentTasks.map((task) => (
+        <div className="p-6">
+          <div className="space-y-4">
+            {data?.recentActivity?.length > 0 ? (
+              data.recentActivity.map((activity) => (
                 <div
-                  key={task.id}
+                  key={activity.id}
                   className="flex items-start gap-3 p-3 rounded-lg hover:bg-primary-50 transition-colors"
                 >
-                  <div className={`
-                    flex-shrink-0 w-2 h-2 mt-2 rounded-full
-                    ${task.priority === 'urgent' ? 'bg-danger-500' :
-                      task.priority === 'high' ? 'bg-warning-500' :
-                      'bg-primary-300'}
-                  `} />
+                  <div className="flex-shrink-0 p-2 bg-accent-50 rounded-lg text-accent-600">
+                    {getActivityIcon(activity.type)}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-primary-900 truncate">
-                      {task.title}
+                    <p className="text-sm font-medium text-primary-900">
+                      {activity.title}
                     </p>
-                    {task.client_name && (
-                      <p className="text-xs text-primary-400 mt-0.5">{task.client_name}</p>
+                    {activity.companyName && (
+                      <p className="text-xs text-primary-400 mt-0.5">{activity.companyName}</p>
+                    )}
+                    {activity.description && (
+                      <p className="text-xs text-primary-500 mt-1">{activity.description}</p>
                     )}
                   </div>
-                  {task.due_date && (
-                    <div className="flex items-center gap-1 text-xs text-primary-400">
-                      <ClockIcon className="h-3.5 w-3.5" />
-                      {new Date(task.due_date).toLocaleDateString('en-NG', {
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </div>
-                  )}
+                  <span className="text-xs text-primary-400">
+                    {formatTimeAgo(activity.createdAt)}
+                  </span>
                 </div>
-              ))}
-              {recentTasks.length === 0 && (
-                <div className="text-center py-8 text-primary-400">No pending tasks</div>
-              )}
-            </div>
-            <Link
-              to="/tasks"
-              className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-900 transition-colors"
-            >
-              View all tasks <ArrowRightIcon className="w-4 h-4" />
-            </Link>
+              ))
+            ) : (
+              <div className="text-center py-8 text-primary-400">
+                No recent activity. Start by adding a company!
+              </div>
+            )}
           </div>
         </div>
       </div>

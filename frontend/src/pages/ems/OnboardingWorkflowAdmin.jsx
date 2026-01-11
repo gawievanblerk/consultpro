@@ -6,9 +6,9 @@ import BulkActions, { SelectCheckbox, useBulkSelection } from '../../components/
 import { DocumentTextIcon, PlayIcon } from '@heroicons/react/24/outline';
 
 const PHASE_LABELS = {
-  phase1: 'Document Signing',
-  phase2: 'Role Clarity',
-  phase3: 'Employee File',
+  phase1: 'Employee File',
+  phase2: 'Document Signing',
+  phase3: 'Role Clarity',
   phase4: 'Policies',
   phase5: 'Complete'
 };
@@ -26,6 +26,8 @@ export default function OnboardingWorkflowAdmin() {
   const [employees, setEmployees] = useState([]);
   const [newHires, setNewHires] = useState([]);
   const [workflows, setWorkflows] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [departmentFilter, setDepartmentFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [processing, setProcessing] = useState(null);
@@ -40,10 +42,19 @@ export default function OnboardingWorkflowAdmin() {
   const [bulkDueDays, setBulkDueDays] = useState(7);
   const [bulkProcessing, setBulkProcessing] = useState(false);
 
+  // Filter employees by department
+  const filteredEmployees = departmentFilter === 'all'
+    ? employees
+    : employees.filter(e => e.department_id === departmentFilter);
+
+  const filteredNewHires = departmentFilter === 'all'
+    ? newHires
+    : newHires.filter(e => e.department_id === departmentFilter);
+
   // Combine all employees for bulk selection (both new hires and in-progress)
   const allEmployeesForSelection = [
-    ...newHires.map(e => ({ ...e, id: e.id || e.employee_id, _type: 'new' })),
-    ...employees.map(e => ({ ...e, id: e.employee_id, _type: 'onboarding' }))
+    ...filteredNewHires.map(e => ({ ...e, id: e.id || e.employee_id, _type: 'new' })),
+    ...filteredEmployees.map(e => ({ ...e, id: e.employee_id, _type: 'onboarding' }))
   ];
 
   const {
@@ -69,13 +80,15 @@ export default function OnboardingWorkflowAdmin() {
       const params = selectedCompany?.id ? { company_id: selectedCompany.id } : {};
       console.log('[OnboardingWorkflow] Fetching with params:', params);
 
-      const [employeesRes, newHiresRes, workflowsRes] = await Promise.all([
+      const [employeesRes, newHiresRes, workflowsRes, departmentsRes] = await Promise.all([
         api.get('/api/onboarding-workflow/employees', { params }),
         api.get('/api/onboarding-workflow/new-hires', { params }),
-        api.get('/api/onboarding-workflow/workflows', { params })
+        api.get('/api/onboarding-workflow/workflows', { params }),
+        selectedCompany?.id ? api.get('/api/departments', { params }) : Promise.resolve({ data: { data: [] } })
       ]);
 
       console.log('[OnboardingWorkflow] New hires response:', newHiresRes.data);
+      setDepartments(departmentsRes.data.data || []);
 
       setEmployees(employeesRes.data.data || []);
       setNewHires(newHiresRes.data.data || []);
@@ -192,7 +205,9 @@ export default function OnboardingWorkflowAdmin() {
   };
 
   const getPhaseProgress = (phaseKey) => {
-    const inPhase = employees.filter(e => e.current_phase === phaseKey);
+    // Extract phase number from key (e.g., 'phase1' -> 1)
+    const phaseNum = parseInt(phaseKey.replace('phase', ''));
+    const inPhase = filteredEmployees.filter(e => e.current_phase === phaseNum);
     return inPhase.length;
   };
 
@@ -284,11 +299,25 @@ export default function OnboardingWorkflowAdmin() {
           <h1 className="text-2xl font-bold text-gray-900">Onboarding Workflow</h1>
           <p className="text-gray-600">Manage employee onboarding with phased document verification</p>
         </div>
-        {isCompanyMode && selectedCompany && (
-          <span className="text-sm text-gray-500">
-            Company: {selectedCompany.trading_name || selectedCompany.legal_name}
-          </span>
-        )}
+        <div className="flex items-center gap-4">
+          {departments.length > 0 && (
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="form-input text-sm"
+            >
+              <option value="all">All Departments</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.id}>{dept.name}</option>
+              ))}
+            </select>
+          )}
+          {isCompanyMode && selectedCompany && (
+            <span className="text-sm text-gray-500">
+              Company: {selectedCompany.trading_name || selectedCompany.legal_name}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Error Alert */}
@@ -331,7 +360,7 @@ export default function OnboardingWorkflowAdmin() {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            In Progress ({employees.filter(e => e.overall_status !== 'completed').length})
+            In Progress ({filteredEmployees.filter(e => e.overall_status !== 'completed').length})
           </button>
           <button
             onClick={() => setActiveTab('new')}
@@ -342,9 +371,9 @@ export default function OnboardingWorkflowAdmin() {
             }`}
           >
             New Hires
-            {newHires.length > 0 && (
+            {filteredNewHires.length > 0 && (
               <span className="ml-2 px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded-full">
-                {newHires.length}
+                {filteredNewHires.length}
               </span>
             )}
           </button>
@@ -393,7 +422,7 @@ export default function OnboardingWorkflowAdmin() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {employees.filter(e => e.overall_status !== 'completed').map((employee) => (
+              {filteredEmployees.filter(e => e.overall_status !== 'completed').map((employee) => (
                 <tr key={employee.employee_id} className={`hover:bg-gray-50 ${isSelected(employee.employee_id) ? 'bg-primary-50' : ''}`}>
                   <td className="px-4 py-4 whitespace-nowrap">
                     <SelectCheckbox
@@ -441,7 +470,7 @@ export default function OnboardingWorkflowAdmin() {
                   </td>
                 </tr>
               ))}
-              {employees.filter(e => e.overall_status !== 'completed').length === 0 && (
+              {filteredEmployees.filter(e => e.overall_status !== 'completed').length === 0 && (
                 <tr>
                   <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                     No employees currently in onboarding
@@ -474,7 +503,7 @@ export default function OnboardingWorkflowAdmin() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {newHires.map((employee) => {
+              {filteredNewHires.map((employee) => {
                 const empId = employee.id || employee.employee_id;
                 return (
                 <tr key={empId} className={`hover:bg-gray-50 ${isSelected(empId) ? 'bg-primary-50' : ''}`}>
@@ -513,7 +542,7 @@ export default function OnboardingWorkflowAdmin() {
                 </tr>
               );
               })}
-              {newHires.length === 0 && (
+              {filteredNewHires.length === 0 && (
                 <tr>
                   <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
                     No new hires awaiting onboarding
@@ -538,7 +567,7 @@ export default function OnboardingWorkflowAdmin() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {employees.filter(e => e.overall_status === 'completed').map((employee) => (
+              {filteredEmployees.filter(e => e.overall_status === 'completed').map((employee) => (
                 <tr key={employee.employee_id}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">{employee.employee_name}</div>
@@ -557,7 +586,7 @@ export default function OnboardingWorkflowAdmin() {
                   </td>
                 </tr>
               ))}
-              {employees.filter(e => e.overall_status === 'completed').length === 0 && (
+              {filteredEmployees.filter(e => e.overall_status === 'completed').length === 0 && (
                 <tr>
                   <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
                     No completed onboarding records
@@ -821,13 +850,43 @@ export default function OnboardingWorkflowAdmin() {
                   </div>
                 </div>
 
-                {/* Phase 1: Document Signing */}
+                {/* Phase 1: Employee File (Uploads) */}
                 <div className="mb-4">
                   <h4 className="text-sm font-semibold text-primary-700 mb-2 bg-primary-50 px-3 py-1 rounded">
-                    Phase 1: Document Signing
+                    Phase 1: Employee File (Uploads)
                   </h4>
                   <div className="grid grid-cols-2 gap-2 pl-2">
                     {documentTypes.filter(d => d.phase === 1).map((doc) => (
+                      <label
+                        key={doc.type}
+                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50 ${
+                          selectedDocTypes.includes(doc.type) ? 'bg-accent-50 border border-accent-200' : 'border border-transparent'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedDocTypes.includes(doc.type)}
+                          onChange={() => toggleDocType(doc.type)}
+                          className="h-4 w-4 text-accent-600 rounded"
+                        />
+                        <div>
+                          <span className="text-sm font-medium">{doc.title}</span>
+                          {doc.requires_upload && (
+                            <span className="ml-1 text-xs text-orange-600">(Upload)</span>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Phase 2: Document Signing */}
+                <div className="mb-4">
+                  <h4 className="text-sm font-semibold text-primary-700 mb-2 bg-primary-50 px-3 py-1 rounded">
+                    Phase 2: Document Signing
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2 pl-2">
+                    {documentTypes.filter(d => d.phase === 2).map((doc) => (
                       <label
                         key={doc.type}
                         className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50 ${
@@ -854,40 +913,10 @@ export default function OnboardingWorkflowAdmin() {
                   </div>
                 </div>
 
-                {/* Phase 2: Role Clarity */}
+                {/* Phase 3: Role Clarity */}
                 <div className="mb-4">
                   <h4 className="text-sm font-semibold text-primary-700 mb-2 bg-primary-50 px-3 py-1 rounded">
-                    Phase 2: Role Clarity
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2 pl-2">
-                    {documentTypes.filter(d => d.phase === 2).map((doc) => (
-                      <label
-                        key={doc.type}
-                        className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-gray-50 ${
-                          selectedDocTypes.includes(doc.type) ? 'bg-accent-50 border border-accent-200' : 'border border-transparent'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedDocTypes.includes(doc.type)}
-                          onChange={() => toggleDocType(doc.type)}
-                          className="h-4 w-4 text-accent-600 rounded"
-                        />
-                        <div>
-                          <span className="text-sm font-medium">{doc.title}</span>
-                          {doc.requires_acknowledgment && (
-                            <span className="ml-1 text-xs text-green-600">(Ack)</span>
-                          )}
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Phase 3: Employee File */}
-                <div className="mb-4">
-                  <h4 className="text-sm font-semibold text-primary-700 mb-2 bg-primary-50 px-3 py-1 rounded">
-                    Phase 3: Employee File (Uploads)
+                    Phase 3: Role Clarity
                   </h4>
                   <div className="grid grid-cols-2 gap-2 pl-2">
                     {documentTypes.filter(d => d.phase === 3).map((doc) => (
@@ -905,8 +934,8 @@ export default function OnboardingWorkflowAdmin() {
                         />
                         <div>
                           <span className="text-sm font-medium">{doc.title}</span>
-                          {doc.requires_upload && (
-                            <span className="ml-1 text-xs text-orange-600">(Upload)</span>
+                          {doc.requires_acknowledgment && (
+                            <span className="ml-1 text-xs text-green-600">(Ack)</span>
                           )}
                         </div>
                       </label>
